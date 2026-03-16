@@ -258,9 +258,19 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(-
 
 /* ─── Project detail tabs ───────────────────────────────────── */
 .project-tab-bar{display:flex;gap:2px;padding:12px 0 0;border-bottom:2px solid var(--border2);margin-bottom:0}
-.proj-tab{background:none;border:none;padding:8px 16px 10px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:6px;transition:color .15s,border-color .15s}
+.proj-tab{background:none;border:none;padding:8px 16px 10px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:6px;transition:color .15s,border-color .15s;position:relative}
 .proj-tab:hover{color:var(--header)}
 .proj-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.tab-dot{position:absolute;top:6px;right:4px;width:7px;height:7px;border-radius:50%;background:#e53935;border:1.5px solid #fff;display:none}
+.tab-dot.visible{display:block}
+/* ─── Summary KPI strip ───────────────────────────────────── */
+.summ-kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:var(--gap)}
+.summ-kpi-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;position:relative;overflow:hidden}
+.summ-kpi-card .skc-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.summ-kpi-card .skc-value{font-size:18px;font-weight:800;color:var(--header);line-height:1.1}
+.summ-kpi-card.skc-green .skc-value{color:var(--green)}
+.summ-kpi-card .skc-bar{position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent)}
+.summ-kpi-card.skc-green .skc-bar{background:var(--green)}
 .proj-tab-content{padding-top:4px}
 
 /* ─── Toggle switch ─────────────────────────────────────────── */
@@ -834,3 +844,17 @@ html,body{overflow-x:hidden;width:100%}
 .src-pin{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:5px;vertical-align:middle;cursor:default;opacity:.75;letter-spacing:.03em}
 .src-pin-t12{background:rgba(74,124,89,0.13);color:var(--green)}
 .src-pin-rr{background:rgba(74,101,133,0.13);color:var(--blue)}
+/* ── PF Row Edit Controls ────────────────────────────────────── */
+.pf-del-btn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#e53935;color:#fff;border:none;font-size:11px;font-weight:800;cursor:pointer;padding:0;margin-left:6px;vertical-align:middle;opacity:0;transition:opacity .15s;flex-shrink:0;line-height:1}
+tr:hover .pf-del-btn{opacity:1}
+.pf-del-btn:hover{opacity:1!important;background:#c62828}
+.pf-addrow-btn{display:block;width:100%;background:none;border:1px dashed var(--border);border-radius:4px;color:var(--muted);font-size:11px;padding:3px 12px;cursor:pointer;transition:all .15s;text-align:left}
+.pf-addrow-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(74,101,133,0.04)}
+.pf-addrow-sec{color:var(--accent);font-weight:600;border-style:solid;font-size:11px}
+.pf-addrow-tr td{padding:2px 14px!important;border:none!important;background:none!important}
+/* ── % Input Column ──────────────────────────────────────────── */
+.pf-data-table td.pct-col{width:90px;text-align:center;padding:5px 8px;font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--muted);background:rgba(74,101,133,0.03)}
+.pf-data-table tr.pf-sec td.pct-col{background:rgba(74,124,89,0.07);color:var(--muted)}
+.pct-input{width:72px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:right;background:var(--surface2);color:var(--body);outline:none;transition:border-color .15s}
+.pct-input:focus{border-color:var(--accent);background:#fff}
+.pct-input::placeholder{color:var(--border);font-size:11px}

@@ -189,14 +189,17 @@
     <button class="proj-tab" id="ptab-files">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
       <span data-en="T12" data-zh="T12">T12</span>
+      <span class="tab-dot" id="tabdot-t12"></span>
     </button>
     <button class="proj-tab" id="ptab-rentroll">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
       <span data-en="Rent Roll" data-zh="租户清单">Rent Roll</span>
+      <span class="tab-dot" id="tabdot-rr"></span>
     </button>
     <button class="proj-tab" id="ptab-debt">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
       <span data-en="Debt Analysis" data-zh="债务分析">Debt Analysis</span>
+      <span class="tab-dot" id="tabdot-debt"></span>
     </button>
   </div>
 
@@ -321,6 +324,15 @@
           </div>
         </div>
 
+        <!-- ── KPI Summary Strip ── -->
+        <div class="summ-kpi-strip" id="summKpiStrip">
+          <div class="summ-kpi-card"><div class="skc-bar"></div><div class="skc-label">Units</div><div class="skc-value" id="kpiUnits">27</div></div>
+          <div class="summ-kpi-card"><div class="skc-bar"></div><div class="skc-label">Ask Price</div><div class="skc-value" id="kpiAskPrice">—</div></div>
+          <div class="summ-kpi-card"><div class="skc-bar"></div><div class="skc-label">Offer Price</div><div class="skc-value" id="kpiOfferPrice">—</div></div>
+          <div class="summ-kpi-card skc-green"><div class="skc-bar"></div><div class="skc-label">As-is Rent (Total)</div><div class="skc-value" id="kpiAsIsRent">—</div></div>
+          <div class="summ-kpi-card skc-green"><div class="skc-bar"></div><div class="skc-label">Projected Rent (Total)</div><div class="skc-value" id="kpiProjRent">—</div></div>
+        </div>
+
         <div id="pfSummarySection" class="card" style="margin-bottom:var(--gap);padding:0;overflow:hidden">
           <!-- Header -->
           <div style="padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(139,115,85,0.04)">
@@ -367,8 +379,14 @@
                 <td style="padding:9px 18px;color:var(--body)">Total Parking Spaces</td>
                 <td style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
               </tr>
+              <tbody id="summCustomFields"></tbody>
             </tbody>
           </table>
+          <div style="padding:8px 18px 10px;border-top:1px solid var(--border);background:rgba(139,115,85,0.02)">
+            <button onclick="summAddField()" style="background:none;border:1px dashed var(--border2);color:var(--accent);font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px">
+              <span style="font-size:16px;line-height:1">+</span> Add Field
+            </button>
+          </div>
         </div>
 
         <!-- Residential Rent Roll card (separate) -->
@@ -380,28 +398,17 @@
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">
               <thead>
-                <!-- Year group row -->
-                <tr style="background:rgba(139,115,85,0.04)">
-                  <th colspan="4" style="padding:6px 18px;border-bottom:1px solid var(--border)"></th>
-                  <th colspan="1" style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;color:var(--muted);border-left:1px solid var(--border);border-bottom:1px solid var(--border)">2025</th>
-                  <th colspan="3" style="padding:6px 10px;text-align:center;font-size:11px;font-weight:700;color:var(--green);border-left:1px solid var(--border);border-bottom:1px solid var(--border)">2026</th>
-                </tr>
                 <!-- Column label row -->
                 <tr style="background:rgba(139,115,85,0.07);border-bottom:2px solid var(--border)">
                   <th style="padding:8px 18px;text-align:left;font-weight:700;color:var(--header);white-space:nowrap">Unit Types</th>
                   <th style="padding:8px 10px;text-align:center;font-weight:700;color:var(--header)"># Units</th>
                   <th style="padding:8px 10px;text-align:center;font-weight:700;color:var(--header)">Bedroom</th>
                   <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header)">SQF</th>
-                  <!-- 2025 -->
-                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header);border-left:1px solid var(--border)">As-is Rent</th>
-                  <!-- 2026 -->
-                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header);border-left:1px solid var(--border)">Growth</th>
-                  <th style="padding:8px 6px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;line-height:1.3">
-                    As-is Rent <sup title="= 2025 As-is Rent × 12 months × # Units" style="cursor:help;color:var(--accent)">①</sup>
-                  </th>
-                  <th style="padding:8px 6px;text-align:right;font-weight:700;color:var(--green);white-space:nowrap;line-height:1.3">
-                    Projected Rent <sup title="= 2026 Growth × 12 months × # Units" style="cursor:help;color:var(--accent)">②</sup>
-                  </th>
+                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header);border-left:1px solid var(--border);white-space:nowrap">2025 As-is Rent</th>
+                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header);border-left:1px solid var(--border)">2026 Growth</th>
+                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">As-is Rent Annually</th>
+                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--green);white-space:nowrap">Projected Rent</th>
+                  <th style="padding:8px 8px;text-align:center;width:36px"></th>
                 </tr>
               </thead>
               <tbody id="pfUnitMixBody">
@@ -415,6 +422,7 @@
                   <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$&nbsp;1,500</td>
                   <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$&nbsp;160,920</td>
                   <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$&nbsp;162,000</td>
+                  <td style="padding:4px 6px;text-align:center"><button onclick="rrDeleteRow(this)" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:4px;font-size:14px;line-height:1" title="Delete row">×</button></td>
                 </tr>
                 <!-- 2B -->
                 <tr style="background:rgba(0,0,0,0.018);border-bottom:1px solid var(--border)">
@@ -426,6 +434,7 @@
                   <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$&nbsp;1,990</td>
                   <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$&nbsp;333,000</td>
                   <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$&nbsp;358,200</td>
+                  <td style="padding:4px 6px;text-align:center"><button onclick="rrDeleteRow(this)" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:4px;font-size:14px;line-height:1" title="Delete row">×</button></td>
                 </tr>
                 <!-- 2B Deluxe -->
                 <tr style="border-bottom:1px solid var(--border)">
@@ -437,29 +446,28 @@
                   <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$&nbsp;2,150</td>
                   <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$&nbsp;70,200</td>
                   <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$&nbsp;77,400</td>
+                  <td style="padding:4px 6px;text-align:center"><button onclick="rrDeleteRow(this)" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:4px;font-size:14px;line-height:1" title="Delete row">×</button></td>
                 </tr>
                 <!-- Total row -->
-                <tr style="background:rgba(196,220,196,0.35);border-top:2px solid rgba(74,124,89,0.3)">
+                <tr id="rrTotalRow" style="background:rgba(196,220,196,0.35);border-top:2px solid rgba(74,124,89,0.3)">
                   <td style="padding:8px 18px;font-size:12px;font-weight:700;color:var(--header)">Total</td>
-                  <td style="padding:8px 10px;text-align:center;font-size:12px;font-weight:700;color:var(--header)">27</td>
+                  <td id="rrTotalUnits" style="padding:8px 10px;text-align:center;font-size:12px;font-weight:700;color:var(--header)">27</td>
                   <td style="padding:8px 10px"></td>
                   <td style="padding:8px 10px"></td>
                   <td style="padding:8px 10px;border-left:1px solid var(--border)"></td>
                   <td style="padding:8px 10px;border-left:1px solid var(--border)"></td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--header)">$&nbsp;564,120</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green)">$&nbsp;597,600</td>
+                  <td id="rrTotalAsIs" style="padding:8px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--header)">$&nbsp;564,120</td>
+                  <td id="rrTotalProj" style="padding:8px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green)">$&nbsp;597,600</td>
+                  <td style="padding:8px 6px"></td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <!-- Formula footnote -->
-          <div style="padding:8px 18px 10px;border-top:1px solid var(--border);background:rgba(139,115,85,0.02);display:flex;flex-wrap:wrap;gap:16px">
-            <span style="font-size:10px;color:var(--muted)">
-              <b style="color:var(--accent)">①</b> As-is Rent (2026 Annual) = 2025 As-is Rent × 12 months × # Units
-            </span>
-            <span style="font-size:10px;color:var(--muted)">
-              <b style="color:var(--accent)">②</b> Projected Rent (2026 Annual) = 2026 Growth Rent × 12 months × # Units
-            </span>
+          <!-- Add Row button -->
+          <div style="padding:8px 18px 10px;border-top:1px solid var(--border);background:rgba(139,115,85,0.02)">
+            <button onclick="rrAddRow()" style="background:none;border:1px dashed var(--border2);color:var(--accent);font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px">
+              <span style="font-size:16px;line-height:1">+</span> Add Row
+            </button>
           </div>
         </div>
 
@@ -602,12 +610,11 @@
             <table style="width:100%;border-collapse:collapse;min-width:860px;font-size:12px">
               <thead>
                 <tr style="background:rgba(74,101,133,0.15);border-bottom:1px solid rgba(74,101,133,0.3)">
-                  <td colspan="2" style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--blue)">CASH FLOW &amp; DEBT COVERAGE</td>
+                  <td colspan="1" style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--blue)">CASH FLOW &amp; DEBT COVERAGE</td>
                   <td colspan="7"></td>
                 </tr>
                 <tr style="background:rgba(74,101,133,0.07);border-bottom:2px solid rgba(74,101,133,0.2)">
                   <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:200px">Line Item</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--muted);white-space:nowrap">Per Unit</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2023-OCT2024</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2024-OCT2025</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2025-OCT2026</th>
@@ -617,14 +624,14 @@
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2029-OCT2030</th>
                 </tr>
               </thead>
-              <tbody id="pfCfBody"><tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--muted);font-style:italic;background:rgba(0,0,0,0.015);padding-left:24px;">Adjustment</td><td style="padding:7px 8px;background:rgba(0,0,0,0.015);"></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:#c0392b">(17,783)</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">2,530</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">2,606</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td></tr>
-<tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Debt Service</td><td style="padding:7px 8px;"></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">219,344</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">219,344</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">219,344</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);">217,948</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);">217,948</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);">217,948</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);">217,948</td></tr>
-<tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--muted);font-style:italic;background:rgba(0,0,0,0.015);padding-left:24px;">Capex Reserves from Cash Flow</td><td style="padding:7px 8px;background:rgba(0,0,0,0.015);"></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td></tr>
-<tr style="background:rgba(74,101,133,0.1);border-top:2px solid rgba(74,101,133,0.25);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">Cash Flow after Debt Service</td><td style="padding:7px 8px;background:rgba(74,101,133,0.1);"></td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);"><span style="color:#c0392b">(10,651)</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">72,586</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">109,984</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);border-left:2px solid rgba(74,101,133,0.22);">106,016</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">121,711</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">138,116</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">155,261</td></tr>
-<tr style="height:6px"><td colspan="9" style="background:rgba(0,0,0,0.01)"></td></tr>
-<tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--muted);font-style:italic;background:rgba(0,0,0,0.015);padding-left:24px;">Reserve for Capex</td><td style="padding:7px 8px;background:rgba(0,0,0,0.015);"></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td></tr>
-<tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--muted);font-style:italic;background:rgba(0,0,0,0.015);padding-left:24px;">Capex Reserves from 2025 Cash Flow</td><td style="padding:7px 8px;background:rgba(0,0,0,0.015);"></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td></tr>
-<tr style="background:rgba(74,124,89,0.07);border-top:2px solid rgba(74,124,89,0.25);border-bottom:2px solid rgba(74,124,89,0.25)"><td style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--green);background:rgba(74,124,89,0.07)">DSCR</td><td style="padding:8px 8px;background:rgba(74,124,89,0.07)"></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><span style="color:var(--muted)">—</span></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><span style="color:var(--muted)">—</span></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><span style="color:var(--muted)">—</span></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><strong style="color:var(--green)">1.49×</strong></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><strong style="color:var(--green)">1.56×</strong></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><strong style="color:var(--green)">1.63×</strong></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><strong style="color:var(--green)">1.71×</strong></td></tr>
+              <tbody id="pfCfBody"><tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--muted);font-style:italic;background:rgba(0,0,0,0.015);padding-left:24px;">Adjustment</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:#c0392b">(17,783)</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">2,530</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">2,606</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td></tr>
+<tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Debt Service</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">219,344</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">219,344</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">219,344</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);">217,948</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);">217,948</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);">217,948</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);">217,948</td></tr>
+<tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--muted);font-style:italic;background:rgba(0,0,0,0.015);padding-left:24px;">Capex Reserves from Cash Flow</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td></tr>
+<tr style="background:rgba(74,101,133,0.1);border-top:2px solid rgba(74,101,133,0.25);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">Cash Flow after Debt Service</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);"><span style="color:#c0392b">(10,651)</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">72,586</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">109,984</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);border-left:2px solid rgba(74,101,133,0.22);">106,016</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">121,711</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">138,116</td><td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:800;color:var(--blue);background:rgba(74,101,133,0.1);">155,261</td></tr>
+<tr style="height:6px"><td colspan="8" style="background:rgba(0,0,0,0.01)"></td></tr>
+<tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--muted);font-style:italic;background:rgba(0,0,0,0.015);padding-left:24px;">Reserve for Capex</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td></tr>
+<tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--muted);font-style:italic;background:rgba(0,0,0,0.015);padding-left:24px;">Capex Reserves from 2025 Cash Flow</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td></tr>
+<tr style="background:rgba(74,124,89,0.07);border-top:2px solid rgba(74,124,89,0.25);border-bottom:2px solid rgba(74,124,89,0.25)"><td style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--green);background:rgba(74,124,89,0.07)">DSCR</td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><span style="color:var(--muted)">—</span></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><span style="color:var(--muted)">—</span></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><span style="color:var(--muted)">—</span></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><strong style="color:var(--green)">1.49×</strong></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><strong style="color:var(--green)">1.56×</strong></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><strong style="color:var(--green)">1.63×</strong></td><td style="padding:8px 8px;text-align:right;font-size:12px;background:rgba(74,124,89,0.07);"><strong style="color:var(--green)">1.71×</strong></td></tr>
 </tbody>
             </table>
           </div>
@@ -644,33 +651,33 @@
 </div>
 <div id="pfsp-pf-closing" style="display:none">
 <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)">Closing Costs</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>CLOSING COSTS</td><td></td></tr>
-<tr><td>Due Diligence</td><td>—</td></tr>
-<tr><td>Other</td><td>$10,000</td></tr>
-<tr><td>Appraisal</td><td>$540</td></tr>
-<tr><td>Legal (Lender extra $27,900)</td><td>$5,000</td></tr>
-<tr><td>Credit Reports Lender Charges</td><td>$500</td></tr>
-<tr><td>Origination Fee &amp; Lender Fees (1%)</td><td>$39,627</td></tr>
-<tr><td>Environmental &amp; PCA (Asbestos and Radon Extra)</td><td>$500</td></tr>
-<tr><td>Insurance Review</td><td>$0</td></tr>
-<tr><td>Abstract and Title Charges besides Insurance</td><td>$6,054</td></tr>
-<tr><td>Commitment Fee</td><td>—</td></tr>
-<tr><td>Title Insurance</td><td>$3,000</td></tr>
-<tr><td>Survey Fee</td><td>$1,000</td></tr>
-<tr><td>Prepaid Tax</td><td>—</td></tr>
-<tr><td>Immediate Repairs</td><td>$5,000</td></tr>
-<tr><td>Tax Reserve</td><td>$15,000</td></tr>
-<tr><td>Insurance Reserve</td><td>$5,000</td></tr>
-<tr><td>Transfer of Membership Transaction (Yes = 0, No = 1)</td><td>—</td></tr>
-<tr><td>County/State Transfer Tax (50/50 split) — 0.8%</td><td>$46,500</td></tr>
-<tr><td>Recordation Tax (50/50 split) — 0.5%</td><td>$31,000</td></tr>
-<tr><td>Acquisition Fee (% of Asset Value) — 3.0%</td><td>$186,000</td></tr>
-<tr><td>Closing</td><td>—</td></tr>
-<tr><td>LLC Transfer-Related Fees</td><td>—</td></tr>
-<tr><td>Property Insurance</td><td>—</td></tr>
-<tr><td>Interest Reserve</td><td>—</td></tr>
-<tr class="pf-hi"><td>Cash Reserve</td><td>$120,000</td></tr>
-<tr class="pf-tot"><td>Total Closing Costs — 7.66%</td><td>$474,720</td></tr>
+<tr class="pf-sec"><td>CLOSING COSTS</td><td class="pct-col">%</td><td></td></tr>
+<tr><td>Due Diligence</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
+<tr><td>Other</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$10,000</td></tr>
+<tr><td>Appraisal</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$540</td></tr>
+<tr><td>Legal (Lender extra $27,900)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$5,000</td></tr>
+<tr><td>Credit Reports Lender Charges</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$500</td></tr>
+<tr><td>Origination Fee &amp; Lender Fees (1%)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$39,627</td></tr>
+<tr><td>Environmental &amp; PCA (Asbestos and Radon Extra)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$500</td></tr>
+<tr><td>Insurance Review</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$0</td></tr>
+<tr><td>Abstract and Title Charges besides Insurance</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$6,054</td></tr>
+<tr><td>Commitment Fee</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
+<tr><td>Title Insurance</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$3,000</td></tr>
+<tr><td>Survey Fee</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,000</td></tr>
+<tr><td>Prepaid Tax</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
+<tr><td>Immediate Repairs</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$5,000</td></tr>
+<tr><td>Tax Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$15,000</td></tr>
+<tr><td>Insurance Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$5,000</td></tr>
+<tr><td>Transfer of Membership Transaction (Yes = 0, No = 1)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
+<tr><td>County/State Transfer Tax (50/50 split) — 0.8%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$46,500</td></tr>
+<tr><td>Recordation Tax (50/50 split) — 0.5%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$31,000</td></tr>
+<tr><td>Acquisition Fee (% of Asset Value) — 3.0%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$186,000</td></tr>
+<tr><td>Closing</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
+<tr><td>LLC Transfer-Related Fees</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
+<tr><td>Property Insurance</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
+<tr><td>Interest Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
+<tr class="pf-hi"><td>Cash Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$120,000</td></tr>
+<tr class="pf-tot"><td>Total Closing Costs — 7.66%</td><td class="pct-col"></td><td>$474,720</td></tr>
 </table>
 </div>
 
@@ -704,48 +711,48 @@
 </div>
 <div id="pfsp-pf-sale" style="display:none">
 <div style="padding:12px 0 0"><button class="pf-subtab2 pf-subtab-active" id="pfst2-se-reg">Regular Sale</button><button class="pf-subtab2" id="pfst2-se-ref">After Refinance</button></div><div id="pfsp2-se-reg"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)">Sale Event — Regular</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>SALE EVENT (regular)</td><td></td></tr>
-<tr><td>Year of Sale</td><td>2026</td></tr>
-<tr><td>Date</td><td>1-Oct-30</td></tr>
-<tr><td>NOI of that Year</td><td>$331,934</td></tr>
-<tr><td>Cap Rate</td><td>5.50%</td></tr>
-<tr><td>Value of Property</td><td>$6,035,162</td></tr>
-<tr><td>Cost of Sale — 5.0%</td><td>$301,758</td></tr>
-<tr><td>Loan of that Year (Beg of Year)</td><td>$3,651,979</td></tr>
-<tr><td>Capital Transaction Fee to Sponsor — 0.3%</td><td>$15,088</td></tr>
-<tr class="pf-hi"><td>Final Proceeds from Sale</td><td><strong style="color:var(--green)">$2,066,337</strong></td></tr>
-<tr><td>Req return of capital to investors</td><td>$1,750,000</td></tr>
-<tr><td>Excess avail after return of capital — 18.08%</td><td>$316,337</td></tr>
-<tr><td>Investor — 80%</td><td>$253,070</td></tr>
-<tr><td>Sponsor — 20%</td><td>$63,267</td></tr>
+<tr class="pf-sec"><td>SALE EVENT (regular)</td><td class="pct-col">%</td><td></td></tr>
+<tr><td>Year of Sale</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>2026</td></tr>
+<tr><td>Date</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>1-Oct-30</td></tr>
+<tr><td>NOI of that Year</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$331,934</td></tr>
+<tr><td>Cap Rate</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>5.50%</td></tr>
+<tr><td>Value of Property</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$6,035,162</td></tr>
+<tr><td>Cost of Sale — 5.0%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$301,758</td></tr>
+<tr><td>Loan of that Year (Beg of Year)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$3,651,979</td></tr>
+<tr><td>Capital Transaction Fee to Sponsor — 0.3%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$15,088</td></tr>
+<tr class="pf-hi"><td>Final Proceeds from Sale</td><td class="pct-col"></td><td><strong style="color:var(--green)">$2,066,337</strong></td></tr>
+<tr><td>Req return of capital to investors</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,750,000</td></tr>
+<tr><td>Excess avail after return of capital — 18.08%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$316,337</td></tr>
+<tr><td>Investor — 80%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$253,070</td></tr>
+<tr><td>Sponsor — 20%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$63,267</td></tr>
 </table>
 </div>
 </div><div id="pfsp2-se-ref" style="display:none"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue)">Sale Event — After Refinance</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>SALE EVENT After Refinance</td><td></td></tr>
-<tr><td>Year of Sale</td><td>2030</td></tr>
-<tr><td>Date</td><td>1-Oct-30</td></tr>
-<tr><td>NOI of that Year</td><td>$373,209</td></tr>
-<tr><td>Cap Rate</td><td>5.75%</td></tr>
-<tr><td>Value of Property</td><td>$6,490,595</td></tr>
-<tr><td>Cost of Sale — 5.0%</td><td>$324,530</td></tr>
-<tr><td>Loan of that Year (Beg of OCT)</td><td>$3,278,315</td></tr>
-<tr><td>Capital Transaction Fee to Sponsor — 0.75%</td><td>$48,679</td></tr>
-<tr class="pf-hi"><td>Final Proceeds from Sale</td><td><strong style="color:var(--green)">$2,839,071</strong></td></tr>
-<tr><td>Return of Capital</td><td>$1,558,277</td></tr>
-<tr><td>Excess avail after return of capital</td><td>$1,280,794</td></tr>
-<tr><td>Investor Profit</td><td>$1,024,635</td></tr>
-<tr><td>Sponsor</td><td>$256,159</td></tr>
+<tr class="pf-sec"><td>SALE EVENT After Refinance</td><td class="pct-col">%</td><td></td></tr>
+<tr><td>Year of Sale</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>2030</td></tr>
+<tr><td>Date</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>1-Oct-30</td></tr>
+<tr><td>NOI of that Year</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$373,209</td></tr>
+<tr><td>Cap Rate</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>5.75%</td></tr>
+<tr><td>Value of Property</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$6,490,595</td></tr>
+<tr><td>Cost of Sale — 5.0%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$324,530</td></tr>
+<tr><td>Loan of that Year (Beg of OCT)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$3,278,315</td></tr>
+<tr><td>Capital Transaction Fee to Sponsor — 0.75%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$48,679</td></tr>
+<tr class="pf-hi"><td>Final Proceeds from Sale</td><td class="pct-col"></td><td><strong style="color:var(--green)">$2,839,071</strong></td></tr>
+<tr><td>Return of Capital</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,558,277</td></tr>
+<tr><td>Excess avail after return of capital</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,280,794</td></tr>
+<tr><td>Investor Profit</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,024,635</td></tr>
+<tr><td>Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$256,159</td></tr>
 </table>
 </div>
 </div>
 </div>
 <div id="pfsp-pf-eqreq" style="display:none">
 <div style="padding:12px 0 0"><button class="pf-subtab2 pf-subtab-active" id="pfst2-eq-reg">Regular</button><button class="pf-subtab2" id="pfst2-eq-ref">Refinance</button></div><div id="pfsp2-eq-reg"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--green)">Equity Required — Regular</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>EQUITY REQUIRED (regular)</td><td></td></tr>
-<tr><td>Loan to Cost % — 59%</td><td>$3,962,686</td></tr>
-<tr><td>Equity — 41%</td><td>$1,600,000</td></tr>
-<tr class="pf-hi"><td>LTPP — 64%</td><td>$3,962,686</td></tr>
-<tr class="pf-tot"><td>Cash to Close</td><td>$2,526,034</td></tr>
+<tr class="pf-sec"><td>EQUITY REQUIRED (regular)</td><td class="pct-col">%</td><td></td></tr>
+<tr><td>Loan to Cost % — 59%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$3,962,686</td></tr>
+<tr><td>Equity — 41%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,600,000</td></tr>
+<tr class="pf-hi"><td>LTPP — 64%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$3,962,686</td></tr>
+<tr class="pf-tot"><td>Cash to Close</td><td class="pct-col"></td><td>$2,526,034</td></tr>
 </table>
 </div>
 </div><div id="pfsp2-eq-ref" style="display:none"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue)">Equity Required — Refinance</span></div><table class="pf-data-table">

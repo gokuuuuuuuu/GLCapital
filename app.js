@@ -865,7 +865,7 @@ function switchProject(pid, context){
   });
   document.querySelectorAll('.project-dropdown').forEach(d=>d.classList.remove('open'));
   buildProjectDropdowns();
-  renderRentRoll();buildPFTable();
+  renderRentRoll();buildPFTable();updateTabDots();updateSummKpis();
   toast(`Switched to ${p.name}`);
 }
 
@@ -3614,6 +3614,7 @@ function handleT12Upload(event){
   // Reset input
   event.target.value='';
   toast(currentLang==='zh'?'T12文件已上传并解析':'T12 file uploaded and parsed');
+  updateTabDots();
   // Load pro forma with data
   loadDemoProForma();
 }
@@ -4261,6 +4262,7 @@ function handleRRUpload(event){
   renderRRTab(proj);
   event.target.value='';
   toast(currentLang==='zh'?'租户清单已上传并解析':'Rent Roll uploaded and parsed');
+  updateTabDots();
 }
 
 function handleRRDrop(event){
@@ -5868,4 +5870,420 @@ document.addEventListener('DOMContentLoaded', function setupListeners2() {
 
 function downloadOriginalFile(){
   toast(currentLang==='zh'?'原始文件已保留，可随时下载':'Original file retained — available for download');
+}
+
+// ─── Tab Red Dot Indicators ────────────────────────────────────────────────
+function updateTabDots(){
+  var proj = currentProject && PROJECTS.find(function(p){ return p.id===currentProject; });
+  var files = (proj&&proj.files)||[];
+  var hasT12 = files.some(function(f){ return ['T12','Selling Model'].includes(f.parsedAs||f.type); });
+  var hasRR  = files.some(function(f){ return ['Rent Roll'].includes(f.parsedAs||f.type); });
+  var hasDebt= files.some(function(f){ return ['Debt Current','Debt Refinance'].includes(f.parsedAs||f.type); });
+  var dotT12  = document.getElementById('tabdot-t12');
+  var dotRR   = document.getElementById('tabdot-rr');
+  var dotDebt = document.getElementById('tabdot-debt');
+  if(dotT12)  dotT12.classList.toggle('visible',  !hasT12);
+  if(dotRR)   dotRR.classList.toggle('visible',   !hasRR);
+  if(dotDebt) dotDebt.classList.toggle('visible', !hasDebt);
+}
+window.updateTabDots = updateTabDots;
+
+// ─── KPI Summary Strip ────────────────────────────────────────────────────
+function updateSummKpis(){
+  // Units from RR total row
+  var unitsEl = document.getElementById('rrTotalUnits');
+  var kpiUnits = document.getElementById('kpiUnits');
+  if(kpiUnits && unitsEl) kpiUnits.textContent = unitsEl.textContent.trim();
+
+  // As-is Rent & Projected Rent from RR total row
+  var asIsEl = document.getElementById('rrTotalAsIs');
+  var projEl = document.getElementById('rrTotalProj');
+  var kpiAsIs = document.getElementById('kpiAsIsRent');
+  var kpiProj = document.getElementById('kpiProjRent');
+  if(kpiAsIs && asIsEl) kpiAsIs.textContent = asIsEl.textContent.replace(/\u00a0/g,'').trim();
+  if(kpiProj && projEl) kpiProj.textContent = projEl.textContent.replace(/\u00a0/g,'').trim();
+
+  // Ask Price & Offer Price from summary table cells
+  var rows = document.querySelectorAll('#pfSummarySection table tr');
+  rows.forEach(function(tr){
+    var label = tr.cells[0] && tr.cells[0].textContent.trim();
+    var val   = tr.cells[1] && tr.cells[1].textContent.trim();
+    if(label==='Ask Price'){ var el=document.getElementById('kpiAskPrice'); if(el) el.textContent=val||'—'; }
+    if(label==='Offer Price'){ var el2=document.getElementById('kpiOfferPrice'); if(el2) el2.textContent=val||'—'; }
+  });
+}
+window.updateSummKpis = updateSummKpis;
+
+// ─── Rent Roll: Add / Delete row ──────────────────────────────────────────
+function rrAddRow(){
+  var tbody = document.getElementById('pfUnitMixBody');
+  var totalRow = document.getElementById('rrTotalRow');
+  if(!tbody) return;
+  var tr = document.createElement('tr');
+  tr.style.borderBottom = '1px solid var(--border)';
+  var cellStyle = 'padding:6px 6px;font-size:12px;';
+  var inputStyle = 'width:100%;border:none;background:transparent;font-size:12px;color:var(--header);text-align:inherit;outline:none;padding:2px 4px;border-radius:3px;';
+  tr.innerHTML =
+    '<td style="'+cellStyle+'padding-left:18px"><input style="'+inputStyle+'" placeholder="Type…" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cellStyle+';text-align:center"><input style="'+inputStyle+'text-align:center" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cellStyle+';text-align:center"><input style="'+inputStyle+'text-align:center" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cellStyle+';text-align:right"><input style="'+inputStyle+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cellStyle+';text-align:right;border-left:1px solid var(--border)"><input style="'+inputStyle+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cellStyle+';text-align:right;border-left:1px solid var(--border)"><input style="'+inputStyle+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cellStyle+';text-align:right;color:var(--muted)" id="rrCalcAsIs_'+Date.now()+'">—</td>'+
+    '<td style="'+cellStyle+';text-align:right;color:var(--green);font-weight:600" id="rrCalcProj_'+Date.now()+'_p">—</td>'+
+    '<td style="padding:4px 6px;text-align:center"><button onclick="rrDeleteRow(this)" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:4px;font-size:14px;line-height:1">×</button></td>';
+  tbody.insertBefore(tr, totalRow);
+}
+function rrDeleteRow(btn){
+  var tr = btn.closest('tr');
+  if(tr) tr.remove();
+  rrRecalcTotals();
+}
+function rrRecalcTotals(){
+  var tbody = document.getElementById('pfUnitMixBody');
+  var totalRow = document.getElementById('rrTotalRow');
+  if(!tbody||!totalRow) return;
+  var totalUnits=0, totalAsIs=0, totalProj=0;
+  tbody.querySelectorAll('tr:not(#rrTotalRow)').forEach(function(tr){
+    var inputs = tr.querySelectorAll('input');
+    if(inputs.length < 6) return; // static row — read text
+    var units  = parseFloat(inputs[1].value)||0;
+    var asIs25 = parseFloat(inputs[3].value)||0;
+    var growth = parseFloat(inputs[4].value)||0;
+    var calcAsIs = asIs25 * 12 * units;
+    var calcProj = growth  * 12 * units;
+    totalUnits += units;
+    totalAsIs  += calcAsIs;
+    totalProj  += calcProj;
+    // Update auto-calc cells in the new row
+    var cells = tr.querySelectorAll('td');
+    if(cells[6]) cells[6].textContent = calcAsIs ? '$\u00a0'+calcAsIs.toLocaleString() : '—';
+    if(cells[7]) cells[7].textContent = calcProj  ? '$\u00a0'+calcProj.toLocaleString()  : '—';
+  });
+  // Also sum static rows
+  tbody.querySelectorAll('tr:not(#rrTotalRow)').forEach(function(tr){
+    if(tr.querySelectorAll('input').length > 0) return; // already counted above
+    var cells = tr.querySelectorAll('td');
+    var u = parseFloat((cells[1]&&cells[1].textContent)||0)||0;
+    var a = parseFloat(((cells[6]&&cells[6].textContent)||'').replace(/[$,\u00a0]/g,''))||0;
+    var p = parseFloat(((cells[7]&&cells[7].textContent)||'').replace(/[$,\u00a0]/g,''))||0;
+    totalUnits += u; totalAsIs += a; totalProj += p;
+  });
+  document.getElementById('rrTotalUnits').textContent = totalUnits||27;
+  document.getElementById('rrTotalAsIs').innerHTML  = '$\u00a0'+(totalAsIs||564120).toLocaleString();
+  document.getElementById('rrTotalProj').innerHTML  = '$\u00a0'+(totalProj||597600).toLocaleString();
+  updateSummKpis();
+}
+window.rrAddRow = rrAddRow;
+window.rrDeleteRow = rrDeleteRow;
+window.rrRecalcTotals = rrRecalcTotals;
+
+// ─── Project Summary: Add / Remove custom field ───────────────────────────
+function summAddField(){
+  var tbody = document.getElementById('summCustomFields');
+  if(!tbody) return;
+  var idx = Date.now();
+  var tr = document.createElement('tr');
+  tr.style.borderBottom = '1px solid var(--border)';
+  tr.innerHTML =
+    '<td style="padding:6px 18px"><input style="border:none;background:transparent;font-size:12px;color:var(--body);outline:none;width:100%" placeholder="Field name…"></td>'+
+    '<td style="padding:6px 18px;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:8px">'+
+      '<input style="border:none;background:transparent;font-size:12px;color:var(--header);outline:none;text-align:right;flex:1" placeholder="Value…">'+
+      '<button onclick="this.closest(\'tr\').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:0 2px">×</button>'+
+    '</td>';
+  tbody.appendChild(tr);
+  tr.querySelector('input').focus();
+}
+window.summAddField = summAddField;
+
+// ─── PF Row Add / Delete System ──────────────────────────────────────────────
+var pfCR = {};
+function _pcrSave(){ try{localStorage.setItem('pfCR_v1',JSON.stringify(pfCR));}catch(e){} }
+function _pcrLoad(){ try{pfCR=JSON.parse(localStorage.getItem('pfCR_v1')||'{}');}catch(e){pfCR={};} }
+function _pcrGet(pid,sec){
+  if(!pfCR[pid]) pfCR[pid]={};
+  if(!pfCR[pid][sec]) pfCR[pid][sec]={adds:[],deletes:[]};
+  return pfCR[pid][sec];
+}
+
+// Apply deletes + inserts onto a copy of the data array
+function _pcrApply(origArr, sData){
+  var dels=sData.deletes||[], adds=sData.adds||[];
+  var delSecs=dels.filter(function(k){return k.indexOf('sec:')==0;}).map(function(k){return k.slice(4);});
+  var curSec=null, arr=[];
+  origArr.forEach(function(item){
+    if(item.isSectionHdr){
+      curSec=item.secId;
+      if(dels.indexOf('sec:'+item.secId)>=0) return;
+      arr.push(item);
+    } else if(item.isTotal||item.isPct||item.isSubtotal){
+      arr.push(item);
+    } else {
+      if(delSecs.indexOf(curSec)>=0) return;
+      if(dels.indexOf('row:'+item.label)>=0) return;
+      arr.push(item);
+    }
+  });
+  adds.forEach(function(add){
+    if(add.isSectionHdr){
+      var ti=-1; for(var i=0;i<arr.length;i++){if(arr[i].isTotal){ti=i;break;}}
+      if(ti>=0) arr.splice(ti,0,add); else arr.push(add);
+    } else {
+      var sid=add.secId, last=-1, inSec=false;
+      for(var i=0;i<arr.length;i++){
+        if(arr[i].isSectionHdr){if(inSec)break; if(arr[i].secId===sid)inSec=true; continue;}
+        if(inSec&&!arr[i].isTotal&&!arr[i].isPct&&!arr[i].isSubtotal) last=i;
+      }
+      if(last>=0) arr.splice(last+1,0,add); else arr.push(add);
+    }
+  });
+  return arr;
+}
+
+// Wrap the already-patched buildPFTable
+var _pfBpt4 = buildPFTable;
+buildPFTable = function(){
+  _pcrLoad();
+  var pid=currentProjectId||'default';
+  var origRev=PF_DATA.revenue, origExp=PF_DATA.expenses;
+  PF_DATA.revenue=_pcrApply(origRev,_pcrGet(pid,'revenue'));
+  PF_DATA.expenses=_pcrApply(origExp,_pcrGet(pid,'expenses'));
+  _pfBpt4();
+  PF_DATA.revenue=origRev; PF_DATA.expenses=origExp;
+  _pfCfCRApply(pid);
+  if(pfEditMode || _pfEditMode) _pfEditUI();
+};
+
+function _pfCfCRApply(pid){
+  var tbody=document.getElementById('pfCfBody'); if(!tbody) return;
+  var sData=_pcrGet(pid,'cf');
+  (sData.deletes||[]).forEach(function(lbl){
+    Array.from(tbody.querySelectorAll('tr')).forEach(function(row){
+      var td=row.querySelector('td:first-child');
+      if(td&&td.textContent.trim()===lbl) row.remove();
+    });
+  });
+  var dscrRow=null;
+  Array.from(tbody.querySelectorAll('tr')).forEach(function(row){
+    var td=row.querySelector('td'); if(td&&td.textContent.trim()==='DSCR') dscrRow=row;
+  });
+  (sData.adds||[]).forEach(function(add){
+    var vals=(add.vals||[]).slice(); while(vals.length<7) vals.push(null);
+    var cells=vals.map(function(v,i){
+      var bp=i>=3, bl=i===3?'border-left:2px solid rgba(74,101,133,0.22);':'';
+      var bg=bp?'background:rgba(74,101,133,0.025);':'';
+      var txt=(!v||v===0)?'<span style="color:var(--muted)">\u2014</span>':(v<0?'<span style="color:#c0392b">('+Math.abs(Math.round(v)).toLocaleString()+')</span>':Math.round(v).toLocaleString());
+      return '<td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);'+bg+bl+'">'+txt+'</td>';
+    }).join('');
+    var tr=document.createElement('tr');
+    tr.style.borderBottom='1px solid var(--border)';
+    tr.innerHTML='<td style="padding:7px 14px;font-size:12px;color:var(--body)">'+add.label+'</td>'+cells;
+    if(dscrRow) tbody.insertBefore(tr,dscrRow); else tbody.appendChild(tr);
+  });
+}
+
+function _pfEditUI(){
+  ['revenue','expenses'].forEach(function(section){
+    var tbody=document.getElementById(section==='revenue'?'pfRevBody':'pfExpBody'); if(!tbody) return;
+    // Section headers: delete btn + Add Row btn after last item
+    Array.from(tbody.querySelectorAll('.pf-sec-hdr')).forEach(function(row){
+      var secId=row.getAttribute('data-secid'); if(!secId) return;
+      var td=row.querySelector('td:first-child');
+      if(td&&!td.querySelector('.pf-del-btn')){
+        var b=document.createElement('button'); b.className='pf-del-btn'; b.innerHTML='&times;'; b.title='Delete section';
+        (function(s,sid){b.onclick=function(e){e.stopPropagation();pfRowDelete(s,'sec',sid);};})(section,secId);
+        td.appendChild(b);
+      }
+      var items=Array.from(tbody.querySelectorAll('.pf-si-'+secId));
+      var after=items.length?items[items.length-1]:row;
+      var addTr=document.createElement('tr'); addTr.className='pf-addrow-tr';
+      (function(s,sid){
+        var btn=document.createElement('button'); btn.className='pf-addrow-btn'; btn.textContent='+ Add Row';
+        btn.onclick=function(){pfRowAdd(s,sid);};
+        var td2=document.createElement('td'); td2.colSpan=9; td2.appendChild(btn);
+        addTr.appendChild(td2);
+      })(section,secId);
+      after.insertAdjacentElement('afterend',addTr);
+    });
+    // Detail rows: delete btn
+    Array.from(tbody.querySelectorAll('tr.pf-si')).forEach(function(row){
+      var td=row.querySelector('td:first-child'); if(!td||td.querySelector('.pf-del-btn')) return;
+      var lbl=Array.from(td.childNodes).filter(function(n){return n.nodeType===3;}).map(function(n){return n.textContent.trim();}).join('').trim();
+      if(!lbl) lbl=td.textContent.trim();
+      var b=document.createElement('button'); b.className='pf-del-btn'; b.innerHTML='&times;'; b.title='Delete row';
+      (function(s,l){b.onclick=function(){pfRowDelete(s,'row',l);};})(section,lbl);
+      td.appendChild(b);
+    });
+    // "+ Add Section / Row" before Total/% rows
+    var allRows=Array.from(tbody.querySelectorAll('tr')), insertBefore=null;
+    for(var i=allRows.length-1;i>=0;i--){
+      var td0=allRows[i].querySelector('td');
+      if(td0&&(td0.textContent.indexOf('Total')>=0||td0.textContent.indexOf('% of')>=0)) insertBefore=allRows[i];
+      else break;
+    }
+    if(!insertBefore) insertBefore=allRows[allRows.length-1];
+    var addSecTr=document.createElement('tr'); addSecTr.className='pf-addrow-tr';
+    (function(s){
+      var btn=document.createElement('button'); btn.className='pf-addrow-btn pf-addrow-sec'; btn.textContent='+ Add Section / Row';
+      btn.onclick=function(){pfRowAdd(s,null);};
+      var td2=document.createElement('td'); td2.colSpan=9; td2.appendChild(btn);
+      addSecTr.appendChild(td2);
+    })(section);
+    tbody.insertBefore(addSecTr,insertBefore);
+  });
+
+  // Cash Flow section
+  var cfTbody=document.getElementById('pfCfBody'); if(!cfTbody) return;
+  var skipLbls=['DSCR','Cash Flow after Debt Service'];
+  Array.from(cfTbody.querySelectorAll('tr')).forEach(function(row){
+    if(row.style.height==='6px') return;
+    var td0=row.querySelector('td:first-child'); if(!td0||td0.querySelector('.pf-del-btn')) return;
+    var lbl=Array.from(td0.childNodes).filter(function(n){return n.nodeType===3;}).map(function(n){return n.textContent.trim();}).join('').trim();
+    if(!lbl) lbl=td0.textContent.trim();
+    if(skipLbls.indexOf(lbl)>=0) return;
+    var b=document.createElement('button'); b.className='pf-del-btn'; b.innerHTML='&times;'; b.title='Delete row';
+    (function(l){b.onclick=function(){pfRowDelete('cf','row',l);};})(lbl);
+    td0.appendChild(b);
+  });
+  var dscrRow2=null;
+  Array.from(cfTbody.querySelectorAll('tr')).forEach(function(row){
+    var td=row.querySelector('td'); if(td&&td.textContent.trim()==='DSCR') dscrRow2=row;
+  });
+  var addCfTr=document.createElement('tr'); addCfTr.className='pf-addrow-tr';
+  var cfBtn=document.createElement('button'); cfBtn.className='pf-addrow-btn'; cfBtn.textContent='+ Add Row';
+  cfBtn.onclick=function(){pfRowAdd('cf',null);};
+  var cfTd=document.createElement('td'); cfTd.colSpan=8; cfTd.appendChild(cfBtn);
+  addCfTr.appendChild(cfTd);
+  if(dscrRow2) cfTbody.insertBefore(addCfTr,dscrRow2); else cfTbody.appendChild(addCfTr);
+}
+
+function pfRowDelete(section,type,key){
+  _pcrLoad(); var pid=currentProjectId||'default'; var sData=_pcrGet(pid,section);
+  var before=sData.adds.length;
+  if(type==='sec') sData.adds=sData.adds.filter(function(a){return!(a.isSectionHdr&&a.secId===key);});
+  else sData.adds=sData.adds.filter(function(a){return!(!a.isSectionHdr&&a.label===key);});
+  var delKey=type+':'+key;
+  if(sData.adds.length===before && sData.deletes.indexOf(delKey)<0) sData.deletes.push(delKey);
+  _pcrSave(); buildPFTable();
+}
+
+function pfRowAdd(section, secId){
+  var isCf=(section==='cf');
+  var sections=[];
+  if(!isCf){
+    var src=section==='revenue'?PF_DATA.revenue:PF_DATA.expenses;
+    src.filter(function(r){return r.isSectionHdr;}).forEach(function(r){sections.push({label:r.label,secId:r.secId});});
+    _pcrLoad(); var pid=currentProjectId||'default';
+    (_pcrGet(pid,section).adds||[]).filter(function(a){return a.isSectionHdr;}).forEach(function(a){sections.push({label:a.label,secId:a.secId});});
+  }
+  var colLabels=PF_DATA.cols?PF_DATA.cols.concat(['NOV2029-OCT2030']):['Y1','Y2','Y3','Y4','Y5','Y6','Y7'];
+
+  // Build modal HTML as DOM to avoid escaping issues
+  var wrap=document.createElement('div');
+  wrap.style.cssText='padding:18px 20px;max-height:75vh;overflow-y:auto';
+
+  // Level selector (only for revenue/expenses when no secId)
+  if(!isCf){
+    if(secId){
+      var hidLvl=document.createElement('input'); hidLvl.type='hidden'; hidLvl.id='pfALvl'; hidLvl.value='2'; wrap.appendChild(hidLvl);
+    } else {
+      var lvlDiv=document.createElement('div'); lvlDiv.style.marginBottom='14px';
+      lvlDiv.innerHTML='<label style="font-size:12px;font-weight:700;color:var(--header);display:block;margin-bottom:8px">Level</label>'
+        +'<div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">'
+        +'<label style="flex:1;display:flex;align-items:center;gap:7px;padding:9px 14px;cursor:pointer" id="pfALvl1Wrap">'
+        +'<input type="radio" name="pfALvl" id="pfALvl1" value="1"> Level 1 &mdash; Section Header</label>'
+        +'<label style="flex:1;display:flex;align-items:center;gap:7px;padding:9px 14px;cursor:pointer;background:rgba(74,101,133,0.07);border-left:1px solid var(--border)">'
+        +'<input type="radio" name="pfALvl" id="pfALvl2" value="2" checked> Level 2 &mdash; Detail Row</label>'
+        +'</div>';
+      wrap.appendChild(lvlDiv);
+      // attach change handlers after DOM insertion
+    }
+  }
+
+  // Field name
+  var nameDiv=document.createElement('div'); nameDiv.style.marginBottom='12px';
+  nameDiv.innerHTML='<label style="font-size:12px;font-weight:700;color:var(--header);display:block;margin-bottom:6px">Field Name</label>';
+  var nameInput=document.createElement('input'); nameInput.type='text'; nameInput.id='pfALabel';
+  nameInput.placeholder='e.g. Parking Income';
+  nameInput.style.cssText='width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface2);color:var(--body);box-sizing:border-box';
+  nameDiv.appendChild(nameInput); wrap.appendChild(nameDiv);
+
+  // Section selector
+  var secWrap=document.createElement('div'); secWrap.id='pfASecWrap'; secWrap.style.marginBottom='12px';
+  if(!isCf && !secId && sections.length){
+    secWrap.innerHTML='<label style="font-size:12px;font-weight:700;color:var(--header);display:block;margin-bottom:6px">Under Section</label>';
+    var sel=document.createElement('select'); sel.id='pfASecId';
+    sel.style.cssText='width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface2);color:var(--body)';
+    sections.forEach(function(s){
+      var opt=document.createElement('option'); opt.value=s.secId; opt.textContent=s.label;
+      if(s.secId===secId) opt.selected=true;
+      sel.appendChild(opt);
+    });
+    secWrap.appendChild(sel);
+    wrap.appendChild(secWrap);
+  } else if(secId){
+    var hidSec=document.createElement('input'); hidSec.type='hidden'; hidSec.id='pfASecId'; hidSec.value=secId;
+    wrap.appendChild(hidSec);
+  }
+
+  // Values
+  var valsWrap=document.createElement('div'); valsWrap.id='pfAValsWrap'; valsWrap.style.marginBottom='16px';
+  var valsLbl=document.createElement('label'); valsLbl.style.cssText='font-size:12px;font-weight:700;color:var(--header);display:block;margin-bottom:8px'; valsLbl.textContent='Values (per year)';
+  valsWrap.appendChild(valsLbl);
+  colLabels.forEach(function(col,i){
+    var row2=document.createElement('div'); row2.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:5px';
+    var lbl2=document.createElement('label'); lbl2.style.cssText='font-size:11px;color:var(--muted);width:165px;flex-shrink:0'; lbl2.textContent=col;
+    var inp=document.createElement('input'); inp.type='number'; inp.id='pfAV'+i; inp.value='0'; inp.step='any';
+    inp.style.cssText='width:110px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface2);color:var(--body)';
+    row2.appendChild(lbl2); row2.appendChild(inp); valsWrap.appendChild(row2);
+  });
+  wrap.appendChild(valsWrap);
+
+  // Buttons
+  var btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;gap:8px;justify-content:flex-end';
+  var cancelBtn=document.createElement('button'); cancelBtn.className='btn btn-ghost btn-sm'; cancelBtn.textContent='Cancel'; cancelBtn.onclick=closeModal;
+  var addBtn=document.createElement('button');
+  addBtn.style.cssText='background:var(--green);color:#fff;border:none;padding:7px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer';
+  addBtn.textContent='+ Add';
+  (function(s,sid){ addBtn.onclick=function(){pfRowAddConfirm(s,sid);}; })(section,secId);
+  btnRow.appendChild(cancelBtn); btnRow.appendChild(addBtn); wrap.appendChild(btnRow);
+
+  // Show modal
+  document.getElementById('modalTitle').textContent='Add Row';
+  document.getElementById('modalBody').innerHTML='';
+  document.getElementById('modalBody').appendChild(wrap);
+  document.getElementById('modalOverlay').classList.add('open');
+
+  // Wire level change handlers after insertion
+  if(!isCf && !secId){
+    var r1=document.getElementById('pfALvl1'), r2=document.getElementById('pfALvl2');
+    if(r1) r1.addEventListener('change', pfAddLvlChg);
+    if(r2) r2.addEventListener('change', pfAddLvlChg);
+  }
+  setTimeout(function(){var el=document.getElementById('pfALabel');if(el)el.focus();},80);
+}
+
+function pfAddLvlChg(){
+  var l1=document.getElementById('pfALvl1'), isL1=l1&&l1.checked;
+  var vw=document.getElementById('pfAValsWrap'), sw=document.getElementById('pfASecWrap');
+  if(vw) vw.style.display=isL1?'none':''; if(sw) sw.style.display=isL1?'none':'';
+}
+
+function pfRowAddConfirm(section, secId){
+  var lbl=(document.getElementById('pfALabel')||{}).value||''; lbl=lbl.trim();
+  if(!lbl){alert('Please enter a field name.');return;}
+  var level=2;
+  var l1=document.getElementById('pfALvl1'); if(l1&&l1.checked) level=1;
+  var hl=document.getElementById('pfALvl'); if(hl) level=parseInt(hl.value)||2;
+  _pcrLoad(); var pid=currentProjectId||'default'; var sData=_pcrGet(pid,section);
+  if(level===1){
+    var ns='cust-'+section[0]+'-'+Date.now();
+    sData.adds.push({isSectionHdr:true,label:lbl,secId:ns,isCustom:true});
+  } else {
+    var rs=secId||null; if(!rs){var se=document.getElementById('pfASecId');if(se)rs=se.value;}
+    var vals=[]; for(var i=0;i<7;i++){var inp=document.getElementById('pfAV'+i);var v=inp?parseFloat(inp.value):0;vals.push(isNaN(v)?0:v);}
+    sData.adds.push({label:lbl,secId:rs,vals:vals,isCustom:true});
+  }
+  _pcrSave(); closeModal(); buildPFTable(); toast('Row added: '+lbl,'success');
 }
