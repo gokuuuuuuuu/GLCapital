@@ -878,9 +878,44 @@ function getFilteredProjects(){
   return projs.filter(p=>p.ownerId===sess.id);
 }
 
+// ─── PROJECTS SUMMARY BANNER ─────────────────────────────────────────────────
+function calcAIScore(p){
+  if(!p.capRate&&!p.dscr&&!p.irr) return null;
+  var cr=p.capRate||0, ds=p.dscr||0, ir=p.irr||0;
+  var s=Math.min(cr/8*40,40)+Math.min(Math.max(ds-1,0)/0.8*30,30)+Math.min(ir/25*30,30);
+  return Math.round(Math.min(s,100));
+}
+function renderProjectsBanner(){
+  var el=document.getElementById('projSummaryBanner');
+  if(!el) return;
+  var all=getFilteredProjects();
+  var total=all.length;
+  var draft=all.filter(function(p){return p.status==='draft';}).length;
+  var complete=all.filter(function(p){return p.status==='complete'||p.status==='completed';}).length;
+  var totalOffer=all.reduce(function(s,p){return s+(p.offerPrice||0);},0);
+  var scores=all.map(calcAIScore).filter(function(s){return s!==null;});
+  var avgScore=scores.length?Math.round(scores.reduce(function(a,b){return a+b;},0)/scores.length):null;
+
+  function card(value, label, color, bg){
+    return '<div style="background:'+bg+';border:1px solid rgba(0,0,0,0.07);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px">'
+      +'<div style="font-size:22px;font-weight:900;color:'+color+'">'+value+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600">'+label+'</div>'
+      +'</div>';
+  }
+  var offerStr=totalOffer>=1e9?'$'+(totalOffer/1e9).toFixed(1)+'B':'$'+(totalOffer/1e6).toFixed(1)+'M';
+  var scoreColor=avgScore===null?'var(--muted)':avgScore>=75?'var(--green)':avgScore>=55?'var(--amber)':'#c0392b';
+  el.innerHTML=
+    card(total,      'Total Projects',    'var(--header)',  'rgba(255,255,255,0.9)')
+   +card(draft,      'Draft',             'var(--amber)',   'rgba(139,106,46,0.06)')
+   +card(complete,   'Complete',          'var(--green)',   'rgba(74,124,89,0.07)')
+   +card(avgScore!==null?avgScore+'':'—', 'Avg AI Score',  scoreColor,              'rgba(74,101,133,0.06)')
+   +card(offerStr,   'Total Offer Price', 'var(--accent)',  'rgba(139,115,85,0.07)');
+}
+
 // ─── PROJECTS PAGE ───────────────────────────────────────────────────────────
 function renderProjects(){
   const sess=getSession();if(!sess)return;
+  renderProjectsBanner();
   const allProjs=getFilteredProjects();
   const container=document.getElementById('projectsList');
   if(!container)return;
