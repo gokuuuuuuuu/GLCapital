@@ -170,6 +170,10 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         <span id="detailStatusToggleLabel">Mark Complete</span>
       </button>
+      <button id="globalEditToggleBtn" class="btn btn-ghost btn-sm" style="display:flex;align-items:center;gap:5px;border:1px solid var(--border)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <span id="globalEditToggleLabel">Edit Mode</span>
+      </button>
       <button id="fetchApisBtn" class="btn btn-secondary btn-sm">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Fetch APIs
       </button>
@@ -283,10 +287,6 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               <span id="pfConflictCount">0</span>&nbsp;<span data-en="conflicts detected" data-zh="数据冲突">conflicts detected</span>
             </div>
-            <button class="btn btn-ghost btn-sm" id="pfEditToggleBtn" style="display:flex;align-items:center;gap:5px">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              <span data-en="Edit Mode" data-zh="编辑模式">Edit Mode</span>
-            </button>
             <button id="openAssumptionsBtn" class="btn btn-ghost btn-sm" style="display:flex;align-items:center;gap:5px">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07M8.46 8.46a5 5 0 000 7.07"/></svg>
               <span data-en="Assumptions" data-zh="预测假设">Assumptions</span>
@@ -343,25 +343,23 @@
             <tbody>
               <tr style="border-bottom:1px solid var(--border)">
                 <td style="padding:9px 18px;color:var(--header);font-weight:700">Year Built</td>
-                <td style="padding:9px 18px;text-align:right;color:var(--header);font-weight:600">1950</td>
+                <td data-editable style="padding:9px 18px;text-align:right;color:var(--header);font-weight:600">1950</td>
               </tr>
               <tr style="border-bottom:1px solid var(--border);background:rgba(0,0,0,0.015)">
                 <td style="padding:9px 18px;color:var(--body)">Lot Size</td>
-                <td style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
+                <td data-editable style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
               </tr>
               <tr style="border-bottom:1px solid var(--border)">
                 <td style="padding:9px 18px;color:var(--body)">Building Size</td>
-                <td style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
+                <td data-editable style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
               </tr>
               <tr style="border-bottom:1px solid var(--border);background:rgba(0,0,0,0.015)">
                 <td style="padding:9px 18px;color:var(--body)">Ask Price</td>
-                <td style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
+                <td data-editable style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
               </tr>
               <tr style="border-bottom:1px solid var(--border)">
                 <td style="padding:9px 18px;color:var(--body)">Offer Price</td>
-                <td style="padding:9px 18px;text-align:right;font-weight:700;color:var(--header)">
-                  <span style="color:var(--muted);margin-right:4px;font-weight:400">$</span>6,200,000
-                </td>
+                <td data-editable style="padding:9px 18px;text-align:right;font-weight:700;color:var(--header)">$6,200,000</td>
               </tr>
               <tr style="border-bottom:1px solid var(--border);background:rgba(0,0,0,0.015)">
                 <td style="padding:9px 18px;color:var(--body)">Occupancy Rate</td>
@@ -373,11 +371,11 @@
               </tr>
               <tr style="border-bottom:1px solid var(--border);background:rgba(0,0,0,0.015)">
                 <td style="padding:9px 18px;color:var(--body)">Total Current Retail Units</td>
-                <td style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
+                <td data-editable style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
               </tr>
               <tr>
                 <td style="padding:9px 18px;color:var(--body)">Total Parking Spaces</td>
-                <td style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
+                <td data-editable style="padding:9px 18px;text-align:right;color:var(--muted)">—</td>
               </tr>
               <tbody id="summCustomFields"></tbody>
             </tbody>
@@ -408,45 +406,41 @@
                   <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header);border-left:1px solid var(--border)">2026 Growth</th>
                   <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">As-is Rent Annually</th>
                   <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--green);white-space:nowrap">Projected Rent</th>
-                  <th style="padding:8px 8px;text-align:center;width:36px"></th>
                 </tr>
               </thead>
               <tbody id="pfUnitMixBody">
                 <!-- 1B -->
                 <tr style="border-bottom:1px solid var(--border)">
-                  <td style="padding:8px 18px;font-size:12px;color:var(--header)">1B</td>
-                  <td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--header)">9.00</td>
-                  <td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--muted)">1</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--muted)">540</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$&nbsp;1,490</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$&nbsp;1,500</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$&nbsp;160,920</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$&nbsp;162,000</td>
-                  <td style="padding:4px 6px;text-align:center"><button onclick="rrDeleteRow(this)" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:4px;font-size:14px;line-height:1" title="Delete row">×</button></td>
+                  <td data-editable style="padding:8px 18px;font-size:12px;color:var(--header)">1B</td>
+                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--header)">9.00</td>
+                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--muted)">1</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--muted)">540</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$1,490</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$1,500</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$160,920</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$162,000</td>
                 </tr>
                 <!-- 2B -->
                 <tr style="background:rgba(0,0,0,0.018);border-bottom:1px solid var(--border)">
-                  <td style="padding:8px 18px;font-size:12px;color:var(--header)">2B</td>
-                  <td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--header)">15.00</td>
-                  <td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--muted)">2</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--muted)">840</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$&nbsp;1,850</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$&nbsp;1,990</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$&nbsp;333,000</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$&nbsp;358,200</td>
-                  <td style="padding:4px 6px;text-align:center"><button onclick="rrDeleteRow(this)" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:4px;font-size:14px;line-height:1" title="Delete row">×</button></td>
+                  <td data-editable style="padding:8px 18px;font-size:12px;color:var(--header)">2B</td>
+                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--header)">15.00</td>
+                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--muted)">2</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--muted)">840</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$1,850</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$1,990</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$333,000</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$358,200</td>
                 </tr>
                 <!-- 2B Deluxe -->
                 <tr style="border-bottom:1px solid var(--border)">
-                  <td style="padding:8px 18px;font-size:12px;color:var(--header)">2B Deluxe</td>
-                  <td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--header)">3.00</td>
-                  <td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--muted)">2</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--muted)"></td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$&nbsp;1,950</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$&nbsp;2,150</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$&nbsp;70,200</td>
-                  <td style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$&nbsp;77,400</td>
-                  <td style="padding:4px 6px;text-align:center"><button onclick="rrDeleteRow(this)" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:4px;font-size:14px;line-height:1" title="Delete row">×</button></td>
+                  <td data-editable style="padding:8px 18px;font-size:12px;color:var(--header)">2B Deluxe</td>
+                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--header)">3.00</td>
+                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--muted)">2</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--muted)">—</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$1,950</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$2,150</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$70,200</td>
+                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$77,400</td>
                 </tr>
                 <!-- Total row -->
                 <tr id="rrTotalRow" style="background:rgba(196,220,196,0.35);border-top:2px solid rgba(74,124,89,0.3)">
@@ -465,7 +459,7 @@
           </div>
           <!-- Add Row button -->
           <div style="padding:8px 18px 10px;border-top:1px solid var(--border);background:rgba(139,115,85,0.02)">
-            <button onclick="rrAddRow()" style="background:none;border:1px dashed var(--border2);color:var(--accent);font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <button id="rrAddRowBtn" onclick="rrAddRow()" style="background:none;border:1px dashed var(--border2);color:var(--accent);font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px">
               <span style="font-size:16px;line-height:1">+</span> Add Row
             </button>
           </div>
@@ -651,33 +645,34 @@
 </div>
 <div id="pfsp-pf-closing" style="display:none">
 <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)">Closing Costs</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>CLOSING COSTS</td><td class="pct-col">%</td><td></td></tr>
-<tr><td>Due Diligence</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
-<tr><td>Other</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$10,000</td></tr>
-<tr><td>Appraisal</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$540</td></tr>
-<tr><td>Legal (Lender extra $27,900)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$5,000</td></tr>
-<tr><td>Credit Reports Lender Charges</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$500</td></tr>
-<tr><td>Origination Fee &amp; Lender Fees (1%)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$39,627</td></tr>
-<tr><td>Environmental &amp; PCA (Asbestos and Radon Extra)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$500</td></tr>
-<tr><td>Insurance Review</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$0</td></tr>
-<tr><td>Abstract and Title Charges besides Insurance</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$6,054</td></tr>
-<tr><td>Commitment Fee</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
-<tr><td>Title Insurance</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$3,000</td></tr>
-<tr><td>Survey Fee</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,000</td></tr>
-<tr><td>Prepaid Tax</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
-<tr><td>Immediate Repairs</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$5,000</td></tr>
-<tr><td>Tax Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$15,000</td></tr>
-<tr><td>Insurance Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$5,000</td></tr>
-<tr><td>Transfer of Membership Transaction (Yes = 0, No = 1)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
-<tr><td>County/State Transfer Tax (50/50 split) — 0.8%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$46,500</td></tr>
-<tr><td>Recordation Tax (50/50 split) — 0.5%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$31,000</td></tr>
-<tr><td>Acquisition Fee (% of Asset Value) — 3.0%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$186,000</td></tr>
-<tr><td>Closing</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
-<tr><td>LLC Transfer-Related Fees</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
-<tr><td>Property Insurance</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
-<tr><td>Interest Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>—</td></tr>
-<tr class="pf-hi"><td>Cash Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$120,000</td></tr>
-<tr class="pf-tot"><td>Total Closing Costs — 7.66%</td><td class="pct-col"></td><td>$474,720</td></tr>
+<tr class="pf-sec"><td>CLOSING COSTS</td><td class="pct-col">%</td><td class="amount-col">AMOUNT</td><td class="notes-col">NOTES</td></tr>
+<tr><td>Due Diligence</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Other</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$10,000</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Appraisal</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$540</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Legal</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$5,000</td><td class="notes-col" data-editable>Lender extra $27,900</td></tr>
+<tr><td>Credit Reports Lender Charges</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$500</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Origination Fee &amp; Lender Fees</td><td class="pct-col"><input class="pct-input" value="1%" placeholder="—"></td><td class="amount-col" data-editable>$39,627</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Environmental &amp; PCA</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$500</td><td class="notes-col" data-editable>Asbestos and Radon Extra</td></tr>
+<tr><td>Insurance Review</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$0</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Abstract and Title Charges besides Insurance</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$6,054</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Commitment Fee</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Title Insurance</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$3,000</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Survey Fee</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$1,000</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Prepaid Tax</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Immediate Repairs</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$5,000</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Tax Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$15,000</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Insurance Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$5,000</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Transfer of Membership Transaction (Yes = 0, No = 1)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr><td>County/State Transfer Tax</td><td class="pct-col"><input class="pct-input" value="0.8%" placeholder="—"></td><td class="amount-col" data-editable>$46,500</td><td class="notes-col" data-editable>50/50 split</td></tr>
+<tr><td>Recordation Tax</td><td class="pct-col"><input class="pct-input" value="0.5%" placeholder="—"></td><td class="amount-col" data-editable>$31,000</td><td class="notes-col" data-editable>50/50 split</td></tr>
+<tr><td>Acquisition Fee</td><td class="pct-col"><input class="pct-input" value="3.0%" placeholder="—"></td><td class="amount-col" data-editable>$186,000</td><td class="notes-col" data-editable>% of Asset Value</td></tr>
+<tr><td>Closing</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr><td>LLC Transfer-Related Fees</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Property Insurance</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Interest Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr class="pf-hi"><td>Cash Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$120,000</td><td class="notes-col" data-editable></td></tr>
+<tr class="pf-tot"><td>Total Closing Costs</td><td class="pct-col"></td><td class="amount-col">$474,720</td><td class="notes-col"></td></tr>
+<tr><td style="font-size:11px;color:var(--muted);font-style:italic;font-weight:600">Closing Cost Ratio</td><td class="pct-col"></td><td class="amount-col" style="font-size:11px;color:var(--muted);font-style:italic">7.66%</td><td class="notes-col"></td></tr>
 </table>
 </div>
 
@@ -685,14 +680,14 @@
 <div id="pfsp-pf-purchase" style="display:none">
 <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue)">Purchase Price</span></div><table class="pf-data-table">
 <tr class="pf-sec"><td>PURCHASE PRICE</td><td></td></tr>
-<tr><td>Purchase Price (As-is value)</td><td>$6,200,000</td></tr>
-<tr><td>Per Unit (Residential/Retail)</td><td>$221,429</td></tr>
-<tr><td>NOI for Year 1</td><td>$323,964</td></tr>
-<tr><td>Cap Rate on 2026 Income</td><td><strong style="font-size:13px">5.2%</strong></td></tr>
-<tr><td>Closing Cost Percentage</td><td>7.66%</td></tr>
-<tr><td>Closing Costs</td><td>$474,720</td></tr>
-<tr><td>Total Acquisition Cost</td><td>$6,674,720</td></tr>
-<tr class="pf-tot"><td>Total Cost (excludes capex)</td><td>$6,674,720</td></tr>
+<tr><td>Purchase Price (As-is value)</td><td data-editable>$6,200,000</td></tr>
+<tr><td>Per Unit (Residential/Retail)</td><td data-editable>$221,429</td></tr>
+<tr><td>NOI for Year 1</td><td data-editable>$323,964</td></tr>
+<tr><td>Cap Rate on 2026 Income</td><td data-editable>5.2%</td></tr>
+<tr><td>Closing Cost Percentage</td><td data-editable>7.66%</td></tr>
+<tr><td>Closing Costs</td><td data-editable>$474,720</td></tr>
+<tr><td>Total Acquisition Cost</td><td data-editable>$6,674,720</td></tr>
+<tr class="pf-tot"><td>Total Cost (excludes capex)</td><td data-editable>$6,674,720</td></tr>
 </table>
 </div>
 
@@ -700,11 +695,11 @@
 <div id="pfsp-pf-equity" style="display:none">
 <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--amber)">Construction Equity</span></div><table class="pf-data-table">
 <tr class="pf-sec"><td>Construction Equity</td><td></td></tr>
-<tr class="pf-hi"><td>Acquisition Reserves</td><td>$150,000</td></tr>
-<tr><td>Total 2026 Distribution Reserves</td><td>—</td></tr>
-<tr><td>Refinance Reserves</td><td>$0</td></tr>
-<tr><td>Total 2026–2030 Reserves</td><td>—</td></tr>
-<tr class="pf-tot"><td>Total Capex Reserves</td><td>$2,150,000</td></tr>
+<tr class="pf-hi"><td>Acquisition Reserves</td><td data-editable>$150,000</td></tr>
+<tr><td>Total 2026 Distribution Reserves</td><td data-editable>—</td></tr>
+<tr><td>Refinance Reserves</td><td data-editable>$0</td></tr>
+<tr><td>Total 2026–2030 Reserves</td><td data-editable>—</td></tr>
+<tr class="pf-tot"><td>Total Capex Reserves</td><td data-editable>$2,150,000</td></tr>
 </table>
 </div>
 
@@ -712,36 +707,36 @@
 <div id="pfsp-pf-sale" style="display:none">
 <div style="padding:12px 0 0"><button class="pf-subtab2 pf-subtab-active" id="pfst2-se-reg">Regular Sale</button><button class="pf-subtab2" id="pfst2-se-ref">After Refinance</button></div><div id="pfsp2-se-reg"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)">Sale Event — Regular</span></div><table class="pf-data-table">
 <tr class="pf-sec"><td>SALE EVENT (regular)</td><td class="pct-col">%</td><td></td></tr>
-<tr><td>Year of Sale</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>2026</td></tr>
-<tr><td>Date</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>1-Oct-30</td></tr>
-<tr><td>NOI of that Year</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$331,934</td></tr>
-<tr><td>Cap Rate</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>5.50%</td></tr>
-<tr><td>Value of Property</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$6,035,162</td></tr>
-<tr><td>Cost of Sale — 5.0%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$301,758</td></tr>
-<tr><td>Loan of that Year (Beg of Year)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$3,651,979</td></tr>
-<tr><td>Capital Transaction Fee to Sponsor — 0.3%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$15,088</td></tr>
-<tr class="pf-hi"><td>Final Proceeds from Sale</td><td class="pct-col"></td><td><strong style="color:var(--green)">$2,066,337</strong></td></tr>
-<tr><td>Req return of capital to investors</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,750,000</td></tr>
-<tr><td>Excess avail after return of capital — 18.08%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$316,337</td></tr>
-<tr><td>Investor — 80%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$253,070</td></tr>
-<tr><td>Sponsor — 20%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$63,267</td></tr>
+<tr><td>Year of Sale</td><td class="pct-col"></td><td data-editable>2026</td></tr>
+<tr><td>Date</td><td class="pct-col"></td><td data-editable>1-Oct-30</td></tr>
+<tr><td>NOI of that Year</td><td class="pct-col"></td><td data-editable>$331,934</td></tr>
+<tr><td>Cap Rate</td><td class="pct-col"></td><td data-editable>5.50%</td></tr>
+<tr><td>Value of Property</td><td class="pct-col"></td><td data-editable>$6,035,162</td></tr>
+<tr><td>Cost of Sale</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$301,758</td></tr>
+<tr><td>Loan of that Year (Beg of Year)</td><td class="pct-col"></td><td data-editable>$3,651,979</td></tr>
+<tr><td>Capital Transaction Fee to Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$15,088</td></tr>
+<tr class="pf-hi"><td>Final Proceeds from Sale</td><td class="pct-col"></td><td data-editable>$2,066,337</td></tr>
+<tr><td>Req return of capital to investors</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$1,750,000</td></tr>
+<tr><td>Excess avail after return of capital</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$316,337</td></tr>
+<tr><td>Investor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$253,070</td></tr>
+<tr><td>Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$63,267</td></tr>
 </table>
 </div>
 </div><div id="pfsp2-se-ref" style="display:none"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue)">Sale Event — After Refinance</span></div><table class="pf-data-table">
 <tr class="pf-sec"><td>SALE EVENT After Refinance</td><td class="pct-col">%</td><td></td></tr>
-<tr><td>Year of Sale</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>2030</td></tr>
-<tr><td>Date</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>1-Oct-30</td></tr>
-<tr><td>NOI of that Year</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$373,209</td></tr>
-<tr><td>Cap Rate</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>5.75%</td></tr>
-<tr><td>Value of Property</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$6,490,595</td></tr>
-<tr><td>Cost of Sale — 5.0%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$324,530</td></tr>
-<tr><td>Loan of that Year (Beg of OCT)</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$3,278,315</td></tr>
-<tr><td>Capital Transaction Fee to Sponsor — 0.75%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$48,679</td></tr>
-<tr class="pf-hi"><td>Final Proceeds from Sale</td><td class="pct-col"></td><td><strong style="color:var(--green)">$2,839,071</strong></td></tr>
-<tr><td>Return of Capital</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,558,277</td></tr>
-<tr><td>Excess avail after return of capital</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,280,794</td></tr>
-<tr><td>Investor Profit</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,024,635</td></tr>
-<tr><td>Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$256,159</td></tr>
+<tr><td>Year of Sale</td><td class="pct-col"></td><td data-editable>2030</td></tr>
+<tr><td>Date</td><td class="pct-col"></td><td data-editable>1-Oct-30</td></tr>
+<tr><td>NOI of that Year</td><td class="pct-col"></td><td data-editable>$373,209</td></tr>
+<tr><td>Cap Rate</td><td class="pct-col"></td><td data-editable>5.75%</td></tr>
+<tr><td>Value of Property</td><td class="pct-col"></td><td data-editable>$6,490,595</td></tr>
+<tr><td>Cost of Sale</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$324,530</td></tr>
+<tr><td>Loan of that Year (Beg of OCT)</td><td class="pct-col"></td><td data-editable>$3,278,315</td></tr>
+<tr><td>Capital Transaction Fee to Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$48,679</td></tr>
+<tr class="pf-hi"><td>Final Proceeds from Sale</td><td class="pct-col"></td><td data-editable>$2,839,071</td></tr>
+<tr><td>Return of Capital</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$1,558,277</td></tr>
+<tr><td>Excess avail after return of capital</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$1,280,794</td></tr>
+<tr><td>Investor Profit</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$1,024,635</td></tr>
+<tr><td>Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$256,159</td></tr>
 </table>
 </div>
 </div>
@@ -749,38 +744,38 @@
 <div id="pfsp-pf-eqreq" style="display:none">
 <div style="padding:12px 0 0"><button class="pf-subtab2 pf-subtab-active" id="pfst2-eq-reg">Regular</button><button class="pf-subtab2" id="pfst2-eq-ref">Refinance</button></div><div id="pfsp2-eq-reg"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--green)">Equity Required — Regular</span></div><table class="pf-data-table">
 <tr class="pf-sec"><td>EQUITY REQUIRED (regular)</td><td class="pct-col">%</td><td></td></tr>
-<tr><td>Loan to Cost % — 59%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$3,962,686</td></tr>
-<tr><td>Equity — 41%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$1,600,000</td></tr>
-<tr class="pf-hi"><td>LTPP — 64%</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td>$3,962,686</td></tr>
-<tr class="pf-tot"><td>Cash to Close</td><td class="pct-col"></td><td>$2,526,034</td></tr>
+<tr><td>Loan to Cost</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$3,962,686</td></tr>
+<tr><td>Equity</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$1,600,000</td></tr>
+<tr class="pf-hi"><td>LTPP</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$3,962,686</td></tr>
+<tr class="pf-tot"><td>Cash to Close</td><td class="pct-col"></td><td data-editable>$2,526,034</td></tr>
 </table>
 </div>
 </div><div id="pfsp2-eq-ref" style="display:none"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue)">Equity Required — Refinance</span></div><table class="pf-data-table">
 <tr class="pf-sec"><td>EQUITY REQUIRED (refin)</td><td></td></tr>
-<tr><td>I/O Payment</td><td>$317,015</td></tr>
-<tr class="pf-hi"><td>Loan to Cost %</td><td>$3,962,686</td></tr>
-<tr><td>Equity</td><td>$2,712,034</td></tr>
-<tr><td>LTPP</td><td>$3,962,686</td></tr>
-<tr class="pf-tot"><td>Cash to Close</td><td>$2,562,034</td></tr>
+<tr><td>I/O Payment</td><td data-editable>$317,015</td></tr>
+<tr class="pf-hi"><td>Loan to Cost %</td><td data-editable>$3,962,686</td></tr>
+<tr><td>Equity</td><td data-editable>$2,712,034</td></tr>
+<tr><td>LTPP</td><td data-editable>$3,962,686</td></tr>
+<tr class="pf-tot"><td>Cash to Close</td><td data-editable>$2,562,034</td></tr>
 </table>
 </div>
 </div>
 </div>
 <div id="pfsp-pf-refi" style="display:none">
 <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue)">Refinance Event</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>Refinance EVENT</td><td></td></tr>
-<tr><td>Year of Refinance</td><td>2027</td></tr>
-<tr><td>Date</td><td>1-Jan-27</td></tr>
-<tr><td>NOI of that Year</td><td>$339,659</td></tr>
-<tr><td>Cap Rate</td><td>6.00%</td></tr>
-<tr><td>Value of Property</td><td>$5,660,981</td></tr>
-<tr><td>New Loan Size — 70.0%</td><td>$3,962,686</td></tr>
-<tr><td>Cost of Refinance — 2.25% (incl. .25% Fee)</td><td>$127,372</td></tr>
-<tr><td>Loan of that Year (End of Year)</td><td>$3,643,591</td></tr>
-<tr><td>Yield Maintenance/Prepay — 0.0%</td><td>$0</td></tr>
-<tr class="pf-hi"><td>Final Proceeds from Refinance</td><td>$191,723</td></tr>
-<tr><td>Reserve for Unit Upgrades</td><td>—</td></tr>
-<tr class="pf-tot"><td>Total Distribution</td><td>$191,723</td></tr>
+<tr class="pf-sec"><td>Refinance EVENT</td><td class="pct-col">%</td><td class="amount-col">AMOUNT</td><td class="notes-col">NOTES</td></tr>
+<tr><td>Year of Refinance</td><td class="pct-col"></td><td class="amount-col" data-editable>2027</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Date</td><td class="pct-col"></td><td class="amount-col" data-editable>1-Jan-27</td><td class="notes-col" data-editable></td></tr>
+<tr><td>NOI of that Year</td><td class="pct-col"></td><td class="amount-col" data-editable>$339,659</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Cap Rate</td><td class="pct-col"></td><td class="amount-col" data-editable>6.00%</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Value of Property</td><td class="pct-col"></td><td class="amount-col" data-editable>$5,660,981</td><td class="notes-col" data-editable></td></tr>
+<tr><td>New Loan Size</td><td class="pct-col"><input class="pct-input" value="70.0%" placeholder="—"></td><td class="amount-col" data-editable>$3,962,686</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Cost of Refinance</td><td class="pct-col"><input class="pct-input" value="2.25%" placeholder="—"></td><td class="amount-col" data-editable>$127,372</td><td class="notes-col" data-editable>incl. .25% Fee</td></tr>
+<tr><td>Loan of that Year (End of Year)</td><td class="pct-col"></td><td class="amount-col" data-editable>$3,643,591</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Yield Maintenance/Prepay</td><td class="pct-col"><input class="pct-input" value="0.0%" placeholder="—"></td><td class="amount-col" data-editable>$0</td><td class="notes-col" data-editable></td></tr>
+<tr class="pf-hi"><td>Final Proceeds from Refinance</td><td class="pct-col"></td><td class="amount-col" data-editable>$191,723</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Reserve for Unit Upgrades</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr class="pf-tot"><td>Total Distribution</td><td class="pct-col"></td><td class="amount-col" data-editable>$191,723</td><td class="notes-col"></td></tr>
 </table>
 </div>
 </div>
@@ -806,7 +801,6 @@
             <th style="padding:9px 14px;text-align:right;font-weight:700;color:var(--header);min-width:160px">Assessed Value ($)</th>
             <th style="padding:9px 14px;text-align:right;font-weight:700;color:var(--header);min-width:120px">Tax Rate (%)</th>
             <th style="padding:9px 14px;text-align:right;font-weight:700;color:var(--header);min-width:160px">Annual Tax ($)</th>
-            <th style="padding:9px 12px;text-align:center;font-weight:700;color:var(--muted);width:48px"></th>
           </tr>
         </thead>
         <tbody id="taxAssessBody">
@@ -816,7 +810,6 @@
           <tr style="background:rgba(74,101,133,0.10);border-top:2px solid rgba(74,101,133,0.25)">
             <td style="padding:10px 18px;font-size:12px;font-weight:800;color:var(--blue)" colspan="3">Total Annual Tax Assessment</td>
             <td style="padding:10px 14px;text-align:right;font-size:14px;font-weight:800;color:var(--blue)" id="taxTotalCell">$0</td>
-            <td></td>
           </tr>
         </tfoot>
       </table>
@@ -1174,7 +1167,7 @@
         <div class="page-subtitle">Existing vs. refinance scenario comparison</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
-      <button id="debtEditModeBtn" class="tab-edit-btn" onclick="toggleDebtEditMode()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Values</button>
+
       <div class="project-switcher-wrap">
         <div id="debtProjectSwitcher" class="project-switcher">
           <div class="project-dot"></div>
@@ -1328,7 +1321,7 @@
 </main>
 </div>
 
-<script src="app.js"></script>
+<script src="app.js?v=20260319e"></script>
 
 <!-- ─── REJECT MODAL ─────────────────────────────────────────────────────── -->
 <div id="rejectModal" style="display:none;position:fixed;inset:0;z-index:3000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(4px)">
@@ -1469,4 +1462,11 @@
   </div>
 </div>
 
+<!-- ── Right-click context menu ──────────────────────────────── -->
+<div id="ctxMenu" style="display:none;position:fixed;z-index:9999">
+  <button id="ctxDeleteBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;flex-shrink:0"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    Delete Row
+  </button>
+</div>
 </body>

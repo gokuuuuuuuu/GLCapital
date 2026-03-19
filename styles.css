@@ -855,6 +855,93 @@ tr:hover .pf-del-btn{opacity:1}
 /* ── % Input Column ──────────────────────────────────────────── */
 .pf-data-table td.pct-col{width:90px;text-align:center;padding:5px 8px;font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--muted);background:rgba(74,101,133,0.03)}
 .pf-data-table tr.pf-sec td.pct-col{background:rgba(74,124,89,0.07);color:var(--muted)}
+/* Amount column (no longer last-child when Notes column present) */
+.pf-data-table td.amount-col{ text-align:right; }
+/* Notes column */
+.pf-data-table td.notes-col{
+  text-align:left!important;
+  color:var(--muted);
+  font-size:11px;
+  font-style:italic;
+  min-width:160px;
+  padding-left:16px;
+}
+.pf-data-table tr.pf-sec td.notes-col{ font-style:normal;font-size:10px; }
 .pct-input{width:72px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:right;background:var(--surface2);color:var(--body);outline:none;transition:border-color .15s}
 .pct-input:focus{border-color:var(--accent);background:#fff}
 .pct-input::placeholder{color:var(--border);font-size:11px}
+
+/* ── Global Edit Mode ────────────────────────────────────────── */
+/* pct-input only interactive in edit mode */
+#page-project-detail:not(.edit-mode) .pct-input{
+  pointer-events:none;
+  opacity:0.5;
+  cursor:default;
+}
+/* Tax Assessment inputs locked in view mode */
+#page-project-detail:not(.edit-mode) #taxAssessBody input{
+  pointer-events:none;
+  cursor:default;
+  opacity:0.85;
+}
+/* Tax add-row button hidden outside edit mode */
+#addTaxRowBtn{ display:none; }
+#page-project-detail.edit-mode #addTaxRowBtn{ display:inline-flex; }
+/* RR add-row button hidden outside edit mode */
+#rrAddRowBtn{ display:none; }
+#page-project-detail.edit-mode #rrAddRowBtn{ display:flex; }
+/* RR new-row inputs locked in view mode */
+#page-project-detail:not(.edit-mode) #pfUnitMixBody input{
+  pointer-events:none;
+  cursor:default;
+  opacity:0.85;
+}
+/* ── Right-click context menu ────────────────────────────────── */
+#ctxMenu{
+  background:var(--bg,#fff);
+  border:1px solid var(--border);
+  border-radius:8px;
+  box-shadow:0 4px 18px rgba(0,0,0,0.13),0 1px 4px rgba(0,0,0,0.07);
+  padding:4px;
+  min-width:140px;
+  animation:ctxFadeIn .1s ease;
+}
+@keyframes ctxFadeIn{
+  from{opacity:0;transform:scale(.96) translateY(-3px)}
+  to  {opacity:1;transform:scale(1)   translateY(0)}
+}
+#ctxMenu button{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  padding:8px 12px;
+  background:none;
+  border:none;
+  cursor:pointer;
+  font-size:13px;
+  color:#c0392b;
+  font-family:inherit;
+  border-radius:6px;
+  text-align:left;
+  transition:background .1s;
+}
+#ctxMenu button:hover{ background:rgba(192,57,43,0.09); }
+/* Row highlight while menu is open */
+.ctx-row-highlight{ outline:2px solid rgba(192,57,43,0.3)!important; outline-offset:-2px; }
+/* Editable cell cursor hints in edit mode */
+#page-project-detail.edit-mode .t12-amt,
+#page-project-detail.edit-mode td[data-rr-edit],
+#page-project-detail.edit-mode td.pf-rev-cell,
+#page-project-detail.edit-mode td[data-editable]{
+  cursor:text;
+  border-radius:3px;
+  transition:background .1s;
+}
+#page-project-detail.edit-mode .t12-amt:hover,
+#page-project-detail.edit-mode td[data-rr-edit]:hover,
+#page-project-detail.edit-mode td.pf-rev-cell:hover,
+#page-project-detail.edit-mode td[data-editable]:hover{
+  background:rgba(74,124,89,0.1);
+  outline:1px dashed rgba(74,124,89,0.35);
+}

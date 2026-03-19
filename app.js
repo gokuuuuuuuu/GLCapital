@@ -338,6 +338,8 @@ var currentLang = 'en';
 var _pfLoaded = false;
 var _pfManualEdits = {};
 var _pfEditMode = false;
+var _globalEditMode = false;
+var _ctxTargetRow   = null;
 
 const I18N = {
   en: {
@@ -1471,9 +1473,6 @@ function renderParsedRRTable(proj){
     +'<span class="parse-stat-item" style="color:var(--red,#c0392b)"><strong>'+vacantUnits.length+'</strong>&nbsp;'+(zh?'空置':'vacant')+'</span>'
     +'<div style="flex:1"></div>'
     +'<span style="font-size:11px;color:var(--muted)">As of 11/12/2025</span>'
-    +'<button id="rrEditModeBtn" class="tab-edit-btn'+(_rrEditMode?' active':'')+'" onclick="toggleRREditMode()">'
-    +(_rrEditMode?_icoDone+' '+(zh?'完成':'Done'):_icoEdit+' '+(zh?'编辑数据':'Edit Data'))
-    +'</button>'
     +'</div>';
 
   // Unit type summary table
@@ -1505,9 +1504,9 @@ function renderParsedRRTable(proj){
     typeTableHtml+='<tr>'
       +'<td>'+key+'</td>'
       +'<td>'+g.units.length+'</td>'
-      +'<td data-rr-edit="sqft" data-rr-raw="'+g.sqft+'" data-rr-type="num" onclick="rrCellEdit(this)">'+g.sqft+'</td>'
-      +'<td style="color:var(--header)" data-rr-edit="avgRent" data-rr-raw="'+avgRent+'" data-rr-type="num" onclick="rrCellEdit(this)">$'+avgRent.toLocaleString()+'</td>'
-      +'<td style="color:var(--header)" data-rr-edit="totalMo" data-rr-raw="'+totalMo+'" data-rr-type="num" onclick="rrCellEdit(this)">$'+totalMo.toLocaleString()+'</td>'
+      +'<td data-rr-edit="sqft" data-rr-raw="'+g.sqft+'" data-rr-type="num" data-rr-edit-click="1">'+g.sqft+'</td>'
+      +'<td style="color:var(--header)" data-rr-edit="avgRent" data-rr-raw="'+avgRent+'" data-rr-type="num" data-rr-edit-click="1">$'+avgRent.toLocaleString()+'</td>'
+      +'<td style="color:var(--header)" data-rr-edit="totalMo" data-rr-raw="'+totalMo+'" data-rr-type="num" data-rr-edit-click="1">$'+totalMo.toLocaleString()+'</td>'
       +'<td style="color:var(--blue)">$'+(totalMo*12).toLocaleString()+'</td>'
       +'<td>'+occPctG+'</td>'
       +'</tr>';
@@ -2226,7 +2225,7 @@ function buildPFTable(){
     return (parseFloat(v)*100).toFixed(1)+'%';
   }
 
-  function makeCells(vals, isTotal, isPct, isGreen) {
+  function makeCells(vals, isTotal, isPct, isGreen, rowLabel) {
     return vals.map(function(v, ci) {
       var isProjected = ci >= 3; // NOV2026+ is projection zone
       var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
@@ -2234,7 +2233,10 @@ function buildPFTable(){
       var fw = isTotal ? 'font-weight:700;' : '';
       var color = isGreen ? 'color:var(--green);' : (isTotal ? 'color:var(--header);' : 'color:var(--body);');
       var txt = isPct ? fmtPct(v) : fmtNum(v);
-      return '<td style="padding:7px 8px;text-align:right;font-size:12px;'+fw+color+bg+borderL+'">'+txt+'</td>';
+      var editAttr = (!isTotal && !isPct && rowLabel)
+        ? ' class="pf-rev-cell" data-pf-label="'+rowLabel.replace(/"/g,'&quot;')+'" data-pf-ci="'+ci+'" data-pf-val="'+(v||0)+'"'
+        : '';
+      return '<td'+editAttr+' style="padding:7px 8px;text-align:right;font-size:12px;'+fw+color+bg+borderL+'">'+txt+'</td>';
     }).join('');
   }
 
@@ -2289,7 +2291,7 @@ function buildPFTable(){
         rows += '<tr class="pf-si pf-si-'+sec.secId+(isOpen?'':' pf-si-hidden')+'" style="'+bg+'border-bottom:1px solid rgba(0,0,0,0.04)">'
           +'<td style="padding:6px 14px 6px 30px;font-size:12px;color:var(--body)">'+item.label+'</td>'
           +'<td style="padding:6px 8px"></td>'
-          +makeCells(vals, false, false, false)+'</tr>';
+          +makeCells(vals, false, false, false, item.label)+'</tr>';
       });
     });
 
@@ -3742,7 +3744,7 @@ function t12Fmt(n){
 function t12Amt(y1,y2,ec){
   var v=_t12Year==='y1'?y1:y2;
   var cls='t12-amt'+(ec?' '+ec:'')+(v<0?' neg':'')+(v===0?' zero-val':'');
-  return '<span class="'+cls+'" data-y1="'+y1+'" data-y2="'+y2+'" onclick="t12EditClick(this)">'+t12Fmt(v)+'</span>';
+  return '<span class="'+cls+'" data-y1="'+y1+'" data-y2="'+y2+'">'+t12Fmt(v)+'</span>';
 }
 function t12Field(lbl,y1,y2,lvl,opts){
   opts=opts||{};
@@ -3785,11 +3787,6 @@ function renderT12ParsedHTML(){
     +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
     +' Y2 &nbsp;Nov\'24\u2013Oct\'25</button>'
     +'<span class="t12-period-label">Cherry Commons &middot; Cash Basis</span>'
-    +'<button id="t12EditModeBtn" class="tab-edit-btn'+(_t12EditMode?' active':'')+'" style="margin-left:auto" onclick="toggleT12EditMode()">'
-    +(_t12EditMode
-      ?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><polyline points="20 6 9 17 4 12"/></svg> '+(zh?'完成':'Done')
-      :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> '+(zh?'编辑数值':'Edit Values'))
-    +'</button>'
     +'</div>';
 
   // ── INCOME body ───────────────────────────────────────────
@@ -4073,21 +4070,53 @@ function switchT12Year(yr){
 var _icoEdit='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
 var _icoDone='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><polyline points="20 6 9 17 4 12"/></svg>';
 
-// ── T12 Edit Mode ──────────────────────────────────────────────
-function toggleT12EditMode(){
-  _t12EditMode=!_t12EditMode;
-  var btn=document.getElementById('t12EditModeBtn');
-  var cards=document.getElementById('t12ParsedContent');
-  var zh=currentLang==='zh';
+// ── Global Edit Mode (project-wide) ───────────────────────────
+function toggleGlobalEditMode(){
+  _globalEditMode = !_globalEditMode;
+  _t12EditMode = _globalEditMode;
+  _rrEditMode  = _globalEditMode;
+  _debtEditMode= _globalEditMode;
+  _pfEditMode  = _globalEditMode;
+  pfEditMode   = _globalEditMode;
+  var zh = currentLang==='zh';
+  var btn = document.getElementById('globalEditToggleBtn');
+  var lbl = document.getElementById('globalEditToggleLabel');
+  var page = document.getElementById('page-project-detail');
   if(btn){
-    btn.innerHTML=_t12EditMode?_icoDone+' '+(zh?'完成':'Done'):_icoEdit+' '+(zh?'编辑数值':'Edit Values');
-    btn.classList.toggle('active',_t12EditMode);
+    if(_globalEditMode){
+      btn.style.background='var(--green)';
+      btn.style.borderColor='var(--green)';
+      btn.style.color='white';
+    } else {
+      btn.style.background='';
+      btn.style.borderColor='';
+      btn.style.color='';
+    }
   }
-  if(cards) cards.classList.toggle('t12-edit-active',_t12EditMode);
-  if(!_t12EditMode) toast(zh?'T12 数值已更新':'T12 values updated');
+  if(lbl) lbl.textContent = _globalEditMode
+    ? (zh?'完成编辑':'Done Editing')
+    : (zh?'编辑模式':'Edit Mode');
+  if(page) page.classList.toggle('edit-mode', _globalEditMode);
+  // Propagate to modules that use CSS class toggling
+  var t12 = document.getElementById('t12ParsedContent');
+  var rr  = document.getElementById('rrParsedContent');
+  var debt= document.getElementById('proj-tab-debt');
+  if(t12)  t12.classList.toggle('t12-edit-active', _globalEditMode);
+  if(rr)   rr.classList.toggle('rr-edit-active',   _globalEditMode);
+  if(debt) debt.classList.toggle('debt-edit-active',_globalEditMode);
+  // Rebuild PF table so cells render correctly
+  if(typeof buildPFTable==='function') buildPFTable();
+  if(typeof updatePFEditLog==='function') updatePFEditLog();
+  if(!_globalEditMode) toast(zh?'编辑模式已关闭':'Edit mode off');
 }
+// Per-module toggles all delegate to global
+function toggleT12EditMode(){ toggleGlobalEditMode(); }
+function toggleRREditMode()  { toggleGlobalEditMode(); }
+function toggleDebtEditMode(){ toggleGlobalEditMode(); }
+
+// ── T12 inline edit ────────────────────────────────────────────
 function t12EditClick(el){
-  if(!_t12EditMode) return;
+  if(!_globalEditMode) return;
   var yr=_t12Year;
   var curVal=parseFloat(yr==='y1'?el.dataset.y1:el.dataset.y2)||0;
   var inp=document.createElement('input');
@@ -4110,21 +4139,9 @@ function t12EditClick(el){
   });
 }
 
-// ── Rent Roll Edit Mode ────────────────────────────────────────
-function toggleRREditMode(){
-  _rrEditMode=!_rrEditMode;
-  var btn=document.getElementById('rrEditModeBtn');
-  var wrap=document.getElementById('rrParsedContent');
-  var zh=currentLang==='zh';
-  if(btn){
-    btn.innerHTML=_rrEditMode?_icoDone+' '+(zh?'完成':'Done'):_icoEdit+' '+(zh?'编辑数据':'Edit Data');
-    btn.classList.toggle('active',_rrEditMode);
-  }
-  if(wrap) wrap.classList.toggle('rr-edit-active',_rrEditMode);
-  if(!_rrEditMode) toast(zh?'租户数据已更新':'Rent Roll data updated');
-}
+// ── Rent Roll inline edit ──────────────────────────────────────
 function rrCellEdit(el){
-  if(!_rrEditMode) return;
+  if(!_globalEditMode) return;
   var raw=el.dataset.rrRaw!==undefined?el.dataset.rrRaw:el.textContent.replace(/[$,+\s]/g,'').trim();
   var isNum=el.dataset.rrType==='num';
   var inp=document.createElement('input');
@@ -4143,21 +4160,9 @@ function rrCellEdit(el){
   });
 }
 
-// ── Debt Edit Mode ─────────────────────────────────────────────
-function toggleDebtEditMode(){
-  _debtEditMode=!_debtEditMode;
-  var btn=document.getElementById('debtEditModeBtn');
-  var tab=document.getElementById('proj-tab-debt');
-  var zh=currentLang==='zh';
-  if(btn){
-    btn.innerHTML=_debtEditMode?_icoDone+' '+(zh?'完成':'Done'):_icoEdit+' '+(zh?'编辑数值':'Edit Values');
-    btn.classList.toggle('active',_debtEditMode);
-  }
-  if(tab) tab.classList.toggle('debt-edit-active',_debtEditMode);
-  if(!_debtEditMode) toast(zh?'债务数据已更新':'Debt data updated');
-}
+// ── Debt inline edit ───────────────────────────────────────────
 function debtCellEdit(el){
-  if(!_debtEditMode) return;
+  if(!_globalEditMode) return;
   var raw=el.dataset.debtRaw||el.textContent.trim();
   var inp=document.createElement('input');
   inp.type='text'; inp.value=raw; inp.className='debt-inline-input';
@@ -4317,6 +4322,16 @@ function resetProForma(){
   _pfLoaded=false;
   _pfManualEdits={};
   _pfEditMode=false;
+  // Reset global edit mode when changing project
+  _globalEditMode=false;
+  _t12EditMode=false; _rrEditMode=false; _debtEditMode=false;
+  pfEditMode=false;
+  var _geBtn=document.getElementById('globalEditToggleBtn');
+  var _geLbl=document.getElementById('globalEditToggleLabel');
+  if(_geBtn){_geBtn.style.background='';_geBtn.style.borderColor='';_geBtn.style.color='';}
+  if(_geLbl)_geLbl.textContent='Edit Mode';
+  var _gePage=document.getElementById('page-project-detail');
+  if(_gePage)_gePage.classList.remove('edit-mode');
   var empty=document.getElementById('pfEmptyState');
   var content=document.getElementById('pfContent');
   if(empty) empty.style.display='';
@@ -4335,7 +4350,7 @@ function loadDemoProForma(){
 
 
 function pfCellEdit(key,label,col,currentVal){
-  if(!_pfEditMode) return;
+  if(!_globalEditMode) return;
   var numericVal=parseFloat(String(currentVal).replace(/[$,]/g,''));
   var input=prompt((currentLang==='zh'?'编辑 ':'Edit: ')+label+' ('+col+') '+(currentLang==='zh'?'当前值：':'Current: ')+currentVal, isNaN(numericVal)?currentVal:numericVal);
   if(input===null) return;
@@ -4383,24 +4398,8 @@ function resolvePFConflict(rowLabel, source, value){
   buildPFTable();
 }
 
-function togglePFEdit(){
-  _pfEditMode = !_pfEditMode;
-  var btn = document.getElementById('pfEditToggleBtn');
-  if(btn){
-    if(_pfEditMode){
-      btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="20 6 9 17 4 12"/></svg>&nbsp;'+(currentLang==='zh'?'保存修改':'Save Edits');
-      btn.style.background='var(--green)';btn.style.borderColor='var(--green)';btn.style.color='white';
-    } else {
-      btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>&nbsp;'+(currentLang==='zh'?'编辑数值':'Edit Values');
-      btn.style.background='';btn.style.borderColor='';btn.style.color='';
-    }
-  }
-  var lbl=document.getElementById('pfEditModeLabel');
-  if(lbl) lbl.textContent=_pfEditMode?(currentLang==='zh'?'✏ 编辑模式已开启 — 点击数值可修改':'✏ Edit mode ON — click any value to edit'):(currentLang==='zh'?'点击"编辑数值"以修改数据':'Click "Edit Values" to modify data');
-  buildPFTable();
-  updatePFEditLog();
-}
-function togglePFEditMode(){togglePFEdit();}
+function togglePFEdit(){ toggleGlobalEditMode(); }
+function togglePFEditMode(){ toggleGlobalEditMode(); }
 
 function showConflictPicker(key,label,col){
   var allRows=[...(PF_DATA.revenue||[]),...(PF_DATA.expenses||[]),...(PF_DATA.debtService||[])];
@@ -4430,6 +4429,7 @@ function showConflictPicker(key,label,col){
 
 
 function openPFCellEdit(key, label, originalVal, currentVal, colName){
+  if(!_globalEditMode) return;
   loadPFOverrides(currentProjectId);
   const zh = currentLang==='zh';
   const existingOverride = pfOverrides[key];
@@ -4695,20 +4695,18 @@ buildPFTable = function(){
   if(!tbody) return; // pfTableBody only used for legacy edit-mode overlay; skip if absent
   const rows = [];
   const colNames = ['Y1','Y2','Stab','Y4','Y5','Y6','Y7'];
-  const editMode = document.getElementById('pfEditToggle')&&document.getElementById('pfEditToggle').checked;
-
   function pfCell(key, label, val, colIdx){
     const ov = pfOverrides[key+'_'+colIdx];
     const displayVal = ov ? ov.value : val;
     const isOv = !!ov;
     const colName = colNames[colIdx]||'';
-    if(editMode){
-      return `<td><span class="pf-editable${isOv?' pf-overridden':''}" 
-        onclick="openPFCellEdit('${key}_${colIdx}','${label.replace(/'/g,"\\'")}',${val},${displayVal},'${colName}')"
-        title="${isOv?'Override: $'+displayVal.toLocaleString()+' (original: $'+val.toLocaleString()+')':'Click to override'}"
-        >${isOv?'$'+displayVal.toLocaleString():fmt(displayVal)}</span></td>`;
-    }
-    return `<td${isOv?' style="color:var(--amber);font-weight:600"' : ''}>${fmt(displayVal)}${isOv?'<span style="font-size:9px;margin-left:2px;opacity:.6">✎</span>':''}</td>`;
+    const hint = isOv
+      ? 'Override: $'+displayVal.toLocaleString()+' (original: $'+val.toLocaleString()+')'
+      : 'Double-click to edit';
+    return `<td><span class="pf-editable${isOv?' pf-overridden':''}"
+      ondblclick="openPFCellEdit('${key}_${colIdx}','${label.replace(/'/g,"\\'")}',${val},${displayVal},'${colName}')"
+      title="${hint}"
+      >${isOv?'$'+displayVal.toLocaleString():fmt(displayVal)}${isOv?'<span style="font-size:9px;margin-left:2px;opacity:.6">✎</span>':''}</span></td>`;
   }
 
   function getVal(r, colKey){
@@ -4976,22 +4974,7 @@ var pfConflicts = {}; // {key: {sources: [{source, value}], chosen: null}}
 var pfEditMode = false;
 var pfManualLog = []; // [{field, oldVal, newVal, timestamp}]
 
-function togglePFEditModeNew(on){
-  pfEditMode = (on !== undefined) ? on : !pfEditMode;
-  var btn = document.getElementById('pfEditToggleBtn');
-  var lbl = document.getElementById('pfEditModeLabel');
-  if(btn){
-    btn.innerHTML = pfEditMode
-      ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Save Edits'
-      : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Edit Values';
-    btn.style.background = pfEditMode ? 'var(--green)' : '';
-    btn.style.color = pfEditMode ? 'white' : '';
-    btn.style.borderColor = pfEditMode ? 'var(--green)' : '';
-  }
-  if(lbl) lbl.textContent = pfEditMode ? '✏ Edit mode ON — click value to modify' : 'Click "Edit Values" to modify data';
-  buildPFTable();
-  if(!pfEditMode) _renderPFEditLog();
-}
+function togglePFEditModeNew(on){ toggleGlobalEditMode(); }
 
 function _renderPFEditLog(){
   var el = document.getElementById('pfEditLogList');
@@ -5013,7 +4996,7 @@ function _renderPFEditLog(){
 }
 
 function openPFCellEditNew(fieldKey, currentVal, label){
-  if(!pfEditMode) return;
+  if(!_globalEditMode) return;
   var newValStr = prompt('Edit "'+label+'" (current: $'+(currentVal||0).toLocaleString()+') Enter new value:', currentVal||'');
   if(newValStr===null) return;
   var newVal = parseFloat(newValStr.replace(/[^0-9.-]/g,''));
@@ -5667,13 +5650,6 @@ function renderTaxTable() {
       '<td style="padding:7px 14px;text-align:right;font-weight:600;color:var(--blue)">' +
         (annualTax ? '$'+Math.round(annualTax).toLocaleString() : '<span style="color:var(--muted)">—</span>') +
       '</td>' +
-      '<td style="padding:7px 12px;text-align:center">' +
-        '<button onclick="deleteTaxRow('+i+')" title="Remove" ' +
-        'style="background:none;border:none;cursor:pointer;color:var(--muted);padding:3px;border-radius:4px;line-height:0" ' +
-        'onmouseenter="this.style.color=\'#c0392b\'" onmouseleave="this.style.color=\'var(--muted)\'">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>' +
-        '</button>' +
-      '</td>' +
       '</tr>'
     );
   }).join('');
@@ -5789,7 +5765,7 @@ document.addEventListener('DOMContentLoaded', function setupListeners() {
   on('#filterDraft', 'click', function(event) { setProjectFilter('draft',   event.currentTarget); });
   on('#filterComplete', 'click', function(event) { setProjectFilter('complete',event.currentTarget); });
   on('#detailStatusToggle', 'click', function(event) { toggleProjectComplete(); });
-  on('#pfEditToggleBtn', 'click', function(event) { togglePFEdit(); });
+  on('#globalEditToggleBtn', 'click', function(event) { toggleGlobalEditMode(); });
   on('#ptab-proforma', 'click', function(event) { switchProjTab('proforma', document.getElementById('ptab-proforma')); });
   on('#ptab-files', 'click', function(event) { switchProjTab('files',    document.getElementById('ptab-files')); });
   on('#ptab-rentroll', 'click', function(event) { switchProjTab('rentroll', document.getElementById('ptab-rentroll')); });
@@ -5844,6 +5820,109 @@ document.addEventListener('DOMContentLoaded', function setupListeners2() {
   on('#openAssumptionsBtn',     'click', function() { openAssumptionsModal(); });
   on('#exportPFBtn',            'click', function() { exportPF(); });
   on('#addTaxRowBtn',           'click', function() { addTaxRow(); });
+
+  // ── Universal dblclick inline editor ─────────────────────────
+  function _inlineEditCell(el, onCommit) {
+    if(el.querySelector('input')) return; // already editing
+    var oldText = el.textContent.trim();
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.value = (oldText === '—' || oldText === '') ? '' : oldText;
+    inp.style.cssText = 'width:100%;min-width:60px;border:none;background:transparent;font-size:inherit;font-family:inherit;font-weight:inherit;color:inherit;outline:2px solid var(--accent);border-radius:3px;padding:1px 4px;box-sizing:border-box;text-align:inherit;';
+    el.innerHTML = '';
+    el.appendChild(inp);
+    inp.focus(); inp.select();
+    function commit(){
+      var v = inp.value.trim();
+      el.textContent = v || '—';
+      if(typeof onCommit === 'function') onCommit(v);
+    }
+    inp.addEventListener('blur', commit);
+    inp.addEventListener('keydown', function(ev){
+      if(ev.key === 'Enter'){ ev.preventDefault(); inp.blur(); }
+      if(ev.key === 'Escape'){ el.textContent = oldText; }
+    });
+  }
+
+  document.addEventListener('dblclick', function(e){
+    if(!_globalEditMode) return;
+    var target = e.target;
+
+    // 1. T12 value spans
+    var t12span = target.closest('.t12-amt');
+    if(t12span){ t12EditClick(t12span); return; }
+
+    // 2. Rent Roll editable cells
+    var rrTd = target.closest('td[data-rr-edit]');
+    if(rrTd){ rrCellEdit(rrTd); return; }
+
+    // 3. PF Revenue & Expenses cells (tagged by makeCells)
+    var pfTd = target.closest('td.pf-rev-cell');
+    if(pfTd){
+      var pfLabel = pfTd.dataset.pfLabel;
+      var pfCi    = pfTd.dataset.pfCi;
+      _inlineEditCell(pfTd, function(newVal){
+        var num = parseFloat(newVal.replace(/[$,()]/g,''));
+        if(isNaN(num)) return;
+        var key = (pfLabel||'').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'') + '_' + pfCi;
+        pfOverrides[key] = { original: parseFloat(pfTd.dataset.pfVal)||0, value: num, source:'manual', timestamp: new Date().toLocaleTimeString() };
+        savePFOverrides(currentProjectId);
+        buildPFTable();
+      });
+      return;
+    }
+
+    // 4. Any cell tagged data-editable (static HTML sub-tabs & Closing Costs)
+    var staticTd = target.closest('td[data-editable]');
+    if(staticTd){ _inlineEditCell(staticTd, null); return; }
+  });
+
+  // ── Right-click context menu ──────────────────────────────────
+  function _showCtxMenu(x, y, tr) {
+    _ctxTargetRow = tr;
+    var menu = document.getElementById('ctxMenu');
+    if(!menu) return;
+    menu.style.display = 'block';
+    // Boundary-safe positioning
+    var mw = 148, mh = 40;
+    var left = (x + mw > window.innerWidth)  ? x - mw : x + 2;
+    var top  = (y + mh > window.innerHeight) ? y - mh : y + 2;
+    menu.style.left = left + 'px';
+    menu.style.top  = top  + 'px';
+    tr.classList.add('ctx-row-highlight');
+  }
+  function _hideCtxMenu() {
+    var menu = document.getElementById('ctxMenu');
+    if(menu) menu.style.display = 'none';
+    if(_ctxTargetRow){ _ctxTargetRow.classList.remove('ctx-row-highlight'); _ctxTargetRow = null; }
+  }
+  document.addEventListener('contextmenu', function(e){
+    if(!_globalEditMode) return;
+    var tr = e.target.closest('#taxAssessBody tr, #pfUnitMixBody tr:not(#rrTotalRow)');
+    if(!tr) return;
+    e.preventDefault();
+    _hideCtxMenu();
+    _showCtxMenu(e.clientX, e.clientY, tr);
+  });
+  document.addEventListener('click', function(e){
+    var menu = document.getElementById('ctxMenu');
+    if(menu && menu.style.display !== 'none' && !e.target.closest('#ctxMenu')) _hideCtxMenu();
+  });
+  document.addEventListener('scroll', function(){ _hideCtxMenu(); }, true);
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') _hideCtxMenu(); });
+  on('#ctxDeleteBtn', 'click', function(){
+    if(!_ctxTargetRow){ _hideCtxMenu(); return; }
+    var tr = _ctxTargetRow;
+    _hideCtxMenu();
+    if(tr.closest('#taxAssessBody')){
+      var tbody = document.getElementById('taxAssessBody');
+      var idx = Array.from(tbody.querySelectorAll('tr')).indexOf(tr);
+      if(idx !== -1) deleteTaxRow(idx);
+    } else if(tr.closest('#pfUnitMixBody')){
+      tr.remove();
+      rrRecalcTotals();
+    }
+  });
   on('#debtProjectSwitcher',    'click', function() { toggleProjectDropdown('debt'); });
   on('#addUserBtn',             'click', function() { openAddUserModal(); });
   on('#rc-btn',                 'click', function() { validateSingleKey('rc'); });
@@ -5931,8 +6010,7 @@ function rrAddRow(){
     '<td style="'+cellStyle+';text-align:right;border-left:1px solid var(--border)"><input style="'+inputStyle+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
     '<td style="'+cellStyle+';text-align:right;border-left:1px solid var(--border)"><input style="'+inputStyle+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
     '<td style="'+cellStyle+';text-align:right;color:var(--muted)" id="rrCalcAsIs_'+Date.now()+'">—</td>'+
-    '<td style="'+cellStyle+';text-align:right;color:var(--green);font-weight:600" id="rrCalcProj_'+Date.now()+'_p">—</td>'+
-    '<td style="padding:4px 6px;text-align:center"><button onclick="rrDeleteRow(this)" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:4px;font-size:14px;line-height:1">×</button></td>';
+    '<td style="'+cellStyle+';text-align:right;color:var(--green);font-weight:600" id="rrCalcProj_'+Date.now()+'_p">—</td>';
   tbody.insertBefore(tr, totalRow);
 }
 function rrDeleteRow(btn){
