@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "GLCapital",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "--directory", "E:/PersonalFiles/ClaudeWorkspace/GLCapital.github.io"],
+      "port": 3456,
+      "autoPort": true
+    }
+  ]
+}

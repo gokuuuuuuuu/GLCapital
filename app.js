@@ -173,7 +173,7 @@ const T12_ROWS=[
   ['  Difference','r',[-39321.54,48572.27,-3397.38,12325.52,840.22,-15460.27,-22728.01,-20728.67,-60.82,-956.29,-2220.87,-1890.0,0.0,43953.34,0.0,0.0,-230.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,-1302.5]],
 ];
 const PF_DATA = {
-  cols: ['NOV2023-OCT2024','NOV2024-OCT2025','NOV2025-OCT2026 (Stab)','NOV2026-OCT2027','NOV2027-OCT2028','NOV2028-OCT2029'],
+  cols: ['2023','2024','2025 (Stab)','2026','2027','2028'],
   revenue: [
     // ── RENTS ──────────────────────────────────────────────────────
     {isSectionHdr:true, label:'RENTS', secId:'rev-rents'},
@@ -2084,10 +2084,288 @@ function fmtPU(n){if(!n&&n!==0)return'—';return'$'+Math.abs(n).toLocaleString(
 
 function srcBadge(s){const m={'T12':'badge-t12','RR':'badge-rr','RentCast':'badge-rentcast','ATTOM':'badge-attom','HelloData':'badge-hellodata','Manual':'badge-manual'};return`<span class="badge ${m[s]||'badge-manual'}" style="margin:1px;font-size:10px">${s}</span>`}
 
+// ─── HELLODATA FINANCIAL ANALYSIS INTEGRATION ─────────────────────────────────
+// Maps PF accordion secId → HD Financial Analysis row label (null=T12only, 'locked'=mismatch, 'excluded'=not in ProForma)
+var HD_SEC_MAP = {
+  'rev-rents':  'Gross Potential Rent',   // approx: HD GPR ≈ T12 Total Rents
+  'rev-mgmt':   null,                     // no HD equivalent
+  'rev-fees':   null,                     // no HD equivalent
+  'exp-clean':  null,                     // T12 only — HD has no Cleaning category
+  'exp-ins':    'Property Insurance',
+  'exp-legal':  'Professional Fees',
+  'exp-mgmt':   'Management Fees',
+  'exp-rm':     'Repair & Maintenance',
+  'exp-tax':    'Real Estate Taxes',
+  'exp-util':   'Utilities',
+  'exp-admin':  'locked',                 // HD "Payroll & Benefits" ≠ T12 "Administrative/Salary"
+  'exp-mktg':   'Marketing',
+  'exp-bldg':   'excluded',              // Depreciation/Amortization — excluded from ProForma
+};
+
+// HD row labels for module-level source selection
+var HD_INCOME_LABELS = [
+  'Gross Potential Rent', 'Vacancy Loss', 'Parking Income', 'Other Income'
+];
+var HD_EXPENSE_LABELS = [
+  'Real Estate Taxes', 'Property Insurance', 'Utilities',
+  'Repair & Maintenance', 'Management Fees', 'Marketing',
+  'Professional Fees', 'Payroll & Benefits'
+];
+
+var _hdTier = 'median'; // 'low' | 'median' | 'high'
+
+function getHDData(pid){ try{return JSON.parse(localStorage.getItem('hd_fa_'+(pid||currentProjectId))||'null');}catch(e){return null;} }
+function _saveHDData(pid,d){ localStorage.setItem('hd_fa_'+pid, JSON.stringify(d)); }
+function getHDMeta(pid){ try{return JSON.parse(localStorage.getItem('hd_meta_'+(pid||currentProjectId))||'null');}catch(e){return null;} }
+function _saveHDMeta(pid,m){ localStorage.setItem('hd_meta_'+pid, JSON.stringify(m)); }
+
+// Parse Financial Analysis sheet from HelloData xlsx ArrayBuffer → {rowLabel: {low,median,high}}
+function _parseHelloDataFA(arrayBuffer) {
+  if(typeof XLSX === 'undefined') throw new Error('SheetJS not loaded');
+  var wb = XLSX.read(new Uint8Array(arrayBuffer), {type:'array'});
+  var ws = wb.Sheets['Financial Analysis'];
+  if(!ws) throw new Error('Sheet "Financial Analysis" not found');
+  var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  var result = {};
+  var headerPassed = false;
+  for(var i=0; i<rows.length; i++){
+    var r = rows[i];
+    if(!r) continue;
+    if(!headerPassed){
+      // Header row: first col contains "Income/Expense Item" or similar
+      if(r[0] && typeof r[0]==='string' && /income|expense|item/i.test(r[0])){ headerPassed=true; continue; }
+      continue;
+    }
+    var label = r[0];
+    if(!label || typeof label !== 'string' || !label.trim()) continue;
+    label = label.trim();
+    var low    = typeof r[1]==='number' ? r[1] : (parseFloat(r[1])||0);
+    var median = typeof r[2]==='number' ? r[2] : (parseFloat(r[2])||0);
+    var high   = typeof r[3]==='number' ? r[3] : (parseFloat(r[3])||0);
+    if(Math.abs(median)<1 && Math.abs(low)<1) continue;
+    result[label] = {low:low, median:median, high:high};
+  }
+  return Object.keys(result).length ? result : null;
+}
+
+// Find HD value by partial label match → returns number or null
+function _hdVal(data, searchLabel) {
+  if(!data || !searchLabel) return null;
+  var sl = searchLabel.toLowerCase();
+  // Exact match
+  if(data[searchLabel]) return data[searchLabel][_hdTier];
+  // Partial match: search label starts with first word(s) of searchLabel
+  var words = sl.split(' ').slice(0,2).join(' ');
+  var found = null;
+  Object.keys(data).forEach(function(k){
+    if(!found && k.toLowerCase().includes(words)) found = data[k][_hdTier];
+  });
+  return found;
+}
+
+// Build hdLookupFn for buildAccordion — returns {status, val} or null
+function _buildHDLookup(pid) {
+  var data = getHDData(pid);
+  if(!data) return null;
+  return function(secId) {
+    var hdLabel = HD_SEC_MAP[secId];
+    if(hdLabel === undefined) return null;          // secId not in map
+    if(hdLabel === null) return {status:'t12only'}; // T12 only
+    if(hdLabel === 'locked') return {status:'locked'};
+    if(hdLabel === 'excluded') return {status:'excluded'};
+    var val = _hdVal(data, hdLabel);
+    if(val === null) return {status:'nodata'};
+    return {status:'ok', val:val};
+  };
+}
+
+// Upload handler
+// Extract report date from HD filename: "Cedar Run Apartments-05-08-2025.xlsx" → "2025-05-08"
+function _extractHDReportDate(fileName) {
+  // Match MM-DD-YYYY at end of filename (before extension)
+  var m = fileName.match(/(\d{2})-(\d{2})-(\d{4})\.\w+$/);
+  if(m) return m[3]+'-'+m[1]+'-'+m[2]; // → YYYY-MM-DD
+  // Match YYYY-MM-DD
+  var m2 = fileName.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(m2) return m2[0];
+  return null;
+}
+
+function handleHDUpload(evt) {
+  var file = evt.target && evt.target.files && evt.target.files[0];
+  if(!file) return;
+  var pid = currentProjectId;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var parsed = _parseHelloDataFA(e.target.result);
+      if(!parsed){ toast('Financial Analysis sheet not found in this file','error'); return; }
+      var reportDate = _extractHDReportDate(file.name) || new Date().toISOString().slice(0,10);
+      _saveHDData(pid, parsed);
+      _saveHDMeta(pid, {
+        fileName: file.name,
+        date: new Date().toISOString().slice(0,10),
+        reportDate: reportDate,
+        rows: Object.keys(parsed).length
+      });
+      _refreshHDUploadUI();
+      _renderHDParsedContent();
+      buildPFTable();
+      toast('HelloData loaded · '+Object.keys(parsed).length+' rows · Report: '+reportDate, 'success');
+    }catch(err){ toast('Parse error: '+err.message,'error'); }
+    if(evt.target && evt.target.value) evt.target.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+window.handleHDUpload = handleHDUpload;
+
+function clearHDData(){
+  var pid = currentProjectId;
+  localStorage.removeItem('hd_fa_'+pid);
+  localStorage.removeItem('hd_meta_'+pid);
+  localStorage.removeItem('hd_sel_'+pid);
+  localStorage.removeItem('hd_modsrc_'+pid);
+  _refreshHDUploadUI();
+  _renderHDParsedContent();
+  buildPFTable();
+  toast(currentLang==='zh'?'HelloData 数据已移除':'HelloData removed');
+}
+window.clearHDData = clearHDData;
+
+function _refreshHDUploadUI(){
+  var pid = currentProjectId;
+  var meta = getHDMeta(pid);
+  var btn = document.getElementById('hdUploadBtn');
+  var delBtn = document.getElementById('hdDeleteBtn');
+  var dropZone = document.getElementById('hdDropZone');
+  var info = document.getElementById('hdFileInfo');
+  var dot = document.getElementById('tabdot-hd');
+  if(meta){
+    if(btn) btn.style.display='none';
+    if(delBtn) delBtn.style.display='';
+    if(dropZone) dropZone.style.display='none';
+    if(info) info.innerHTML = '<span style="color:var(--green);font-weight:600">'+meta.fileName+'</span>'
+      +' · <span>Report: '+(meta.reportDate||meta.date)+'</span>'
+      +' · <span>'+meta.rows+' rows parsed</span>';
+    if(dot) dot.style.display='inline-block';
+  } else {
+    if(btn) btn.style.display='';
+    if(delBtn) delBtn.style.display='none';
+    if(dropZone) dropZone.style.display='';
+    if(info){ info.textContent = currentLang==='zh'?'未上传文件 · 异步导出数据集(.xlsx)':'No file uploaded · Async export (.xlsx)'; }
+    if(dot) dot.style.display='none';
+  }
+}
+window._refreshHDUploadUI = _refreshHDUploadUI;
+
+function handleHDDrop(evt){
+  var files = evt.dataTransfer ? evt.dataTransfer.files : null;
+  if(!files||!files.length) return;
+  handleHDUpload({target:{files:files}});
+}
+window.handleHDDrop = handleHDDrop;
+
+function _renderHDParsedContent(){
+  var container = document.getElementById('hdParsedContent');
+  if(!container) return;
+  var pid = currentProjectId;
+  var data = getHDData(pid);
+  var meta = getHDMeta(pid);
+  if(!data||!meta){ container.style.display='none'; return; }
+  container.style.display='';
+  var zh = currentLang==='zh';
+  var labels = Object.keys(data);
+  var rows = labels.map(function(label){
+    var d = data[label];
+    return '<tr style="border-bottom:1px solid rgba(0,0,0,0.04)">'+
+      '<td style="padding:7px 14px;font-size:12px;color:var(--header)">'+label+'</td>'+
+      '<td style="text-align:right;padding:7px 10px;font-size:12px;color:var(--muted)">'+(d.low?'$'+Math.round(d.low).toLocaleString():'—')+'</td>'+
+      '<td style="text-align:right;padding:7px 10px;font-size:12px;font-weight:600;color:var(--header)">'+(d.median?'$'+Math.round(d.median).toLocaleString():'—')+'</td>'+
+      '<td style="text-align:right;padding:7px 10px;font-size:12px;color:var(--muted)">'+(d.high?'$'+Math.round(d.high).toLocaleString():'—')+'</td>'+
+      '</tr>';
+  }).join('');
+  container.innerHTML = '<div class="card" style="padding:0;overflow:hidden">'+
+    '<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">'+
+      '<div style="width:8px;height:8px;border-radius:2px;background:#a67c52"></div>'+
+      '<strong style="font-size:13px;color:var(--header)">'+(zh?'Financial Analysis 解析结果':'Financial Analysis — Parsed Data')+'</strong>'+
+      '<span class="badge badge-hellodata" style="margin-left:auto">HelloData</span>'+
+      '<span style="font-size:11px;color:var(--muted)">'+(meta.reportDate||meta.date)+'</span>'+
+    '</div>'+
+    '<div style="overflow-x:auto"><table class="data-table" style="width:100%">'+
+      '<thead><tr>'+
+        '<th style="text-align:left">'+(zh?'项目':'Item')+'</th>'+
+        '<th style="text-align:right">Low</th>'+
+        '<th style="text-align:right">Median</th>'+
+        '<th style="text-align:right">High</th>'+
+      '</tr></thead>'+
+      '<tbody>'+rows+'</tbody>'+
+    '</table></div>'+
+  '</div>';
+}
+
+// HD toggles are now inline per section — this just cleans up any legacy HD header cells
+function _updateHDTableHeaders() {
+  ['pfRevColHdrRow','pfExpColHdrRow'].forEach(function(id){
+    var row = document.getElementById(id);
+    if(row) row.querySelectorAll('.hd-th').forEach(function(el){ el.remove(); });
+  });
+}
+// Module-level source selection: {rev:'t12'|'hd', exp:'t12'|'hd'}
+function getModuleSrc(pid){ try{return JSON.parse(localStorage.getItem('hd_modsrc_'+(pid||currentProjectId))||'null');}catch(e){return null;} }
+function saveModuleSrc(pid,obj){ localStorage.setItem('hd_modsrc_'+pid, JSON.stringify(obj)); }
+function setModuleSrc(mod, src) {
+  var pid = currentProjectId;
+  var sel = getModuleSrc(pid) || {};
+  sel[mod] = src; // mod='rev'|'exp', src='t12'|'hd'
+  saveModuleSrc(pid, sel);
+  buildPFTable();
+}
+window.setModuleSrc = setModuleSrc;
+
+// Build HD line items from parsed HD data
+// Returns array of {label, vals[], isHD:true} + a total row with isTotal:true
+function _buildHDItems(hdData, type, nCols, growthRate) {
+  var labels = type === 'rev' ? HD_INCOME_LABELS : HD_EXPENSE_LABELS;
+  var items = [];
+  labels.forEach(function(label) {
+    var val = _hdVal(hdData, label);
+    if(val === null || val === undefined) return;
+    var vals = new Array(nCols).fill(null);
+    vals[2] = val; // Stab column
+    for(var i = 3; i < nCols; i++) {
+      vals[i] = Math.round(vals[i-1] * growthRate * 100) / 100;
+    }
+    items.push({label: label, vals: vals, isHD: true});
+  });
+  // Total row
+  var totalLabel = type === 'rev' ? 'Effective Gross Income' : 'Total Expenses';
+  var totalFromHD = _hdVal(hdData, totalLabel);
+  // If no explicit HD total, sum from line items
+  var stabTotal = totalFromHD;
+  if(!stabTotal) {
+    stabTotal = 0;
+    items.forEach(function(it){ stabTotal += (it.vals[2] || 0); });
+  }
+  var totVals = new Array(nCols).fill(null);
+  totVals[2] = stabTotal;
+  for(var j = 3; j < nCols; j++) {
+    totVals[j] = Math.round(totVals[j-1] * growthRate * 100) / 100;
+  }
+  var totRowLabel = type === 'rev' ? 'Total Revenue (EGI)' : 'Total Expenses';
+  items.push({label: totRowLabel, vals: totVals, isTotal: true, isHD: true});
+  return items;
+}
+
+// Legacy compat — keep old functions as no-ops
+function getHDSel(pid){ return null; }
+function saveHDSel(pid,sel){ }
+function _getSecSrc(hdSel, secId) { return {src:'t12', val:null}; }
+// ─── END HELLODATA INTEGRATION ────────────────────────────────────────────────
+
 // ─── GL Capital: KPI Dashboard ───────────────────────────────────────────────
 var PF_COLS_FULL = [
-  'NOV2023-OCT2024','NOV2024-OCT2025','NOV2025-OCT2026',
-  'NOV2026-OCT2027','NOV2027-OCT2028','NOV2028-OCT2029','NOV2029-OCT2030'
+  '2023','2024','2025',
+  '2026','2027','2028','2029'
 ];
 
 // Cherry Commons deal-level constants (would come from Selling Model upload in future)
@@ -2118,7 +2396,7 @@ function buildNoiStrip() {
 
   strip.innerHTML = noi.map(function(v, i) {
     var isProj = i >= 3;
-    var isStab = i === 2; // NOV2025-OCT2026
+    var isStab = i === 2; // 2025 (Stab)
     var bar = Math.round((v / maxNoi) * 100);
     var dscr = ds ? (v / ds).toFixed(2) : null;
     var borderL = i > 0 ? 'border-left:1px solid var(--border);' : '';
@@ -2208,6 +2486,25 @@ function saveAssumptions() {
   toast('Assumptions saved — projections updated');
 }
 
+// Render module-level source selector (T12/HD pill toggle) on Revenue/Expenses header
+function _renderModuleSrcBadge(cellId, sectionLabel, mod, currentSrc, hasHD) {
+  var cell = document.getElementById(cellId);
+  if(!cell) return;
+  if(!hasHD) {
+    cell.innerHTML = sectionLabel;
+    return;
+  }
+  var t12Active = currentSrc === 't12';
+  var hdActive = currentSrc === 'hd';
+  var pills = '<span style="display:inline-flex;margin-left:12px;border-radius:5px;overflow:hidden;border:1px solid rgba(0,0,0,0.1);vertical-align:middle">'
+    +'<button onclick="event.stopPropagation();setModuleSrc(\''+mod+'\',\'t12\')" style="border:none;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.03em;'
+      +(t12Active ? 'background:#8b7355;color:#fff;' : 'background:rgba(0,0,0,0.03);color:#999;')+'">T12</button>'
+    +'<button onclick="event.stopPropagation();setModuleSrc(\''+mod+'\',\'hd\')" style="border:none;border-left:1px solid rgba(0,0,0,0.08);padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.03em;'
+      +(hdActive ? 'background:#1a3a5c;color:#fff;' : 'background:rgba(0,0,0,0.03);color:#999;')+'">HD</button>'
+    +'</span>';
+  cell.innerHTML = sectionLabel + pills;
+}
+
 function buildPFTable(){
   var pfEmpty  = document.getElementById('pfEmptyState');
   var pfRevBody = document.getElementById('pfRevBody');
@@ -2216,7 +2513,7 @@ function buildPFTable(){
   if(!pfRevBody) return;
 
   var pf = PF_DATA;
-  // 7 columns: 6 from PF_DATA + appended NOV2029-OCT2030 (extrapolated)
+  // 7 columns: 6 from PF_DATA + appended 2029 (extrapolated)
   var nCols = 7;
 
   // Read per-project assumptions (fallback to 3%)
@@ -2276,66 +2573,154 @@ function buildPFTable(){
   }
 
   // ── SHARED ACCORDION RENDERER ────────────────────────────────────
-  function buildAccordion(items, projectFn) {
+
+  // Check if a row has manual overrides in pfOverrides
+  // Returns map of {colIndex: overrideValue} or null if no overrides
+  function _getRowOverrides(label) {
+    var sanitized = (label||'').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    var overrides = {};
+    var hasAny = false;
+    for(var i = 0; i < nCols; i++) {
+      var ov = pfOverrides[sanitized + '_' + i];
+      if(ov) { overrides[i] = ov.value; hasAny = true; }
+    }
+    return hasAny ? overrides : null;
+  }
+
+  // Apply overrides to a vals array, returns new array
+  function _applyOverrides(vals, overrides) {
+    if(!overrides) return vals;
+    var out = vals.slice();
+    for(var ci in overrides) { out[parseInt(ci)] = overrides[ci]; }
+    return out;
+  }
+
+  // Generate source tag HTML for a row
+  var _tagT12Style = 'color:#8b7355;background:rgba(139,115,85,0.08);';
+  var _tagHDStyle  = 'color:#1a3a5c;background:rgba(26,58,92,0.08);';
+  var _tagManStyle = 'color:#8b6a2e;background:rgba(139,106,46,0.10);';
+  function _srcTag(label, style) {
+    return '<span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:2px;padding:1px 4px;margin-right:6px;vertical-align:middle;'+style+'">'+label+'</span>';
+  }
+
+  // buildAccordion: renders Revenue or Expenses table rows
+  // items: array from PF_DATA (T12 mode) or from _buildHDItems (HD mode)
+  // projectFn: function to project values forward
+  // moduleSrc: 't12' or 'hd'
+  // Returns {html: string, totals: array} — totals is the computed total vals
+  function buildAccordion(items, projectFn, moduleSrc) {
     var rows = '';
-    var sections = [];
-    var currentSec = null;
     var totalRow = null;
     var pctRow = null;
+    var isHDMode = moduleSrc === 'hd';
 
-    items.forEach(function(r) {
-      if(r.isSectionHdr) {
-        currentSec = {secId: r.secId || ('sec-'+r.label.replace(/\W+/g,'-').toLowerCase()), label: r.label, items: []};
-        sections.push(currentSec);
-      } else if(r.isTotal) {
-        totalRow = r;
-      } else if(r.isPct) {
-        pctRow = r;
-      } else if(!r.isSubtotal) {
-        if(currentSec) currentSec.items.push(r);
-      }
-    });
+    // Base tag for this mode
+    var baseTag = isHDMode ? 'HD' : 'T12';
+    var baseTagStyle = isHDMode ? _tagHDStyle : _tagT12Style;
 
-    sections.forEach(function(sec) {
-      // compute subtotals across projected columns
-      var subtotals = [];
-      sec.items.forEach(function(item) {
-        var pv = projectFn(item.vals, item.label);
-        pv.forEach(function(v, i){ subtotals[i] = (subtotals[i]||0) + (v||0); });
+    if(isHDMode) {
+      // ── HD MODE: flat list, no accordion sections ──
+      var hdLineItems = items.filter(function(r){ return !r.isTotal && !r.isPct; });
+      totalRow = items.find(function(r){ return r.isTotal; });
+
+      hdLineItems.forEach(function(item, idx) {
+        var vals = item.vals;
+        var ov = _getRowOverrides(item.label);
+        var effectiveVals = _applyOverrides(vals, ov);
+        var isManual = !!ov;
+        var tag = isManual ? _srcTag('Manual', _tagManStyle) : _srcTag(baseTag, baseTagStyle);
+        var bg = idx % 2 === 1 ? 'background:rgba(0,0,0,0.014);' : '';
+        rows += '<tr style="'+bg+'border-bottom:1px solid rgba(0,0,0,0.04)">'
+          +'<td style="padding:7px 14px;font-size:12px;color:var(--body)">'+tag+item.label+'</td>'
+          +'<td style="padding:7px 8px"></td>'
+          +makeCells(effectiveVals, false, false, false, item.label)+'</tr>';
       });
-      while(subtotals.length < nCols) subtotals.push(0);
-      var hasData = subtotals.some(function(v){ return Math.abs(v) > 0.01; });
-      var isOpen = hasData;
-
-      var subtotalCells = subtotals.map(function(v, ci) {
-        var borderL = ci===3 ? 'border-left:2px solid rgba(74,124,89,0.2);' : '';
-        var bg = ci>=3 ? 'background:rgba(74,124,89,0.04);' : '';
-        return '<td style="padding:8px 8px;text-align:right;font-size:11px;font-weight:600;color:var(--header);opacity:.8;'+bg+borderL+'">'+fmtNum(v)+'</td>';
-      }).join('');
-
-      rows += '<tr class="pf-sec-hdr'+(isOpen?' open':'')
-        +'" data-secid="'+sec.secId+'" onclick="togglePFSec(\''+sec.secId+'\')">'
-        +'<td style="padding:8px 14px;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)">'
-        +'<span class="pf-chevron">&#9654;</span> '+sec.label+'</td>'
-        +'<td style="padding:8px 8px"></td>'
-        +subtotalCells+'</tr>';
-
-      sec.items.forEach(function(item, idx) {
-        var vals = projectFn(item.vals, item.label);
-        var bg = idx%2===1 ? 'background:rgba(0,0,0,0.014);' : '';
-        rows += '<tr class="pf-si pf-si-'+sec.secId+(isOpen?'':' pf-si-hidden')+'" style="'+bg+'border-bottom:1px solid rgba(0,0,0,0.04)">'
-          +'<td style="padding:6px 14px 6px 30px;font-size:12px;color:var(--body)">'+item.label+'</td>'
-          +'<td style="padding:6px 8px"></td>'
-          +makeCells(vals, false, false, false, item.label)+'</tr>';
+    } else {
+      // ── T12 MODE: accordion with sections ──
+      var sections = [];
+      var currentSec = null;
+      items.forEach(function(r) {
+        if(r.isSectionHdr) {
+          currentSec = {secId: r.secId || ('sec-'+r.label.replace(/\W+/g,'-').toLowerCase()), label: r.label, items: []};
+          sections.push(currentSec);
+        } else if(r.isTotal) { totalRow = r; }
+        else if(r.isPct) { pctRow = r; }
+        else if(!r.isSubtotal && currentSec) { currentSec.items.push(r); }
       });
-    });
 
+      sections.forEach(function(sec) {
+        // Section subtotals (with overrides applied)
+        var sub = [];
+        var secHasManual = false;
+        sec.items.forEach(function(item) {
+          var pv = projectFn(item.vals, item.label);
+          var ov = _getRowOverrides(item.label);
+          var ev = _applyOverrides(pv, ov);
+          if(ov) secHasManual = true;
+          ev.forEach(function(v, i){ sub[i] = (sub[i]||0) + (v||0); });
+        });
+        while(sub.length < nCols) sub.push(0);
+        var hasData = sub.some(function(v){ return Math.abs(v) > 0.01; });
+        var isOpen = hasData;
+
+        // Section header tag: Manual if any row in section was manually edited
+        var secTag = secHasManual ? _srcTag('Manual', _tagManStyle) : '';
+
+        var subtotalCells = sub.map(function(v, ci) {
+          var borderL = ci===3 ? 'border-left:2px solid rgba(74,124,89,0.2);' : '';
+          var cellBg = ci>=3 ? 'background:rgba(74,124,89,0.04);' : '';
+          return '<td style="padding:8px 8px;text-align:right;font-size:11px;font-weight:600;color:var(--header);opacity:.8;'+cellBg+borderL+'">'+fmtNum(v)+'</td>';
+        }).join('');
+
+        rows += '<tr class="pf-sec-hdr'+(isOpen?' open':'')
+          +'" data-secid="'+sec.secId+'" onclick="togglePFSec(\''+sec.secId+'\')">'
+          +'<td style="padding:8px 14px;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)">'
+          +'<span class="pf-chevron">&#9654;</span> '+sec.label+secTag+'</td>'
+          +'<td style="padding:8px 8px"></td>'
+          +subtotalCells+'</tr>';
+
+        // Sub-items
+        sec.items.forEach(function(item, idx) {
+          var vals = projectFn(item.vals, item.label);
+          var ov = _getRowOverrides(item.label);
+          var effectiveVals = _applyOverrides(vals, ov);
+          var isManual = !!ov;
+          var tag = isManual ? _srcTag('Manual', _tagManStyle) : _srcTag(baseTag, baseTagStyle);
+          var bg = idx%2===1 ? 'background:rgba(0,0,0,0.014);' : '';
+          rows += '<tr class="pf-si pf-si-'+sec.secId+(isOpen?'':' pf-si-hidden')+'" style="'+bg+'border-bottom:1px solid rgba(0,0,0,0.04)">'
+            +'<td style="padding:6px 14px 6px 28px;font-size:12px;color:var(--body);">'+tag+item.label+'</td>'
+            +'<td style="padding:6px 8px"></td>'
+            +makeCells(effectiveVals, false, false, false, item.label)+'</tr>';
+        });
+      });
+    }
+
+    // ── Total row ──
+    var computedTotals = new Array(nCols).fill(0);
     if(totalRow) {
-      var tVals = projectFn(totalRow.vals, totalRow.label);
+      if(isHDMode) {
+        // HD: start from HD total, apply any overrides on line items
+        var hdLines = items.filter(function(r){ return !r.isTotal && !r.isPct; });
+        hdLines.forEach(function(item) {
+          var ov = _getRowOverrides(item.label);
+          var ev = _applyOverrides(item.vals, ov);
+          ev.forEach(function(v, i){ computedTotals[i] += (v||0); });
+        });
+      } else {
+        // T12: sum all line items with overrides
+        var allItems = [];
+        items.forEach(function(r){ if(!r.isSectionHdr && !r.isTotal && !r.isPct && !r.isSubtotal) allItems.push(r); });
+        allItems.forEach(function(item) {
+          var pv = projectFn(item.vals, item.label);
+          var ov = _getRowOverrides(item.label);
+          var ev = _applyOverrides(pv, ov);
+          ev.forEach(function(v, i){ computedTotals[i] += (v||0); });
+        });
+      }
       rows += '<tr style="background:rgba(74,124,89,0.12);border-top:2px solid rgba(74,124,89,0.3);border-bottom:1px solid var(--border)">'
         +'<td style="padding:9px 14px;font-size:12px;font-weight:800;color:var(--green)">'+totalRow.label+'</td>'
         +'<td style="padding:9px 8px"></td>'
-        +makeCells(tVals, true, false, true)+'</tr>';
+        +makeCells(computedTotals, true, false, true)+'</tr>';
     }
     if(pctRow) {
       var pVals = projectFn(pctRow.vals, pctRow.label);
@@ -2344,36 +2729,70 @@ function buildPFTable(){
         +'<td style="padding:5px 8px"></td>'
         +makeCells(pVals, false, true, false)+'</tr>';
     }
-    return rows;
+    return {html: rows, totals: computedTotals};
   }
 
+  // ── LOAD OVERRIDES (must happen before buildAccordion) ──────────
+  _loadPFOverrides();
+
+  // ── HD / SOURCE SETUP ────────────────────────────────────────────
+  _refreshHDUploadUI();
+  var hdData = getHDData(currentProjectId);
+  var hasHD = !!hdData;
+  var modSrc = getModuleSrc(currentProjectId) || {};
+  var revSrc = (modSrc.rev === 'hd' && hasHD) ? 'hd' : 't12';
+  var expSrc = (modSrc.exp === 'hd' && hasHD) ? 'hd' : 't12';
+
+  // ── MODULE SOURCE BADGES on section headers ────────────────────
+  _renderModuleSrcBadge('pfRevLabel', 'REVENUE', 'rev', revSrc, hasHD);
+  _renderModuleSrcBadge('pfExpLabel', 'EXPENSES', 'exp', expSrc, hasHD);
+
   // ── REVENUE ─────────────────────────────────────────────────────
-  if(pfRevBody) pfRevBody.innerHTML = buildAccordion(pf.revenue, function(v){ return projectRev(v); });
+  var revItems, revProjFn;
+  if(revSrc === 'hd') {
+    revItems = _buildHDItems(hdData, 'rev', nCols, rentRate);
+    revProjFn = function(v){ return v.slice(); };
+  } else {
+    revItems = pf.revenue;
+    revProjFn = function(v){ return projectRev(v); };
+  }
+  var revOut = buildAccordion(revItems, revProjFn, revSrc);
+  if(pfRevBody) pfRevBody.innerHTML = revOut.html;
 
   // ── EXPENSES ────────────────────────────────────────────────────
-  if(pfExpBody) pfExpBody.innerHTML = buildAccordion(pf.expenses, function(v, lbl){ return projectExp(v, lbl); });
+  var expItems, expProjFn;
+  if(expSrc === 'hd') {
+    expItems = _buildHDItems(hdData, 'exp', nCols, opexRate);
+    expProjFn = function(v){ return v.slice(); };
+  } else {
+    expItems = pf.expenses;
+    expProjFn = function(v, lbl){ return projectExp(v, lbl); };
+  }
+  var expOut = buildAccordion(expItems, expProjFn, expSrc);
+  if(pfExpBody) pfExpBody.innerHTML = expOut.html;
 
-  // ── NET OPERATING INCOME ─────────────────────────────────────────
-  // NOI = Total Revenue - Total Expenses per year
-  var revTotRow = (pf.revenue||[]).find(function(r){return r.isTotal;});
-  var expTotRow = (pf.expenses||[]).find(function(r){return r.isTotal;});
-  var revV = projectRev(revTotRow ? revTotRow.vals : []);
-  var expV = projectExp(expTotRow ? expTotRow.vals : [], 'total_expenses');
-  var noiV = revV.map(function(rv, i){ return Math.round((rv - (expV[i]||0)) * 100)/100; });
+  // ── NET OPERATING INCOME ──────────────────────────────────────
+  var revEffV = revOut.totals;
+  var expEffV = expOut.totals;
+  var noiV = revEffV.map(function(rv, i){ return Math.round((rv - (expEffV[i]||0)) * 100)/100; });
+  var anyHDActive = revSrc === 'hd' || expSrc === 'hd';
 
   var noiCells = noiV.map(function(v, ci) {
     var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
-    var bg = 'background:rgba(74,124,89,0.12);';
+    var isHDNoi = anyHDActive && ci >= 2;
+    var bg = isHDNoi ? 'background:rgba(26,58,92,0.10);' : 'background:rgba(74,124,89,0.12);';
+    var color = isHDNoi ? 'color:#1a5a8a;' : 'color:var(--green);';
     var n = Math.round(v);
     var txt = n < 0 ? '<span style="color:#c0392b">('+Math.abs(n).toLocaleString()+')</span>'
                     : n === 0 ? '<span style="color:var(--muted)">—</span>'
                     : n.toLocaleString();
-    return '<td style="padding:10px 8px;text-align:right;font-size:12px;font-weight:700;color:var(--green);'+bg+borderL+'">'+txt+'</td>';
+    return '<td style="padding:10px 8px;text-align:right;font-size:12px;font-weight:700;'+color+bg+borderL+'">'+txt+'</td>';
   }).join('');
 
   if(pfNoiBody) pfNoiBody.innerHTML =
-    '<tr style="background:rgba(74,124,89,0.12);border-bottom:2px solid rgba(74,124,89,0.3)">'+
-      '<td style="padding:10px 14px;font-size:12px;font-weight:800;color:var(--green)">Net Operating Income</td>'+
+    '<tr style="background:'+(anyHDActive?'rgba(26,58,92,0.08)':'rgba(74,124,89,0.12)')+';border-bottom:2px solid rgba(74,124,89,0.3)">'+
+      '<td style="padding:10px 14px;font-size:12px;font-weight:800;color:'+(anyHDActive?'#1a5a8a':'var(--green)')+'">Net Operating Income'
+      +(anyHDActive?' <span style="font-size:9px;font-weight:600;color:#5a8ab5;margin-left:4px">HD-adjusted</span>':'')+'</td>'+
       '<td style="padding:10px 8px"></td>'+
       noiCells+
     '</tr>';
@@ -2391,7 +2810,7 @@ function buildPFTable(){
     var cf6   = [-10651,    72586,   109984,   106016, 121711, 138116];
     var dscr6 = [null,      null,    null,      1.49,   1.56,   1.63  ];
 
-    // 7th col (NOV2029-OCT2030): recompute from assumptions for CF & DSCR
+    // 7th col (2029): recompute from assumptions for CF & DSCR
     var revTot7 = [541081.37,542778.28,603232.01,603400.97,627479.00,652518.40];
     var expTot7 = [350171.35,248318.53,271298.1, 279437.04,287820.15,296454.76];
     while(revTot7.length < 7){ var lr7=revTot7[revTot7.length-1]; revTot7.push(Math.round(lr7*rentRate2)); }
@@ -3591,6 +4010,10 @@ function switchProjTab(tab, btn){
   }
   if(tab==='rentroll'){
     if(proj){ _updateRRUI(proj); renderRRParsed(proj); renderRentRoll(); }
+  }
+  if(tab==='hellodata'){
+    _refreshHDUploadUI();
+    _renderHDParsedContent();
   }
 }
 
@@ -5804,6 +6227,7 @@ document.addEventListener('DOMContentLoaded', function setupListeners() {
   on('#ptab-proforma', 'click', function(event) { switchProjTab('proforma', document.getElementById('ptab-proforma')); });
   on('#ptab-files', 'click', function(event) { switchProjTab('files',    document.getElementById('ptab-files')); });
   on('#ptab-rentroll', 'click', function(event) { switchProjTab('rentroll', document.getElementById('ptab-rentroll')); });
+  on('#ptab-hellodata', 'click', function(event) { switchProjTab('hellodata', document.getElementById('ptab-hellodata')); });
   on('#ptab-debt', 'click', function(event) { switchProjTab('debt',     document.getElementById('ptab-debt')); });
   on('#t12UploadBtn', 'click', function(event) { document.getElementById('t12Input').click(); });
   on('#t12DeleteBtn', 'click', function(event) { deleteT12(); });
@@ -5988,7 +6412,7 @@ function downloadOriginalFile(){
 
 // ─── Tab Red Dot Indicators ────────────────────────────────────────────────
 function updateTabDots(){
-  var proj = currentProject && PROJECTS.find(function(p){ return p.id===currentProject; });
+  var proj = currentProjectId && getProjects().find(function(p){ return p.id===currentProjectId; });
   var files = (proj&&proj.files)||[];
   var hasT12 = files.some(function(f){ return ['T12','Selling Model'].includes(f.parsedAs||f.type); });
   var hasRR  = files.some(function(f){ return ['Rent Roll'].includes(f.parsedAs||f.type); });
@@ -6290,7 +6714,7 @@ function pfRowAdd(section, secId){
     _pcrLoad(); var pid=currentProjectId||'default';
     (_pcrGet(pid,section).adds||[]).filter(function(a){return a.isSectionHdr;}).forEach(function(a){sections.push({label:a.label,secId:a.secId});});
   }
-  var colLabels=PF_DATA.cols?PF_DATA.cols.concat(['NOV2029-OCT2030']):['Y1','Y2','Y3','Y4','Y5','Y6','Y7'];
+  var colLabels=PF_DATA.cols?PF_DATA.cols.concat(['2029']):['Y1','Y2','Y3','Y4','Y5','Y6','Y7'];
 
   // Build modal HTML as DOM to avoid escaping issues
   var wrap=document.createElement('div');

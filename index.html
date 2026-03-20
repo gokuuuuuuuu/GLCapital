@@ -202,6 +202,11 @@
       <span data-en="Rent Roll" data-zh="租户清单">Rent Roll</span>
       <span class="tab-dot" id="tabdot-rr"></span>
     </button>
+    <button class="proj-tab" id="ptab-hellodata">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <span data-en="HelloData" data-zh="HelloData">HelloData</span>
+      <span class="tab-dot" id="tabdot-hd"></span>
+    </button>
     <button class="proj-tab" id="ptab-debt">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
       <span data-en="Debt Analysis" data-zh="债务分析">Debt Analysis</span>
@@ -470,6 +475,9 @@
 
 </div>
 <div id="pfsp-pf-revexp" style="display:none">
+
+        <!-- HD upload moved to HelloData tab -->
+
         <!-- ── REVENUE card ─────────────────────────────────────── -->
         <div id="pfTableWrap" class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)">
           <div style="overflow-x:auto">
@@ -477,21 +485,21 @@
               <thead>
                 <!-- Section label row -->
                 <tr style="background:rgba(74,124,89,0.18);border-bottom:1px solid rgba(74,124,89,0.3)">
-                  <td colspan="2" style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--green)">REVENUE</td>
+                  <td id="pfRevLabel" colspan="2" style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--green)">REVENUE</td>
                   <td style="padding:8px 8px;text-align:right;font-size:11px;font-weight:600;color:var(--muted)">Stabilized</td>
                   <td colspan="6"></td>
                 </tr>
                 <!-- Year header row -->
-                <tr style="background:rgba(74,124,89,0.10);border-bottom:2px solid rgba(74,124,89,0.25)">
+                <tr id="pfRevColHdrRow" style="background:rgba(74,124,89,0.10);border-bottom:2px solid rgba(74,124,89,0.25)">
                   <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:200px">Year</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--muted);white-space:nowrap">Per Unit</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2023-OCT2024</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2024-OCT2025</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2025-OCT2026</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">NOV2026-OCT2027</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2027-OCT2028</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2028-OCT2029</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2029-OCT2030</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2023</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2024</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2025</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">2026</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2027</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2028</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2029</th>
                 </tr>
               </thead>
               <tbody id="pfRevBody"><tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Rent Income</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">536,298</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">536,298</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">597,600</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">597,600</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">621,504</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">646,364</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">665,755</td></tr>
@@ -518,21 +526,21 @@
               <thead>
                 <!-- Section label row -->
                 <tr style="background:rgba(74,124,89,0.18);border-bottom:1px solid rgba(74,124,89,0.3)">
-                  <td colspan="2" style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--green)">EXPENSES</td>
+                  <td id="pfExpLabel" colspan="2" style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--green)">EXPENSES</td>
                   <td style="padding:8px 8px;text-align:right;font-size:11px;font-weight:600;color:var(--muted)">Stabilized</td>
                   <td colspan="6"></td>
                 </tr>
                 <!-- Year header row -->
-                <tr style="background:rgba(74,124,89,0.10);border-bottom:2px solid rgba(74,124,89,0.25)">
+                <tr id="pfExpColHdrRow" style="background:rgba(74,124,89,0.10);border-bottom:2px solid rgba(74,124,89,0.25)">
                   <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:200px"></th>
                   <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--muted);white-space:nowrap">Per Unit</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2023-OCT2024</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2024-OCT2025</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2025-OCT2026</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">NOV2026-OCT2027</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2027-OCT2028</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2028-OCT2029</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2029-OCT2030</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2023</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2024</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2025</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">2026</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2027</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2028</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2029</th>
                 </tr>
               </thead>
               <tbody id="pfExpBody"><tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Cleaning and Janitorial Expense</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">1,475</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">2,862</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">2,168</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">2,234</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">2,301</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">2,370</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">2,441</td></tr>
@@ -586,13 +594,13 @@
                 <tr style="background:rgba(74,124,89,0.10);border-bottom:2px solid rgba(74,124,89,0.25)">
                   <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:200px"></th>
                   <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--muted)"></th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2023-OCT2024</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2024-OCT2025</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2025-OCT2026</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">NOV2026-OCT2027</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2027-OCT2028</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2028-OCT2029</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2029-OCT2030</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2023</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2024</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2025</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">2026</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2027</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2028</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2029</th>
                 </tr>
               </thead>
               <tbody id="pfNoiBody"><tr style="background:rgba(74,124,89,0.14);border-bottom:2px solid rgba(74,124,89,0.35)"><td style="padding:10px 14px;font-size:12px;font-weight:800;color:var(--green)">Net Operating Income</td><td style="padding:10px 8px"></td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);">190,910</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);">294,460</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);">331,934</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);background:rgba(74,124,89,0.08);border-left:2px solid rgba(74,124,89,0.25);">323,964</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);background:rgba(74,124,89,0.08);">339,659</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);background:rgba(74,124,89,0.08);">356,064</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);background:rgba(74,124,89,0.08);">366,746</td></tr></tbody>
@@ -611,13 +619,13 @@
                 </tr>
                 <tr style="background:rgba(74,101,133,0.07);border-bottom:2px solid rgba(74,101,133,0.2)">
                   <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:200px">Line Item</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2023-OCT2024</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2024-OCT2025</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2025-OCT2026</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,101,133,0.25)">NOV2026-OCT2027</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2027-OCT2028</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2028-OCT2029</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">NOV2029-OCT2030</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2023</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2024</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2025</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,101,133,0.25)">2026</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2027</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2028</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2029</th>
                 </tr>
               </thead>
               <tbody id="pfCfBody"><tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--muted);font-style:italic;background:rgba(0,0,0,0.015);padding-left:24px;">Adjustment</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:#c0392b">(17,783)</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">2,530</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">2,606</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td></tr>
@@ -856,13 +864,13 @@
       <thead>
         <tr style="background:rgba(74,124,89,0.08);border-bottom:2px solid rgba(74,124,89,0.2)">
           <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:280px">Year</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">NOV2023-OCT2024</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">NOV2024-OCT2025</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">NOV2025-OCT2026</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px;border-left:2px solid rgba(74,101,133,0.25)">NOV2026-OCT2027</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">NOV2027-OCT2028</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">NOV2028-OCT2029</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">NOV2029-OCT2030</th>
+          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">2023</th>
+          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">2024</th>
+          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">2025</th>
+          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px;border-left:2px solid rgba(74,101,133,0.25)">2026</th>
+          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">2027</th>
+          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">2028</th>
+          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">2029</th>
         </tr>
       </thead>
       <tbody id="wfBody">
@@ -1161,6 +1169,47 @@
     </div>
   </div>
 
+<!-- HELLODATA TAB -->
+  <div id="proj-tab-hellodata" class="proj-tab-content" style="display:none">
+    <div style="margin-top:var(--gap)">
+      <!-- HelloData Header Card -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:46px;height:46px;border-radius:12px;background:rgba(166,124,82,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#a67c52" stroke-width="1.8" style="width:22px;height:22px"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <div>
+              <div style="font-size:16px;font-weight:800;color:var(--header)" data-en="HelloData — Market Benchmark" data-zh="HelloData — 市场基准数据">HelloData — Market Benchmark</div>
+              <div id="hdFileInfo" style="font-size:12px;color:var(--muted);margin-top:3px" data-en="No file uploaded · Async export (.xlsx)" data-zh="未上传文件 · 异步导出数据集(.xlsx)">No file uploaded · Async export (.xlsx)</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-secondary btn-sm" id="hdUploadBtn" onclick="document.getElementById('hdFileInput').click()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span id="hdUploadBtnLabel" data-en="Upload HelloData" data-zh="上传HelloData">Upload HelloData</span>
+            </button>
+            <button class="btn btn-ghost btn-sm" id="hdDeleteBtn" style="display:none;color:var(--red,#c0392b)" title="Remove" onclick="clearHDData()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            </button>
+            <input type="file" id="hdFileInput" accept=".xlsx" style="display:none" onchange="handleHDUpload(event)">
+          </div>
+        </div>
+        <!-- Drop zone -->
+        <div id="hdDropZone" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s"
+          ondragover="event.preventDefault();this.style.borderColor='#a67c52'"
+          ondragleave="this.style.borderColor='var(--border)'"
+          ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleHDDrop(event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#a67c52" stroke-width="1.4" style="width:36px;height:36px;margin:0 auto 10px;display:block"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div style="font-size:13px;font-weight:600;color:var(--header);margin-bottom:4px" data-en="Drop HelloData export here" data-zh="拖拽HelloData导出文件到此">Drop HelloData export here</div>
+          <div style="font-size:11px;color:var(--muted)">.xlsx · Async export from HelloData</div>
+        </div>
+      </div>
+      <!-- HelloData Parsed Content (shown after upload) -->
+      <div id="hdParsedContent" style="display:none"></div>
+    </div>
+  </div>
+
 <!-- DEBT ANALYSIS TAB -->
   <div id="proj-tab-debt" class="proj-tab-content" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;margin-top:4px">
@@ -1323,7 +1372,8 @@
 </main>
 </div>
 
-<script src="app.js?v=20260319f"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="app.js?v=20260319g"></script>
 
 <!-- ─── REJECT MODAL ─────────────────────────────────────────────────────── -->
 <div id="rejectModal" style="display:none;position:fixed;inset:0;z-index:3000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(4px)">
