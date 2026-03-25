@@ -264,7 +264,7 @@ const PF_DATA = {
   unitMix: [
     {type:'1BR',       units:9,  beds:1, sqft:540,  asIsRent:1490, growthRent:1500, asIsAnnual:160920, projAnnual:162000},
     {type:'2BR',       units:15, beds:2, sqft:840,  asIsRent:1850, growthRent:1990, asIsAnnual:333000, projAnnual:358200},
-    {type:'2BR Deluxe',units:3,  beds:2, sqft:null, asIsRent:1950, growthRent:2150, asIsAnnual:70200,  projAnnual:77400},
+    {type:'2BR Deluxe',units:3,  beds:2, sqft:960,  asIsRent:1950, growthRent:2150, asIsAnnual:70200,  projAnnual:77400},
     {type:'Total',units:27,isTotal:true,                                             asIsAnnual:564120, projAnnual:597600},
   ],
 };
@@ -684,6 +684,25 @@ function initProjects(){
     var patched = false;
     projs.forEach(function(p){ if(!p.files){ p.files=[]; patched=true; } });
     if(patched){ _lsSet(PROJECTS_KEY, JSON.stringify(projs)); }
+  }
+  // Seed HD Unit Mix demo data for Cherry Commons (p1) — simulates HD async dataset upload
+  if(!localStorage.getItem('hd_umix_p1')){
+    var hdUmixDemo = [
+      {beds:1, floorplan:'1 Bedroom',    units:9,  sqft:540,  leasedRent:1560, ner:1490, activeRent:1620, activeNer:1550, rent30:1580, ner30:1510, rent60:1545, ner60:1475, rent90:1530, ner90:1460, psf:2.89, activeListings:1, dom:18},
+      {beds:2, floorplan:'2 Bedroom',    units:15, sqft:840,  leasedRent:2050, ner:1980, activeRent:2120, activeNer:2040, rent30:2080, ner30:2010, rent60:2030, ner60:1960, rent90:2000, ner90:1930, psf:2.44, activeListings:2, dom:14},
+      {beds:2, floorplan:'2BR Deluxe',   units:3,  sqft:960,  leasedRent:2280, ner:2200, activeRent:2350, activeNer:2270, rent30:2300, ner30:2220, rent60:2250, ner60:2170, rent90:2220, ner90:2140, psf:2.38, activeListings:0, dom:10},
+    ];
+    localStorage.setItem('hd_umix_p1', JSON.stringify(hdUmixDemo));
+    localStorage.setItem('hd_umix_hidden_p1', '0');
+  }
+  if(!localStorage.getItem('hd_meta_p1')){
+    localStorage.setItem('hd_meta_p1', JSON.stringify({
+      fileName:'Cherry Commons-03-15-2026.xlsx',
+      date:'2026-03-20',
+      reportDate:'2026-03-15',
+      rows:12,
+      umixRows:4
+    }));
   }
 }
 // Safe storage wrappers (handles SecurityError in sandboxed iframes)
@@ -2148,6 +2167,128 @@ function _parseHelloDataFA(arrayBuffer) {
   return Object.keys(result).length ? result : null;
 }
 
+// ── HelloData Unit Mix Parser ─────────────────────────────────────
+function getHDUnitMix(pid){ try{return JSON.parse(localStorage.getItem('hd_umix_'+(pid||currentProjectId))||'null');}catch(e){return null;} }
+function _saveHDUnitMix(pid,d){ localStorage.setItem('hd_umix_'+pid, JSON.stringify(d)); }
+function isHDUmixHidden(pid){ return localStorage.getItem('hd_umix_hidden_'+(pid||currentProjectId))==='1'; }
+function setHDUmixHidden(pid,v){ localStorage.setItem('hd_umix_hidden_'+(pid||currentProjectId), v?'1':'0'); }
+
+function _extractSubjectName(fileName) {
+  // "Cedar Run Apartments-05-08-2025.xlsx" → "Cedar Run Apartments"
+  var base = fileName.replace(/\.\w+$/, ''); // remove extension
+  // Remove trailing date patterns: -MM-DD-YYYY or -YYYY-MM-DD
+  base = base.replace(/-\d{2}-\d{2}-\d{4}$/, '');
+  base = base.replace(/-\d{4}-\d{2}-\d{2}$/, '');
+  return base.trim();
+}
+
+function _parseHelloDataUnitMix(arrayBuffer, fileName) {
+  if(typeof XLSX === 'undefined') return null;
+  var wb = XLSX.read(new Uint8Array(arrayBuffer), {type:'array'});
+  var ws = wb.Sheets['Unit Mix'];
+  if(!ws) return null;
+  var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  if(!rows || rows.length < 7) return null;
+
+  // Find header row (usually row 6, index 5) — look for "Beds" in columns
+  var headerIdx = -1;
+  for(var h=0; h<Math.min(rows.length, 10); h++){
+    var row = rows[h];
+    if(!row) continue;
+    for(var c=0; c<row.length; c++){
+      if(row[c] && typeof row[c]==='string' && /^beds$/i.test(row[c].trim())){
+        headerIdx = h; break;
+      }
+    }
+    if(headerIdx >= 0) break;
+  }
+  if(headerIdx < 0) return null;
+
+  // Map column indices
+  var hdr = rows[headerIdx];
+  var colMap = {};
+  var colNames = {
+    'property name':'propName', 'property':'propName',
+    'floorplan name':'floorplan', 'floorplan':'floorplan',
+    'beds':'beds', 'baths':'baths',
+    '# units':'units', 'units':'units',
+    'sqft':'sqft', 'sq ft':'sqft',
+    'rent (leased)':'leasedRent', 'rent':'leasedRent',
+    'psf':'psf',
+    'ner':'ner',
+    'ner psf':'nerPsf',
+    '# active listings':'activeListings', 'active listings':'activeListings',
+    'active listing rent':'activeRent',
+    'active ner':'activeNer',
+    'days on mkt':'dom', 'days on market':'dom'
+  };
+  // 30/60/90-day columns use pattern matching below
+  for(var ci=0; ci<hdr.length; ci++){
+    if(!hdr[ci] || typeof hdr[ci]!=='string') continue;
+    var normalized = hdr[ci].trim().toLowerCase();
+    if(colNames[normalized]) colMap[colNames[normalized]] = ci;
+    // Pattern match 30/60/90 day columns
+    if(/30.day.*leased.*rent/i.test(normalized) && !colMap.rent30) colMap.rent30 = ci;
+    if(/30.day.*ner/i.test(normalized) && !colMap.ner30) colMap.ner30 = ci;
+    if(/60.day.*leased.*rent/i.test(normalized) && !colMap.rent60) colMap.rent60 = ci;
+    if(/60.day.*ner/i.test(normalized) && !colMap.ner60) colMap.ner60 = ci;
+    if(/90.day.*leased.*rent/i.test(normalized) && !colMap.rent90) colMap.rent90 = ci;
+    if(/90.day.*ner/i.test(normalized) && !colMap.ner90) colMap.ner90 = ci;
+  }
+  if(colMap.beds === undefined) return null;
+
+  // Extract subject property name from filename
+  var subjectName = _extractSubjectName(fileName || '');
+
+  // Parse data rows — filter for subject property
+  var dataRows = [];
+  for(var di=headerIdx+1; di<rows.length; di++){
+    var dr = rows[di];
+    if(!dr) continue;
+    // Filter by property name if we have the column and a subject name
+    if(colMap.propName !== undefined && subjectName) {
+      var pName = dr[colMap.propName];
+      if(!pName || typeof pName !== 'string') continue;
+      // Fuzzy match: check if subject name is contained in property name or vice versa
+      var pLower = pName.trim().toLowerCase();
+      var sLower = subjectName.toLowerCase();
+      if(pLower.indexOf(sLower) < 0 && sLower.indexOf(pLower) < 0) continue;
+    }
+    var beds = dr[colMap.beds];
+    if(beds === null || beds === undefined || beds === '') continue;
+    beds = parseInt(beds, 10);
+    if(isNaN(beds)) continue;
+
+    function _pf(col){ return col !== undefined ? (parseFloat(dr[col])||0) : 0; }
+    function _pi(col){ return col !== undefined ? (parseInt(dr[col],10)||0) : 0; }
+    dataRows.push({
+      beds: beds,
+      floorplan: colMap.floorplan !== undefined ? (dr[colMap.floorplan]||'') : '',
+      units: _pi(colMap.units),
+      sqft: _pi(colMap.sqft),
+      leasedRent: _pf(colMap.leasedRent),
+      ner: _pf(colMap.ner),
+      activeRent: _pf(colMap.activeRent),
+      activeNer: _pf(colMap.activeNer),
+      rent30: _pf(colMap.rent30), ner30: _pf(colMap.ner30),
+      rent60: _pf(colMap.rent60), ner60: _pf(colMap.ner60),
+      rent90: _pf(colMap.rent90), ner90: _pf(colMap.ner90),
+      psf: _pf(colMap.psf),
+      activeListings: _pi(colMap.activeListings),
+      dom: _pf(colMap.dom),
+    });
+  }
+  if(!dataRows.length) return null;
+
+  // If no property name filter was applied (no column or no filename),
+  // take only the first property's rows
+  if(colMap.propName === undefined || !subjectName) {
+    // Just return all rows — user likely only has subject data
+  }
+
+  return dataRows;
+}
+
 // Find HD value by partial label match → returns number or null
 function _hdVal(data, searchLabel) {
   if(!data || !searchLabel) return null;
@@ -2199,19 +2340,29 @@ function handleHDUpload(evt) {
   reader.onload = function(e){
     try{
       var parsed = _parseHelloDataFA(e.target.result);
-      if(!parsed){ toast('Financial Analysis sheet not found in this file','error'); return; }
+      var umix = _parseHelloDataUnitMix(e.target.result, file.name);
+      if(!parsed && !umix){ toast('No Financial Analysis or Unit Mix sheet found','error'); return; }
       var reportDate = _extractHDReportDate(file.name) || new Date().toISOString().slice(0,10);
-      _saveHDData(pid, parsed);
+      if(parsed) _saveHDData(pid, parsed);
+      if(umix){
+        _saveHDUnitMix(pid, umix);
+        setHDUmixHidden(pid, false); // reset hidden on new upload
+      }
       _saveHDMeta(pid, {
         fileName: file.name,
         date: new Date().toISOString().slice(0,10),
         reportDate: reportDate,
-        rows: Object.keys(parsed).length
+        rows: parsed ? Object.keys(parsed).length : 0,
+        umixRows: umix ? umix.length : 0
       });
       _refreshHDUploadUI();
       _renderHDParsedContent();
       buildPFTable();
-      toast('HelloData loaded · '+Object.keys(parsed).length+' rows · Report: '+reportDate, 'success');
+      buildPFUnitMix();
+      var parts = [];
+      if(parsed) parts.push(Object.keys(parsed).length+' FA rows');
+      if(umix) parts.push(umix.length+' unit types');
+      toast('HelloData loaded · '+parts.join(' · ')+' · Report: '+reportDate, 'success');
     }catch(err){ toast('Parse error: '+err.message,'error'); }
     if(evt.target && evt.target.value) evt.target.value='';
   };
@@ -2225,9 +2376,12 @@ function clearHDData(){
   localStorage.removeItem('hd_meta_'+pid);
   localStorage.removeItem('hd_sel_'+pid);
   localStorage.removeItem('hd_modsrc_'+pid);
+  localStorage.removeItem('hd_umix_'+pid);
+  localStorage.removeItem('hd_umix_hidden_'+pid);
   _refreshHDUploadUI();
   _renderHDParsedContent();
   buildPFTable();
+  buildPFUnitMix();
   toast(currentLang==='zh'?'HelloData 数据已移除':'HelloData removed');
 }
 window.clearHDData = clearHDData;
@@ -2505,12 +2659,474 @@ function _renderModuleSrcBadge(cellId, sectionLabel, mod, currentSrc, hasHD) {
   cell.innerHTML = sectionLabel + pills;
 }
 
+// ── DATA SOURCE COLOR SYSTEM ───────────────────────────────────────
+var DS_COLORS = {
+  t12:      { tag:'#2E7D32', tagBg:'rgba(46,125,50,0.08)',   cell:'rgba(46,125,50,0.04)',   label:'T12' },
+  hd:       { tag:'#1565C0', tagBg:'rgba(21,101,192,0.08)',  cell:'rgba(21,101,192,0.04)',  label:'HelloData' },
+  rr:       { tag:'#6A1B9A', tagBg:'rgba(106,27,154,0.08)',  cell:'rgba(106,27,154,0.04)',  label:'Rent Roll' },
+  rc:       { tag:'#00695C', tagBg:'rgba(0,105,92,0.08)',    cell:'rgba(0,105,92,0.04)',    label:'RentCast' },
+  rentcast: { tag:'#00695C', tagBg:'rgba(0,105,92,0.08)',    cell:'rgba(0,105,92,0.04)',    label:'RentCast' },
+  attom:    { tag:'#37474F', tagBg:'rgba(55,71,79,0.08)',    cell:'rgba(55,71,79,0.04)',    label:'ATTOM' },
+  manual:   { tag:'#E65100', tagBg:'rgba(230,81,0,0.10)',    cell:'rgba(230,81,0,0.04)',    label:'Manual' }
+};
+
+function _dsTag(src) {
+  var c = DS_COLORS[src] || DS_COLORS.t12;
+  return '<span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+c.tag+';background:'+c.tagBg+'">'+c.label+'</span>';
+}
+
+function _dsDropdown(rowId, currentSrc, availableSrcs) {
+  var html = '<select onchange="changeRowSource(\''+rowId+'\',this.value)" style="font-size:10px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--card-bg,#fff);cursor:pointer;min-width:60px">';
+  availableSrcs.forEach(function(s) {
+    var c = DS_COLORS[s];
+    html += '<option value="'+s+'"'+(s===currentSrc?' selected':'')+'>'+c.label+'</option>';
+  });
+  html += '</select>';
+  return html;
+}
+
+// ── INCOME TABLE (Per-Unit + Other) ───────────────────────────────
+// Classifies PF_DATA.revenue items into upper (per-unit) vs lower (other)
+var UPPER_TABLE_LABELS = [
+  'Rent Income','Other Rental Income','Application Fee Income','NSF Fees Collected',
+  'Late Fee','Pet Fee','Furniture Charge','Laundry Income','Insurance Services',
+  'Utility Reimbursement Fee','Concessions'
+];
+
+// Fields available for Add Field modal
+var ADDABLE_FIELDS = [
+  {id:'hd-gpr',       label:'Gross Potential Rent (GPR)', src:'hd', defaultTable:'upper'},
+  {id:'hd-vacancy',   label:'Vacancy Loss',              src:'hd', defaultTable:'upper'},
+  {id:'hd-parking',   label:'Parking Income',             src:'hd', defaultTable:'lower'},
+  {id:'hd-other-inc', label:'Other Income',               src:'hd', defaultTable:'lower'},
+  {id:'hd-egi',       label:'Effective Gross Income (EGI)',src:'hd', defaultTable:'lower', warn:'egi'},
+  {id:'hd-dog-rent',  label:'Dogs: Monthly Rent',         src:'hd', defaultTable:'upper'},
+  {id:'hd-cat-rent',  label:'Cats: Monthly Rent',         src:'hd', defaultTable:'upper'},
+  {id:'hd-app-fee',   label:'Application Fee',            src:'hd', defaultTable:'upper'},
+  {id:'hd-storage',   label:'Storage Fee',                src:'hd', defaultTable:'upper'},
+  {id:'hd-parking-covered',  label:'Covered Parking',     src:'hd', defaultTable:'upper'},
+  {id:'hd-parking-garage',   label:'Garage Parking',      src:'hd', defaultTable:'upper'},
+  {id:'hd-parking-surface',  label:'Surface Lot Parking',  src:'hd', defaultTable:'upper'},
+];
+
+// Track which addable fields have been added (per project)
+function _getAddedFields(pid) {
+  try { return JSON.parse(localStorage.getItem('income_added_'+pid)||'[]'); } catch(e) { return []; }
+}
+function _saveAddedFields(pid, arr) {
+  localStorage.setItem('income_added_'+pid, JSON.stringify(arr));
+}
+
+function openAddFieldModal(type) {
+  var modal = document.getElementById('addFieldModal');
+  if(!modal) return;
+  var pid = window._currentProjectId || 'default';
+  var added = _getAddedFields(pid);
+  var list = document.getElementById('addFieldList');
+  if(!list) return;
+  var html = '';
+  ADDABLE_FIELDS.forEach(function(f) {
+    var isAdded = added.indexOf(f.id) !== -1;
+    var c = DS_COLORS[f.src];
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:'+(isAdded?'not-allowed':'pointer')+';'+(isAdded?'opacity:0.4;':'')+'background:rgba(0,0,0,0.02)">'
+      + '<input type="checkbox" name="addField" value="'+f.id+'"'+(isAdded?' disabled':'')+' onchange="checkAddFieldWarning()" style="accent-color:'+c.tag+'">'
+      + '<span style="flex:1;font-size:12px;color:var(--body)">'+f.label+'</span>'
+      + '<span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+c.tag+';background:'+c.tagBg+'">'+c.label+'</span>'
+      + '</label>';
+  });
+  list.innerHTML = html;
+  document.getElementById('addFieldWarning').style.display = 'none';
+  modal.style.display = '';
+}
+
+function closeAddFieldModal() {
+  var modal = document.getElementById('addFieldModal');
+  if(modal) modal.style.display = 'none';
+}
+
+function checkAddFieldWarning() {
+  var warn = document.getElementById('addFieldWarning');
+  if(!warn) return;
+  var checked = document.querySelectorAll('#addFieldList input[name="addField"]:checked');
+  var hasEgi = false;
+  var hasComponents = false;
+  var pid = window._currentProjectId || 'default';
+  var added = _getAddedFields(pid);
+  checked.forEach(function(cb) {
+    if(cb.value === 'hd-egi') hasEgi = true;
+    if(['hd-gpr','hd-vacancy','hd-other-inc'].indexOf(cb.value) !== -1) hasComponents = true;
+  });
+  // Also check already added
+  if(added.indexOf('hd-egi') !== -1) hasEgi = true;
+  ['hd-gpr','hd-vacancy','hd-other-inc'].forEach(function(id) {
+    if(added.indexOf(id) !== -1) hasComponents = true;
+  });
+  warn.style.display = (hasEgi && hasComponents) ? '' : 'none';
+}
+
+function confirmAddField() {
+  var pid = window._currentProjectId || 'default';
+  var added = _getAddedFields(pid);
+  var target = document.querySelector('input[name="addFieldTarget"]:checked');
+  var targetTable = target ? target.value : 'upper';
+  var checked = document.querySelectorAll('#addFieldList input[name="addField"]:checked');
+  checked.forEach(function(cb) {
+    if(added.indexOf(cb.value) === -1) {
+      added.push(cb.value);
+    }
+  });
+  _saveAddedFields(pid, added);
+  closeAddFieldModal();
+  buildIncomeTable();
+}
+
+// Per-row source selection storage
+function _getRowSources(pid) {
+  try { return JSON.parse(localStorage.getItem('income_src_'+pid)||'{}'); } catch(e) { return {}; }
+}
+function _saveRowSources(pid, obj) {
+  localStorage.setItem('income_src_'+pid, JSON.stringify(obj));
+}
+
+function changeRowSource(rowId, newSrc) {
+  var pid = window._currentProjectId || 'default';
+  var sources = _getRowSources(pid);
+  sources[rowId] = newSrc;
+  _saveRowSources(pid, sources);
+  buildIncomeTable();
+}
+
+// Called when user edits Per Unit, Units, or Stab value in edit mode → tag becomes Manual
+function onIncomeFieldEdit(rowLabel, field, value) {
+  var pid = window._currentProjectId || 'default';
+  // Store override in pfOverrides
+  var sanitized = (rowLabel||'').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+  var key = sanitized + '_manual_' + field;
+  var pfOverrides = {};
+  try { pfOverrides = JSON.parse(localStorage.getItem('glcapital_pf_overrides_'+pid)||'{}'); } catch(e){}
+  pfOverrides[key] = {value: value, source: 'manual', timestamp: Date.now()};
+  localStorage.setItem('glcapital_pf_overrides_'+pid, JSON.stringify(pfOverrides));
+  // Mark row source as manual
+  var sources = _getRowSources(pid);
+  sources[rowLabel] = 'manual';
+  _saveRowSources(pid, sources);
+  // Don't rebuild immediately — let user keep editing
+  // Just update the tag visually
+  var tr = event && event.target ? event.target.closest('tr') : null;
+  if(tr) {
+    var tagEl = tr.querySelector('span[style*="font-size:8px"]');
+    if(tagEl) {
+      var mc = DS_COLORS.manual;
+      tagEl.style.color = mc.tag;
+      tagEl.style.background = mc.tagBg;
+      tagEl.textContent = mc.label;
+    }
+  }
+}
+
+// HD demo data — Per Unit monthly values (from Cedar Run Financial Analysis Per Unit Median ÷ 12)
+var HD_PER_UNIT_MONTHLY = {
+  'Rent Income': 1291,  // GPR Per Unit Median $15,488/yr ÷ 12
+};
+// RC demo data — rent estimate
+var RC_PER_UNIT_MONTHLY = {
+  'Rent Income': 1350,  // Simulated RentCast estimate
+};
+
+function buildIncomeTable() {
+  var upperBody = document.getElementById('pfRevUpperBody');
+  var upperSub  = document.getElementById('pfRevUpperSubtotal');
+  var lowerBody = document.getElementById('pfRevLowerBody');
+  var lowerSub  = document.getElementById('pfRevLowerSubtotal');
+  var totalBody = document.getElementById('pfRevTotalBody');
+  if(!upperBody) return;
+
+  var pf = PF_DATA;
+  var nCols = 7;
+  var asmt = getProjectAssumptions();
+  var rentRate = 1 + (asmt.rentGrowth / 100);
+  var units = (pf.unitMix && pf.unitMix.length > 0) ? pf.unitMix[pf.unitMix.length-1].units : 27;
+  var pid = window._currentProjectId || 'default';
+  var rowSources = _getRowSources(pid);
+  var isEditMode = !!document.querySelector('.edit-mode') || (typeof _globalEditMode !== 'undefined' && _globalEditMode);
+
+  // Check for manual overrides
+  var pfOverrides = {};
+  try { pfOverrides = JSON.parse(localStorage.getItem('glcapital_pf_overrides_'+pid)||'{}'); } catch(e){}
+  function _getRowOverrides(label) {
+    var sanitized = (label||'').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    var overrides = {};
+    var hasAny = false;
+    for(var i = 0; i < nCols; i++) {
+      var ov = pfOverrides[sanitized + '_' + i];
+      if(ov) { overrides[i] = ov.value; hasAny = true; }
+    }
+    // Also check manual_ prefixed keys from onIncomeFieldEdit
+    ['perunit','units','stab'].forEach(function(f) {
+      var mk = sanitized + '_manual_' + f;
+      if(pfOverrides[mk]) hasAny = true;
+    });
+    return hasAny ? overrides : null;
+  }
+
+  function projectFrom(baseVal, startIdx) {
+    var v = new Array(nCols).fill(0);
+    v[startIdx] = baseVal;
+    for(var i = startIdx + 1; i < nCols; i++) {
+      v[i] = Math.round(v[i-1] * rentRate * 100) / 100;
+    }
+    return v;
+  }
+
+  function projectVals(vals) {
+    var v = (vals||[]).slice();
+    while(v.length < nCols) {
+      var last = v[v.length-1];
+      v.push(last ? Math.round(last * rentRate * 100) / 100 : 0);
+    }
+    return v;
+  }
+
+  function fmtNum(v, src) {
+    if(v === null || v === undefined) return '<span style="color:var(--muted)">—</span>';
+    var n = parseFloat(v);
+    if(isNaN(n) || n === 0) return '<span style="color:var(--muted)">—</span>';
+    var c = DS_COLORS[src || 't12'];
+    if(n < 0) return '<span style="color:#c0392b">('+Math.abs(Math.round(n)).toLocaleString()+')</span>';
+    return '<span style="color:'+c.tag+'">'+Math.round(n).toLocaleString()+'</span>';
+  }
+
+  function fmtNumPlain(v) {
+    if(v === null || v === undefined) return '<span style="color:var(--muted)">—</span>';
+    var n = parseFloat(v);
+    if(isNaN(n) || n === 0) return '<span style="color:var(--muted)">—</span>';
+    if(n < 0) return '<span style="color:#c0392b">('+Math.abs(Math.round(n)).toLocaleString()+')</span>';
+    return Math.round(n).toLocaleString();
+  }
+
+  function fmtPerUnit(v, src) {
+    if(v === null || v === undefined || isNaN(v) || v === 0) return '<span style="color:var(--muted)">—</span>';
+    var c = DS_COLORS[src || 't12'];
+    if(v < 0) return '<span style="color:#c0392b">($'+Math.abs(Math.round(v)).toLocaleString()+')</span>';
+    return '<span style="color:'+c.tag+'">$'+Math.round(v).toLocaleString()+'</span>';
+  }
+
+  // Separate PF_DATA.revenue into upper (per-unit) and lower (other)
+  var upperItems = [];
+  var lowerItems = [];
+  var currentSection = null;
+
+  pf.revenue.forEach(function(item) {
+    if(item.isSectionHdr) { currentSection = item.label; return; }
+    if(item.isTotal || item.isPct) return;
+    var isUpper = UPPER_TABLE_LABELS.indexOf(item.label) !== -1;
+    // Get persisted source for this row
+    var rowSrc = rowSources[item.label] || 't12';
+    if(isUpper) {
+      upperItems.push({label: item.label, vals: projectVals(item.vals), src: rowSrc, section: currentSection});
+    } else {
+      lowerItems.push({label: item.label, vals: projectVals(item.vals), src: rowSrc, section: currentSection});
+    }
+  });
+
+  // Build upper table rows
+  var upperHtml = '';
+  var upperTotals = new Array(nCols).fill(0);
+
+  // Shared cell style constants
+  var _cellPad = 'padding:7px 8px;';
+  var _cellRight = 'text-align:right;';
+  var _cellFont = 'font-size:12px;';
+  var _editInputBase = 'width:100%;text-align:right;font-size:11px;padding:3px 6px;border-radius:3px;box-sizing:border-box;outline:none;';
+
+  // Build tooltip for Y3 (Stab) cell explaining the calculation
+  function _stabTooltip(src, perUnitMonthly, units, y1, y2) {
+    if(src === 'hd') return 'HD: $'+Math.round(perUnitMonthly).toLocaleString()+'/mo × 12 × '+units+' units = $'+Math.round(perUnitMonthly*12*units).toLocaleString();
+    if(src === 'rc') return 'RC: $'+Math.round(perUnitMonthly).toLocaleString()+'/mo × 12 × '+units+' units = $'+Math.round(perUnitMonthly*12*units).toLocaleString();
+    return 'T12: Avg('+Math.round(y1).toLocaleString()+', '+Math.round(y2).toLocaleString()+') = $'+Math.round((y1+y2)/2).toLocaleString();
+  }
+
+  // Build tooltip for projected years
+  function _projTooltip(prevVal, growthPct, ci) {
+    return 'Y'+(ci+1)+' = '+Math.round(prevVal).toLocaleString()+' × '+(1+growthPct/100).toFixed(2)+' ('+growthPct+'% growth)';
+  }
+
+  upperItems.forEach(function(item, idx) {
+    var src = item.src;
+    var t12Vals = item.vals; // original T12 values
+    var vals, perUnitMonthly;
+
+    // Determine available sources for this row
+    var availSrcs = (item.label === 'Rent Income') ? ['t12','hd','rc'] : ['t12'];
+
+    if(src === 'hd' && HD_PER_UNIT_MONTHLY[item.label]) {
+      perUnitMonthly = HD_PER_UNIT_MONTHLY[item.label];
+      var annualHD = perUnitMonthly * 12 * units;
+      vals = [t12Vals[0], t12Vals[1], annualHD];
+      for(var i = 3; i < nCols; i++) vals.push(Math.round(vals[i-1] * rentRate * 100)/100);
+    } else if(src === 'rc' && RC_PER_UNIT_MONTHLY[item.label]) {
+      perUnitMonthly = RC_PER_UNIT_MONTHLY[item.label];
+      var annualRC = perUnitMonthly * 12 * units;
+      vals = [t12Vals[0], t12Vals[1], annualRC];
+      for(var i = 3; i < nCols; i++) vals.push(Math.round(vals[i-1] * rentRate * 100)/100);
+    } else {
+      src = 't12';
+      vals = t12Vals;
+      var perUnitAnnual = (vals[0] + vals[1]) / 2;
+      perUnitMonthly = perUnitAnnual / units / 12;
+    }
+
+    // Check for manual overrides
+    var manualOverrides = _getRowOverrides(item.label);
+    if(manualOverrides) src = 'manual';
+
+    // Accumulate totals
+    vals.forEach(function(v,ci) { upperTotals[ci] += (v||0); });
+
+    var c = DS_COLORS[src];
+    var stripe = idx % 2 === 1 ? 'background:rgba(0,0,0,0.02);' : '';
+    upperHtml += '<tr style="'+stripe+'border-bottom:1px solid var(--border)">';
+
+    // Line Item + colored tag
+    upperHtml += '<td style="'+_cellPad+'padding-left:14px;font-size:12px;color:var(--body);white-space:nowrap">'+_dsTag(src)+' '+item.label+'</td>';
+
+    // Per Unit — consistent sizing in both modes
+    var puDisplay = fmtPerUnit(perUnitMonthly, src);
+    if(isEditMode) {
+      upperHtml += '<td style="'+_cellPad+_cellRight+'min-width:90px">'
+        + '<input type="text" value="'+Math.round(perUnitMonthly)+'"'
+        + ' onchange="onIncomeFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'perunit\',this.value)"'
+        + ' style="'+_editInputBase+'border:1px solid '+c.tag+';color:'+c.tag+';background:'+c.tagBg+'">'
+        + '</td>';
+    } else {
+      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;min-width:90px" title="Per Unit/mo from '+c.label+'">'+puDisplay+'<span style="font-size:9px;color:var(--muted)">/mo</span></td>';
+    }
+
+    // Source dropdown
+    var selStyle = 'font-size:10px;padding:2px 6px;border:1px solid '+c.tag+';border-radius:4px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;width:100%;font-weight:600';
+    var selHtml = '<select onchange="changeRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)" style="'+selStyle+'">';
+    availSrcs.forEach(function(s) {
+      selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+'>'+DS_COLORS[s].label+'</option>';
+    });
+    selHtml += '</select>';
+    upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:70px">'+selHtml+'</td>';
+
+    // Units — consistent sizing
+    if(isEditMode) {
+      upperHtml += '<td style="'+_cellPad+_cellRight+'min-width:55px">'
+        + '<input type="number" value="'+units+'"'
+        + ' onchange="onIncomeFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'units\',this.value)"'
+        + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent">'
+        + '</td>';
+    } else {
+      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;color:var(--body);min-width:55px">'+units+'</td>';
+    }
+
+    // Y1-Y7 with source-colored values + tooltips
+    vals.forEach(function(v, ci) {
+      var isProj = ci >= 3;
+      var isStab = ci === 2;
+      var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+      var cellBg = '';
+      var cellSrc = (ci >= 2 && src !== 't12') ? src : (ci < 2 ? 't12' : src);
+
+      if(isProj || (isStab && src !== 't12')) {
+        cellBg = 'background:' + (src !== 't12' ? DS_COLORS[src].cell : 'rgba(74,124,89,0.03)') + ';';
+      } else if(isProj) {
+        cellBg = 'background:rgba(74,124,89,0.03);';
+      }
+
+      // Build tooltip
+      var tooltip = '';
+      if(isStab) tooltip = _stabTooltip(src, perUnitMonthly, units, t12Vals[0], t12Vals[1]);
+      else if(isProj) tooltip = _projTooltip(vals[ci-1], asmt.rentGrowth, ci);
+      else tooltip = 'T12 Actual';
+
+      // Y3 (Stab) editable in edit mode
+      if(isEditMode && isStab) {
+        upperHtml += '<td style="'+_cellPad+_cellRight+cellBg+borderL+'" title="'+tooltip+'">'
+          + '<input type="text" value="'+Math.round(v).toLocaleString()+'"'
+          + ' onchange="onIncomeFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'stab\',this.value)"'
+          + ' style="'+_editInputBase+'border:1px solid '+(src!=='t12'?DS_COLORS[src].tag:'var(--border)')+';color:'+(src!=='t12'?DS_COLORS[src].tag:'var(--body)')+';background:transparent">'
+          + '</td>';
+      } else {
+        var displayVal = ci < 2 ? fmtNumPlain(v) : fmtNum(v, cellSrc);
+        upperHtml += '<td style="'+_cellPad+_cellRight+_cellFont+cellBg+borderL+'" title="'+tooltip+'">'+displayVal+'</td>';
+      }
+    });
+    upperHtml += '</tr>';
+  });
+  upperBody.innerHTML = upperHtml;
+
+  // Upper subtotal
+  upperSub.innerHTML = '<tr style="background:rgba(74,124,89,0.08);border-top:1px solid rgba(74,124,89,0.2);border-bottom:2px solid rgba(74,124,89,0.25)">'
+    + '<td style="padding:7px 14px;font-size:12px;font-weight:700;color:var(--header)">Subtotal (Per-Unit Income)</td>'
+    + '<td></td><td></td><td></td>'
+    + upperTotals.map(function(v, ci) {
+        var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+        var bg = ci >= 3 ? 'background:rgba(74,124,89,0.06);' : '';
+        return '<td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:700;color:var(--header);'+bg+borderL+'">'+fmtNumPlain(v)+'</td>';
+      }).join('')
+    + '</tr>';
+
+  // Build lower table rows
+  var lowerHtml = '';
+  var lowerTotals = new Array(nCols).fill(0);
+
+  lowerItems.forEach(function(item, idx) {
+    var vals = item.vals;
+    vals.forEach(function(v,ci) { lowerTotals[ci] += (v||0); });
+
+    var stripe = idx % 2 === 1 ? 'background:rgba(0,0,0,0.02);' : '';
+    lowerHtml += '<tr style="'+stripe+'border-bottom:1px solid var(--border)">';
+    lowerHtml += '<td style="padding:7px 14px;font-size:12px;color:var(--body)">'+_dsTag('t12')+' '+item.label+'</td>';
+    lowerHtml += '<td style="padding:7px 8px;text-align:right;font-size:11px;color:var(--muted)">—</td>';
+    lowerHtml += '<td style="padding:7px 8px;text-align:center;font-size:10px;color:var(--muted)">—</td>';
+    lowerHtml += '<td style="padding:7px 8px;text-align:right;font-size:11px;color:var(--muted)">—</td>';
+    vals.forEach(function(v, ci) {
+      var isProj = ci >= 3;
+      var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+      var bg = isProj ? 'background:rgba(74,124,89,0.03);' : '';
+      lowerHtml += '<td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);'+bg+borderL+'">'+fmtNumPlain(v)+'</td>';
+    });
+    lowerHtml += '</tr>';
+  });
+
+  if(lowerItems.length === 0) {
+    lowerHtml = '<tr><td colspan="11" style="padding:7px 14px;font-size:11px;color:var(--muted);font-style:italic">No other income items</td></tr>';
+  }
+  lowerBody.innerHTML = lowerHtml;
+
+  // Lower subtotal
+  lowerSub.innerHTML = '<tr style="background:rgba(74,124,89,0.08);border-top:1px solid rgba(74,124,89,0.2);border-bottom:1px solid rgba(74,124,89,0.2)">'
+    + '<td style="padding:7px 14px;font-size:12px;font-weight:700;color:var(--header)">Subtotal (Other Income)</td>'
+    + '<td></td><td></td><td></td>'
+    + lowerTotals.map(function(v, ci) {
+        var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+        var bg = ci >= 3 ? 'background:rgba(74,124,89,0.06);' : '';
+        return '<td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:700;color:var(--header);'+bg+borderL+'">'+fmtNumPlain(v)+'</td>';
+      }).join('')
+    + '</tr>';
+
+  // Total Revenue
+  var totalVals = upperTotals.map(function(v, ci) { return v + lowerTotals[ci]; });
+  totalBody.innerHTML = '<tr style="background:rgba(74,124,89,0.16);border-top:2px solid rgba(74,124,89,0.35);border-bottom:2px solid rgba(74,124,89,0.35)">'
+    + '<td style="padding:8px 14px;font-size:13px;font-weight:800;color:var(--green)">Total Revenue</td>'
+    + '<td></td><td></td><td></td>'
+    + totalVals.map(function(v, ci) {
+        var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+        var bg = ci >= 3 ? 'background:rgba(74,124,89,0.08);' : '';
+        return '<td style="padding:8px 8px;text-align:right;font-size:13px;font-weight:800;color:var(--green);'+bg+borderL+'">'+fmtNumPlain(v)+'</td>';
+      }).join('')
+    + '</tr>';
+}
+
 function buildPFTable(){
   var pfEmpty  = document.getElementById('pfEmptyState');
-  var pfRevBody = document.getElementById('pfRevBody');
+  var pfRevUpperBody = document.getElementById('pfRevUpperBody');
   var pfExpBody = document.getElementById('pfExpBody');
   var pfNoiBody = document.getElementById('pfNoiBody');
-  if(!pfRevBody) return;
+  if(!pfRevUpperBody) return;
 
   var pf = PF_DATA;
   // 7 columns: 6 from PF_DATA + appended 2029 (extrapolated)
@@ -2747,17 +3363,13 @@ function buildPFTable(){
   _renderModuleSrcBadge('pfRevLabel', 'REVENUE', 'rev', revSrc, hasHD);
   _renderModuleSrcBadge('pfExpLabel', 'EXPENSES', 'exp', expSrc, hasHD);
 
-  // ── REVENUE ─────────────────────────────────────────────────────
-  var revItems, revProjFn;
-  if(revSrc === 'hd') {
-    revItems = _buildHDItems(hdData, 'rev', nCols, rentRate);
-    revProjFn = function(v){ return v.slice(); };
-  } else {
-    revItems = pf.revenue;
-    revProjFn = function(v){ return projectRev(v); };
-  }
-  var revOut = buildAccordion(revItems, revProjFn, revSrc);
-  if(pfRevBody) pfRevBody.innerHTML = revOut.html;
+  // ── REVENUE (new Income layout) ──────────────────────────────────
+  buildIncomeTable();
+  // Compute revenue totals for NOI from the Income table
+  var revOut = {totals: new Array(nCols).fill(0)};
+  // Sum from PF_DATA.revenue total row
+  var revTotalRow = pf.revenue.filter(function(r){return r.isTotal;})[0];
+  if(revTotalRow) revOut.totals = projectRev(revTotalRow.vals);
 
   // ── EXPENSES ────────────────────────────────────────────────────
   var expItems, expProjFn;
@@ -2910,44 +3522,194 @@ function buildPFTable(){
 }
 
 
+// HD metric options for the Market Ref dropdown
+var HD_METRICS = [
+  {key:'leasedRent', label:'Leased Rent',       short:'Leased'},
+  {key:'ner',        label:'NER',                short:'NER'},
+  {key:'activeRent', label:'Active Listing Rent', short:'Active'},
+  {key:'activeNer',  label:'Active NER',          short:'Act. NER'},
+  {key:'rent30',     label:'30-Day Leased',       short:'30d'},
+  {key:'rent60',     label:'60-Day Leased',       short:'60d'},
+  {key:'rent90',     label:'90-Day Leased',       short:'90d'},
+];
+
+// Persisted selected metric per project
+function _getHDMetricKey(pid){ return localStorage.getItem('hd_umix_metric_'+(pid||currentProjectId)) || 'leasedRent'; }
+function _setHDMetricKey(pid,k){ localStorage.setItem('hd_umix_metric_'+(pid||currentProjectId), k); }
+
+function changeHDMetric(key){
+  var pid = window._currentProjectId || currentProjectId || 'default';
+  _setHDMetricKey(pid, key);
+  buildPFUnitMix();
+}
+
+// Find closest HD row to a given sqft
+function _findHDBySqft(hdUmix, targetSqft){
+  if(!hdUmix || !hdUmix.length || !targetSqft) return null;
+  var best = null, bestDist = Infinity;
+  hdUmix.forEach(function(row){
+    var dist = Math.abs((row.sqft||0) - targetSqft);
+    if(dist < bestDist){ bestDist = dist; best = row; }
+  });
+  // Only match if within 20% tolerance
+  if(best && bestDist / targetSqft > 0.20) return null;
+  return best;
+}
+
 function buildPFUnitMix(){
-  var el=document.getElementById('pfUnitMixBody');
-  if(!el) return;
-  // Skip if static rows already rendered in HTML
-  if(el.children.length > 0) return;
+  var headEl=document.getElementById('pfUnitMixHead');
+  var bodyEl=document.getElementById('pfUnitMixBody');
+  if(!headEl || !bodyEl) return;
+
+  var pid = window._currentProjectId || currentProjectId || 'default';
+  var hdUmix = getHDUnitMix(pid);
+  var hdMeta = getHDMeta(pid);
+  var showHD = hdUmix && hdUmix.length > 0 && !isHDUmixHidden(pid);
+  var isEdit = window._globalEditMode || false;
+  var metricKey = _getHDMetricKey(pid);
+  var metricInfo = HD_METRICS.find(function(m){ return m.key === metricKey; }) || HD_METRICS[0];
+
+  var hdC = DS_COLORS.hd;
+  var rrC = DS_COLORS.rr;
+
   function fmtD(v){
     if(v==null||v===0) return '';
     return '$\u00a0'+Math.round(v).toLocaleString();
   }
-  el.innerHTML=(PF_DATA.unitMix||[]).map(function(u,i){
+  function fmtGap(v){
+    if(v==null) return '';
+    var prefix = v > 0 ? '+' : '';
+    return prefix + '$'+Math.abs(Math.round(v)).toLocaleString();
+  }
+  function fmtPct(v){
+    if(v==null||!isFinite(v)) return '';
+    return (v>=0?'+':'') + v.toFixed(1) + '%';
+  }
+
+  // ── THEAD ──
+  var th = 'padding:8px 10px;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px';
+  var thB = th+';border-left:1px solid var(--border)';
+  var hdReportLabel = hdMeta && hdMeta.reportDate ? hdMeta.reportDate.slice(0,7) : '';
+
+  var theadHtml = '<tr style="background:rgba(139,115,85,0.07);border-bottom:2px solid var(--border)">';
+  theadHtml += '<th style="'+th+';text-align:left;padding-left:14px">Unit Types</th>';
+  theadHtml += '<th style="'+th+';text-align:center"># Units</th>';
+  theadHtml += '<th style="'+th+';text-align:center">Bedroom</th>';
+  theadHtml += '<th style="'+th+';text-align:right">SQF</th>';
+  // As-is Rent with RR source tag
+  theadHtml += '<th style="'+thB+';text-align:right">'
+    + '<span style="display:inline-flex;align-items:center;gap:5px;justify-content:flex-end">'
+    + '<span style="font-size:7px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+rrC.tag+';background:'+rrC.tagBg+'">RR</span>'
+    + '2025 As-is Rent</span></th>';
+
+  if(showHD){
+    // Metric dropdown in header
+    var selHtml = '<select onchange="changeHDMetric(this.value)" style="font-size:9px;padding:1px 4px;border:1px solid '+hdC.tag+';border-radius:4px;color:'+hdC.tag+';background:'+hdC.tagBg+';cursor:pointer;font-weight:600;margin-left:4px">';
+    HD_METRICS.forEach(function(m){
+      selHtml += '<option value="'+m.key+'"'+(m.key===metricKey?' selected':'')+'>'+m.short+'</option>';
+    });
+    selHtml += '</select>';
+
+    theadHtml += '<th style="'+thB+';text-align:right;color:'+hdC.tag+';background:'+hdC.cell+'">'
+      + '<span style="display:inline-flex;align-items:center;gap:4px;justify-content:flex-end">'
+      + '<span style="font-size:7px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+hdC.tag+';background:'+hdC.tagBg+'">HD</span>'
+      + (hdReportLabel ? '<span style="font-size:8px;color:var(--muted);font-weight:400">'+hdReportLabel+'</span>' : '')
+      + selHtml
+      + (isEdit ? '<button onclick="hideHDUmixCols()" style="border:none;background:'+hdC.tagBg+';color:'+hdC.tag+';border-radius:3px;cursor:pointer;font-size:10px;padding:1px 5px;line-height:1.2" title="Hide HD columns">&times;</button>' : '')
+      + '</span></th>';
+    // Gap column
+    theadHtml += '<th style="'+thB+';text-align:right;font-size:10px">Gap</th>';
+    // Gap % column
+    theadHtml += '<th style="'+th+';text-align:right;font-size:10px">Gap %</th>';
+  }
+  theadHtml += '<th style="'+thB+';text-align:right">2026 Growth</th>';
+  theadHtml += '<th style="'+th+';text-align:right">As-is Rent Annually</th>';
+  theadHtml += '<th style="'+th+';text-align:right;color:var(--green)">Projected Rent</th>';
+  theadHtml += '</tr>';
+  headEl.innerHTML = theadHtml;
+
+  // ── TBODY ──
+  var totalAsIs=0, totalProj=0, totalHDVal=0, totalGap=0, totalUnits=0;
+  var rows = (PF_DATA.unitMix||[]);
+
+  var tbodyHtml = rows.map(function(u,i){
     var isTot=u.isTotal;
     var fw=isTot?'700':'400';
     var rowBg=isTot?'background:rgba(196,220,196,0.35);border-top:2px solid rgba(74,124,89,0.3)'
                    :(i%2===1?'background:rgba(0,0,0,0.018)':'');
-    // Formula: annual = monthly_rent × 12 months × # units
-    var asIsAnn  = (!isTot && u.asIsRent  && u.units) ? u.asIsRent  * 12 * u.units : u.asIsAnnual;
-    var projAnn  = (!isTot && u.growthRent && u.units) ? u.growthRent* 12 * u.units : u.projAnnual;
+
+    var asIsAnn  = (!isTot && u.asIsRent  && u.units) ? u.asIsRent  * 12 * u.units : 0;
+    var projAnn  = (!isTot && u.growthRent && u.units) ? u.growthRent* 12 * u.units : 0;
+
+    if(!isTot) {
+      totalAsIs += asIsAnn;
+      totalProj += projAnn;
+      totalUnits += (u.units||0);
+    }
+
     var hc = 'color:var(--header);font-weight:'+fw;
     var mc = 'color:var(--muted)';
     var gc = 'color:var(--green);font-weight:'+fw;
-    return '<tr style="'+rowBg+';border-bottom:1px solid var(--border)">'+
-      '<td style="padding:8px 18px;font-size:12px;font-weight:'+fw+';color:var(--header)">'+u.type+'</td>'+
-      '<td style="padding:8px 10px;text-align:center;font-size:12px;'+hc+'">'+
-        (u.units!=null?(isTot?u.units:u.units+'.00'):'')+'</td>'+
-      '<td style="padding:8px 10px;text-align:center;font-size:12px;'+mc+'">'+
-        (isTot?'':u.beds||'')+'</td>'+
-      '<td style="padding:8px 10px;text-align:right;font-size:12px;'+mc+'">'+
-        (isTot?'':(u.sqft||''))+'</td>'+
-      '<td style="padding:8px 10px;text-align:right;font-size:12px;'+hc+';border-left:1px solid var(--border)">'+
-        (u.asIsRent&&!isTot?'$\u00a0'+Number(u.asIsRent).toLocaleString():'')+'</td>'+
-      '<td style="padding:8px 10px;text-align:right;font-size:12px;'+hc+';border-left:1px solid var(--border)">'+
-        (u.growthRent&&!isTot?'$\u00a0'+Number(u.growthRent).toLocaleString():'')+'</td>'+
-      '<td style="padding:8px 10px;text-align:right;font-size:12px;'+hc+'">'+
-        fmtD(asIsAnn)+'</td>'+
-      '<td style="padding:8px 10px;text-align:right;font-size:12px;'+gc+'">'+
-        fmtD(projAnn)+'</td>'+
-    '</tr>';
+    var cp = 'padding:8px 10px;font-size:12px;';
+
+    // HD match by sqft (closest)
+    var hdMatch = (!isTot && u.sqft) ? _findHDBySqft(hdUmix, u.sqft) : null;
+    var hdVal = hdMatch ? (hdMatch[metricKey]||0) : null;
+    if(hdVal === 0) hdVal = null;
+    var gap = (hdVal && u.asIsRent) ? (hdVal - u.asIsRent) : null;
+    var gapPct = (gap !== null && u.asIsRent) ? (gap / u.asIsRent * 100) : null;
+
+    if(!isTot && hdVal && u.units) totalHDVal += hdVal * 12 * u.units;
+    if(!isTot && gap !== null && u.units) totalGap += gap * 12 * u.units;
+
+    if(isTot){ asIsAnn = totalAsIs; projAnn = totalProj; }
+
+    var trId = isTot ? ' id="rrTotalRow"' : '';
+    var html = '<tr'+trId+' style="'+rowBg+';border-bottom:1px solid var(--border)">';
+    html += '<td style="'+cp+'padding-left:14px;font-weight:'+fw+';color:var(--header)">'+u.type+'</td>';
+    html += '<td'+(isTot?' id="rrTotalUnits"':'')+' style="'+cp+'text-align:center;'+hc+'">'+(u.units!=null?(isTot?totalUnits:u.units+'.00'):'')+'</td>';
+    html += '<td style="'+cp+'text-align:center;'+mc+'">'+(isTot?'':(u.beds!=null?u.beds:''))+'</td>';
+    html += '<td style="'+cp+'text-align:right;'+mc+'">'+(isTot?'':(u.sqft||'—'))+'</td>';
+    html += '<td style="'+cp+'text-align:right;'+hc+';border-left:1px solid var(--border)">'
+      +(u.asIsRent&&!isTot?'$\u00a0'+Number(u.asIsRent).toLocaleString():'')+'</td>';
+
+    if(showHD){
+      var hBg = 'background:'+hdC.cell+';';
+      if(isTot){
+        var totalGapPct = (totalGap !== 0 && totalAsIs) ? (totalGap / totalAsIs * 100) : null;
+        html += '<td style="'+cp+'text-align:right;font-weight:700;color:'+hdC.tag+';border-left:1px solid var(--border);'+hBg+'">'+(totalHDVal?fmtD(totalHDVal):'')+'</td>';
+        html += '<td style="'+cp+'text-align:right;font-weight:700;border-left:1px solid var(--border);color:'+(totalGap>0?'var(--green)':totalGap<0?'var(--red)':'var(--muted)')+'">'+fmtGap(totalGap)+'</td>';
+        html += '<td style="'+cp+'text-align:right;font-weight:700;color:'+(totalGapPct>0?'var(--green)':totalGapPct<0?'var(--red)':'var(--muted)')+'">'+fmtPct(totalGapPct)+'</td>';
+      } else {
+        var gapColor = gap > 0 ? 'var(--green)' : gap < 0 ? 'var(--red)' : 'var(--muted)';
+        html += '<td style="'+cp+'text-align:right;color:'+hdC.tag+';font-weight:500;border-left:1px solid var(--border);'+hBg+'">'
+          +(hdVal?'$\u00a0'+Number(Math.round(hdVal)).toLocaleString():'—')+'</td>';
+        html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);color:'+gapColor+';font-weight:500">'+(gap!==null?fmtGap(gap):'—')+'</td>';
+        html += '<td style="'+cp+'text-align:right;color:'+gapColor+';font-weight:500">'+(gapPct!==null?fmtPct(gapPct):'—')+'</td>';
+      }
+    }
+
+    html += '<td style="'+cp+'text-align:right;'+hc+';border-left:1px solid var(--border)">'
+      +(u.growthRent&&!isTot?'$\u00a0'+Number(u.growthRent).toLocaleString():'')+'</td>';
+    html += '<td'+(isTot?' id="rrTotalAsIs"':'')+' style="'+cp+'text-align:right;'+hc+'">'+fmtD(asIsAnn)+'</td>';
+    html += '<td'+(isTot?' id="rrTotalProj"':'')+' style="'+cp+'text-align:right;'+gc+'">'+fmtD(projAnn)+'</td>';
+    html += '</tr>';
+    return html;
   }).join('');
+
+  bodyEl.innerHTML = tbodyHtml;
+}
+
+function hideHDUmixCols(){
+  var pid = window._currentProjectId || currentProjectId || 'default';
+  setHDUmixHidden(pid, true);
+  buildPFUnitMix();
+  toast('HD columns hidden');
+}
+function showHDUmixCols(){
+  var pid = window._currentProjectId || currentProjectId || 'default';
+  setHDUmixHidden(pid, false);
+  buildPFUnitMix();
 }
 
 
@@ -4020,6 +4782,8 @@ function switchProjTab(tab, btn){
 // ─── GL Capital: Open project analysis (new detail page) ────────────────────
 function openProjectAnalysis(pid){
   window.currentProjectId = pid;
+  window._currentProjectId = pid;
+  _loadPfManualVals();
   const proj = getProjects().find(p=>p.id===pid);
   if(!proj) return;
   // Update detail page header
@@ -5356,8 +6120,12 @@ var _helloDataMock = {
   units: 28          // total unit count
 };
 
-// Tracks current selection per field: 'rr' or 'api'
+// Tracks current selection per field: 'rr', 'api', or 'manual'
 var _pfSourceSel = { occ: 'rr', units: 'rr' };
+// Stores manual override values per field
+var _pfManualVals = {};
+function _loadPfManualVals(){ try{ _pfManualVals = JSON.parse(localStorage.getItem('pf_manual_vals_'+(window._currentProjectId||''))||'{}'); }catch(e){ _pfManualVals={}; } }
+function _savePfManualVals(){ localStorage.setItem('pf_manual_vals_'+(window._currentProjectId||''), JSON.stringify(_pfManualVals)); }
 
 function togglePFSec(secId) {
   var items = document.querySelectorAll('.pf-si-'+secId);
@@ -5386,29 +6154,61 @@ function renderPFDualSource(proj){
 }
 
 function _dualSrcHtml(field, sel, rrVal, apiVal, rrLabel, apiLabel){
-  function chip(src, label, val, active){
+  var rrC = DS_COLORS.rr;
+  var hdC = DS_COLORS.hd;
+  var mnC = DS_COLORS.manual;
+  var isEdit = window._globalEditMode || false;
+  function chip(src, dsColor, label, val, active){
+    var borderColor = active ? dsColor.tag : 'var(--border)';
+    var bg = active ? dsColor.tagBg : 'var(--surface,#fff)';
+    var tagColor = active ? dsColor.tag : 'var(--muted)';
+    var valColor = active ? dsColor.tag : 'var(--body)';
     return '<button class="src-chip'+(active?' active':'')+'" data-src="'+src+'"'
-      +' onclick="selectPFSource(\''+field+'\',\''+src+'\')">'
-      +'<span class="src-tag'+(src==='api'?' hd':'')+'">'+label+'</span>'
-      +'<span class="src-val">'+val+'</span>'
+      +' onclick="selectPFSource(\''+field+'\',\''+src+'\')"'
+      +' style="border-color:'+borderColor+';background:'+bg+'">'
+      +'<span class="src-tag" style="color:'+tagColor+'">'+label+'</span>'
+      +'<span class="src-val" style="color:'+valColor+'">'+val+'</span>'
       +'</button>';
   }
+  // Manual chip: shows input in edit mode, or saved value
+  var manualVal = _pfManualVals[field];
+  var manualDisplay = manualVal !== undefined && manualVal !== '' ? manualVal : '—';
+  var manualChipHtml = '';
+  if(isEdit || sel === 'manual') {
+    if(isEdit && sel === 'manual') {
+      // Active manual with input
+      manualChipHtml = '<button class="src-chip active" data-src="manual"'
+        +' style="border-color:'+mnC.tag+';background:'+mnC.tagBg+';min-width:72px">'
+        +'<span class="src-tag" style="color:'+mnC.tag+'">Manual</span>'
+        +'<input type="text" value="'+(manualVal||'')+'"'
+        +' onchange="savePFManualVal(\''+field+'\',this.value)"'
+        +' onclick="event.stopPropagation()"'
+        +' style="width:52px;border:none;background:transparent;text-align:center;font-size:12px;font-weight:600;color:'+mnC.tag+';outline:none;padding:0">'
+        +'</button>';
+    } else {
+      manualChipHtml = chip('manual', mnC, 'Manual', manualDisplay, sel==='manual');
+    }
+  }
   return '<div id="pfSrc-'+field+'" class="dual-src-wrap">'
-    + chip('rr',  rrLabel,  rrVal,  sel==='rr')
-    + chip('api', apiLabel, apiVal, sel==='api')
+    + chip('rr',  rrC, rrLabel,  rrVal,  sel==='rr')
+    + chip('api', hdC, apiLabel, apiVal, sel==='api')
+    + manualChipHtml
     +'</div>';
+}
+
+function savePFManualVal(field, val){
+  _pfManualVals[field] = val;
+  _savePfManualVals();
 }
 
 function selectPFSource(field, src){
   _pfSourceSel[field] = src;
-  var wrap = document.getElementById('pfSrc-'+field);
-  if(wrap) wrap.querySelectorAll('.src-chip').forEach(function(c){
-    c.classList.toggle('active', c.dataset.src===src);
-  });
-  // Surface selected value to summary display value (optional toast)
-  var zh = currentLang==='zh';
-  var srcName = src==='rr'?(zh?'Rent Roll':'Rent Roll'):'HelloData';
-  toast((zh?'已选择数据来源：':'Source selected: ')+srcName+' · '+field.toUpperCase());
+  // Re-render to update chip styles and show manual input if needed
+  var projs = getProjects();
+  var proj = projs.find(function(p){ return p.id === currentProjectId; });
+  renderPFDualSource(proj);
+  var srcNames = {rr:'Rent Roll', api:'HelloData', manual:'Manual'};
+  toast('Source: '+(srcNames[src]||src)+' · '+field.toUpperCase());
 }
 
 // ─── PRO FORMA EMPTY STATE ────────────────────────────────────────────────────
@@ -6457,19 +7257,27 @@ function rrAddRow(){
   var tbody = document.getElementById('pfUnitMixBody');
   var totalRow = document.getElementById('rrTotalRow');
   if(!tbody) return;
+  var pid = window._currentProjectId || currentProjectId || 'default';
+  var hdUmix = getHDUnitMix(pid);
+  var showHD = hdUmix && hdUmix.length > 0 && !isHDUmixHidden(pid);
   var tr = document.createElement('tr');
   tr.style.borderBottom = '1px solid var(--border)';
-  var cellStyle = 'padding:6px 6px;font-size:12px;';
-  var inputStyle = 'width:100%;border:none;background:transparent;font-size:12px;color:var(--header);text-align:inherit;outline:none;padding:2px 4px;border-radius:3px;';
-  tr.innerHTML =
-    '<td style="'+cellStyle+'padding-left:18px"><input style="'+inputStyle+'" placeholder="Type…" onchange="rrRecalcTotals()"></td>'+
-    '<td style="'+cellStyle+';text-align:center"><input style="'+inputStyle+'text-align:center" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
-    '<td style="'+cellStyle+';text-align:center"><input style="'+inputStyle+'text-align:center" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
-    '<td style="'+cellStyle+';text-align:right"><input style="'+inputStyle+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
-    '<td style="'+cellStyle+';text-align:right;border-left:1px solid var(--border)"><input style="'+inputStyle+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
-    '<td style="'+cellStyle+';text-align:right;border-left:1px solid var(--border)"><input style="'+inputStyle+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
-    '<td style="'+cellStyle+';text-align:right;color:var(--muted)" id="rrCalcAsIs_'+Date.now()+'">—</td>'+
-    '<td style="'+cellStyle+';text-align:right;color:var(--green);font-weight:600" id="rrCalcProj_'+Date.now()+'_p">—</td>';
+  var cs = 'padding:6px 6px;font-size:12px;';
+  var is = 'width:100%;border:none;background:transparent;font-size:12px;color:var(--header);text-align:inherit;outline:none;padding:2px 4px;border-radius:3px;';
+  var html =
+    '<td style="'+cs+'padding-left:18px"><input style="'+is+'" placeholder="Type…" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cs+';text-align:center"><input style="'+is+'text-align:center" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cs+';text-align:center"><input style="'+is+'text-align:center" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cs+';text-align:right"><input style="'+is+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cs+';text-align:right;border-left:1px solid var(--border)"><input style="'+is+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>';
+  if(showHD){
+    html += '<td style="'+cs+';text-align:right;border-left:1px solid var(--border);background:rgba(21,101,192,0.03);color:var(--muted)">—</td>';
+    html += '<td style="'+cs+';text-align:right;border-left:1px solid var(--border);background:rgba(21,101,192,0.03);color:var(--muted)">—</td>';
+  }
+  html += '<td style="'+cs+';text-align:right;border-left:1px solid var(--border)"><input style="'+is+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
+    '<td style="'+cs+';text-align:right;color:var(--muted)">—</td>'+
+    '<td style="'+cs+';text-align:right;color:var(--green);font-weight:600">—</td>';
+  tr.innerHTML = html;
   tbody.insertBefore(tr, totalRow);
 }
 function rrDeleteRow(btn){

@@ -214,6 +214,17 @@
     </button>
   </div>
 
+  <!-- Global Data Source Legend -->
+  <div id="globalDsLegend" style="display:flex;gap:6px;align-items:center;padding:6px 0 2px;flex-wrap:wrap">
+    <span style="font-size:9px;color:var(--muted);letter-spacing:.03em;font-weight:500;margin-right:2px" data-en="Sources" data-zh="数据源">Sources</span>
+    <span class="ds-legend-tag" style="color:#2E7D32;background:rgba(46,125,50,0.07)">T12</span>
+    <span class="ds-legend-tag" style="color:#1565C0;background:rgba(21,101,192,0.07)">HelloData</span>
+    <span class="ds-legend-tag" style="color:#6A1B9A;background:rgba(106,27,154,0.07)">Rent Roll</span>
+    <span class="ds-legend-tag" style="color:#00695C;background:rgba(0,105,92,0.07)">RentCast</span>
+    <span class="ds-legend-tag" style="color:#37474F;background:rgba(55,71,79,0.07)">ATTOM</span>
+    <span class="ds-legend-tag" style="color:#E65100;background:rgba(230,81,0,0.07)" data-en="Manual" data-zh="手动">Manual</span>
+  </div>
+
   <!-- Published banner -->
   
 
@@ -319,17 +330,7 @@
 <button class="pf-subtab" id="pfst-pf-waterfall">Waterfall Distributions</button>
 </div>
 <div id="pfsp-pf-summary">
-        <!-- Legend -->
-        <div style="display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">
-            <div style="width:10px;height:10px;border-radius:2px;background:rgba(200,100,0,0.15);border:1px solid rgba(200,100,0,0.4)"></div>
-            <span data-en="Data Conflict — choose source" data-zh="数据冲突 — 请选择来源">Data Conflict — choose source</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">
-            <div style="width:10px;height:10px;border-radius:2px;background:rgba(139,115,85,0.15);border:1px solid rgba(139,115,85,0.4)"></div>
-            <span data-en="Manually edited" data-zh="手动修改">Manually edited</span>
-          </div>
-        </div>
+        <!-- Legend removed — now global in project header -->
 
         <!-- ── KPI Summary Strip ── -->
         <div class="summ-kpi-strip" id="summKpiStrip">
@@ -401,67 +402,9 @@
             <span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)">Residential Rent Roll</span>
           </div>
           <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">
-              <thead>
-                <!-- Column label row -->
-                <tr style="background:rgba(139,115,85,0.07);border-bottom:2px solid var(--border)">
-                  <th style="padding:8px 18px;text-align:left;font-weight:700;color:var(--header);white-space:nowrap">Unit Types</th>
-                  <th style="padding:8px 10px;text-align:center;font-weight:700;color:var(--header)"># Units</th>
-                  <th style="padding:8px 10px;text-align:center;font-weight:700;color:var(--header)">Bedroom</th>
-                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header)">SQF</th>
-                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header);border-left:1px solid var(--border);white-space:nowrap">2025 As-is Rent</th>
-                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header);border-left:1px solid var(--border)">2026 Growth</th>
-                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">As-is Rent Annually</th>
-                  <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--green);white-space:nowrap">Projected Rent</th>
-                </tr>
-              </thead>
-              <tbody id="pfUnitMixBody">
-                <!-- 1B -->
-                <tr style="border-bottom:1px solid var(--border)">
-                  <td data-editable style="padding:8px 18px;font-size:12px;color:var(--header)">1B</td>
-                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--header)">9.00</td>
-                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--muted)">1</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--muted)">540</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$1,490</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$1,500</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$160,920</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$162,000</td>
-                </tr>
-                <!-- 2B -->
-                <tr style="background:rgba(0,0,0,0.018);border-bottom:1px solid var(--border)">
-                  <td data-editable style="padding:8px 18px;font-size:12px;color:var(--header)">2B</td>
-                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--header)">15.00</td>
-                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--muted)">2</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--muted)">840</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$1,850</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$1,990</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$333,000</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$358,200</td>
-                </tr>
-                <!-- 2B Deluxe -->
-                <tr style="border-bottom:1px solid var(--border)">
-                  <td data-editable style="padding:8px 18px;font-size:12px;color:var(--header)">2B Deluxe</td>
-                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--header)">3.00</td>
-                  <td data-editable style="padding:8px 10px;text-align:center;font-size:12px;color:var(--muted)">2</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--muted)">—</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$1,950</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header);border-left:1px solid var(--border)">$2,150</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--header)">$70,200</td>
-                  <td data-editable style="padding:8px 10px;text-align:right;font-size:12px;color:var(--green);font-weight:600">$77,400</td>
-                </tr>
-                <!-- Total row -->
-                <tr id="rrTotalRow" style="background:rgba(196,220,196,0.35);border-top:2px solid rgba(74,124,89,0.3)">
-                  <td style="padding:8px 18px;font-size:12px;font-weight:700;color:var(--header)">Total</td>
-                  <td id="rrTotalUnits" style="padding:8px 10px;text-align:center;font-size:12px;font-weight:700;color:var(--header)">27</td>
-                  <td style="padding:8px 10px"></td>
-                  <td style="padding:8px 10px"></td>
-                  <td style="padding:8px 10px;border-left:1px solid var(--border)"></td>
-                  <td style="padding:8px 10px;border-left:1px solid var(--border)"></td>
-                  <td id="rrTotalAsIs" style="padding:8px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--header)">$&nbsp;564,120</td>
-                  <td id="rrTotalProj" style="padding:8px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green)">$&nbsp;597,600</td>
-                  <td style="padding:8px 6px"></td>
-                </tr>
-              </tbody>
+            <table id="pfUnitMixTable" style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">
+              <thead id="pfUnitMixHead"></thead>
+              <tbody id="pfUnitMixBody"></tbody>
             </table>
           </div>
           <!-- Add Row button -->
@@ -478,21 +421,24 @@
 
         <!-- HD upload moved to HelloData tab -->
 
-        <!-- ── REVENUE card ─────────────────────────────────────── -->
+        <!-- ── INCOME card ─────────────────────────────────────── -->
         <div id="pfTableWrap" class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)">
           <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;min-width:860px;font-size:12px">
+            <table style="width:100%;border-collapse:collapse;min-width:1060px;font-size:12px">
               <thead>
                 <!-- Section label row -->
                 <tr style="background:rgba(74,124,89,0.18);border-bottom:1px solid rgba(74,124,89,0.3)">
-                  <td id="pfRevLabel" colspan="2" style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--green)">REVENUE</td>
-                  <td style="padding:8px 8px;text-align:right;font-size:11px;font-weight:600;color:var(--muted)">Stabilized</td>
-                  <td colspan="6"></td>
+                  <td id="pfRevLabel" colspan="4" style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--green)">INCOME</td>
+                  <td colspan="3" style="padding:8px 8px;text-align:right;font-size:11px;font-weight:600;color:var(--muted)">Actual</td>
+                  <td style="padding:8px 8px;text-align:center;font-size:11px;font-weight:600;color:var(--muted)">Stabilized</td>
+                  <td colspan="4" style="padding:8px 8px;text-align:left;font-size:11px;font-weight:600;color:var(--muted)">Projected</td>
                 </tr>
-                <!-- Year header row -->
+                <!-- Column header row -->
                 <tr id="pfRevColHdrRow" style="background:rgba(74,124,89,0.10);border-bottom:2px solid rgba(74,124,89,0.25)">
-                  <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:200px">Year</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--muted);white-space:nowrap">Per Unit</th>
+                  <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:180px">Line Item</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--header);white-space:nowrap;min-width:90px">Per Unit</th>
+                  <th style="padding:8px 8px;text-align:center;font-weight:600;color:var(--header);white-space:nowrap;min-width:80px">Source</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--header);white-space:nowrap;min-width:60px">Units</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2023</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2024</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2025</th>
@@ -502,22 +448,71 @@
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2029</th>
                 </tr>
               </thead>
-              <tbody id="pfRevBody"><tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Rent Income</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">536,298</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">536,298</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">597,600</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">597,600</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">621,504</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">646,364</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">665,755</td></tr>
-<tr style="background:rgba(0,0,0,0.02);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Other Rental Income</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">2,555</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">1,277</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">1,316</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">1,355</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">1,396</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">1,438</td></tr>
-<tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Application Fee Income</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">1,015</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">980</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">998</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">1,027</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">1,058</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">1,090</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">1,123</td></tr>
-<tr style="background:rgba(0,0,0,0.02);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">NSF Fees Collected</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">5</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">35</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">20</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">21</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">21</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">22</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">23</td></tr>
-<tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Late Fee</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">3,554</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">2,458</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">3,006</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">3,096</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">3,189</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">3,285</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">3,383</td></tr>
-<tr style="background:rgba(0,0,0,0.02);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Pet Fee</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">825</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">412</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">425</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">438</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">451</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">464</td></tr>
-<tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Furniture Charge</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">400</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">900</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">650</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">670</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">690</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">710</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">732</td></tr>
-<tr style="background:rgba(0,0,0,0.02);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Laundry Income</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">2,746</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">1,454</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">2,100</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">2,163</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">2,228</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">2,295</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">2,364</td></tr>
-<tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Insurance Services</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">608</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">653</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">631</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">650</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">669</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">689</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">710</td></tr>
-<tr style="background:rgba(0,0,0,0.02);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Utility Reimbursement Fee</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">352</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);">176</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">181</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">187</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">192</td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);">198</td></tr>
-<tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--body);">Concessions</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);"><span style="color:#c0392b">(7,277)</span></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);"><span style="color:#c0392b">(3,639)</span></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);"><span style="color:#c0392b">(3,748)</span></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);"><span style="color:#c0392b">(3,860)</span></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);"><span style="color:#c0392b">(3,976)</span></td><td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,124,89,0.035);"><span style="color:#c0392b">(4,095)</span></td></tr>
-<tr style="background:rgba(74,124,89,0.14);border-top:2px solid rgba(74,124,89,0.35);border-bottom:2px solid rgba(74,124,89,0.35);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;font-weight:700;color:var(--header);">Total Revenue</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--muted);"></td><td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--header);">541,081</td><td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--header);">542,778</td><td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--header);">603,232</td><td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--header);background:rgba(74,124,89,0.035);border-left:2px solid rgba(74,124,89,0.25);">603,401</td><td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--header);background:rgba(74,124,89,0.035);">627,479</td><td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--header);background:rgba(74,124,89,0.035);">652,518</td><td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--header);background:rgba(74,124,89,0.035);">672,094</td></tr>
-</tbody>
+              <!-- Upper table: Per-Unit Income -->
+              <tbody id="pfRevUpperBody"><tr><td style="padding:7px 14px;font-size:12px;color:var(--muted)">Loading...</td></tr></tbody>
+              <!-- Subtotal Per-Unit -->
+              <tbody id="pfRevUpperSubtotal"></tbody>
+              <!-- Section divider: Other Income -->
+              <tbody>
+                <tr style="background:rgba(74,124,89,0.10);border-top:2px solid rgba(74,124,89,0.18)">
+                  <td colspan="4" style="padding:6px 14px;font-size:11px;font-weight:700;color:var(--green);letter-spacing:.03em">OTHER INCOME</td>
+                  <td colspan="7"></td>
+                </tr>
+              </tbody>
+              <!-- Lower table: Other Income -->
+              <tbody id="pfRevLowerBody"></tbody>
+              <!-- Subtotal Other Income -->
+              <tbody id="pfRevLowerSubtotal"></tbody>
+              <!-- Total Revenue -->
+              <tbody id="pfRevTotalBody"></tbody>
+              <!-- Add Field button -->
+              <tbody>
+                <tr>
+                  <td colspan="11" style="padding:8px 14px">
+                    <button id="btnAddIncomeField" onclick="openAddFieldModal('income')" style="border:1px dashed rgba(74,124,89,0.4);background:none;color:var(--green);padding:4px 16px;font-size:11px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.02em">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      Add Field
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>
+
+        <!-- ── Add Field Modal ─────────────────────────────────── -->
+        <div id="addFieldModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)" onclick="if(event.target===this)closeAddFieldModal()">
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card-bg,#fff);border-radius:12px;padding:24px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--header)">Add Income Field</h3>
+              <button onclick="closeAddFieldModal()" style="border:none;background:none;font-size:18px;cursor:pointer;color:var(--muted);padding:4px">&times;</button>
+            </div>
+            <div style="margin-bottom:16px">
+              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px;letter-spacing:.03em">AVAILABLE FIELDS</div>
+              <div id="addFieldList" style="display:flex;flex-direction:column;gap:4px"></div>
+            </div>
+            <div style="margin-bottom:16px">
+              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px;letter-spacing:.03em">ADD TO</div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--body);cursor:pointer;margin-bottom:4px">
+                <input type="radio" name="addFieldTarget" value="upper" checked style="accent-color:var(--green)"> Per-Unit Income
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--body);cursor:pointer">
+                <input type="radio" name="addFieldTarget" value="lower" style="accent-color:var(--green)"> Other Income
+              </label>
+            </div>
+            <div id="addFieldWarning" style="display:none;padding:8px 12px;background:#FFF3E0;border-radius:6px;font-size:11px;color:#E65100;margin-bottom:12px">
+              ⚠ EGI = GPR − Vacancy + Other Income. Adding EGI alongside its components may cause double-counting.
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <button onclick="closeAddFieldModal()" style="padding:6px 16px;border:1px solid var(--border);background:none;border-radius:6px;font-size:12px;cursor:pointer;color:var(--body)">Cancel</button>
+              <button onclick="confirmAddField()" style="padding:6px 16px;border:none;background:var(--green);color:#fff;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- HD upload moved to HelloData tab -->
+        <!-- Old inline revenue rows removed — now rendered by JS buildIncomeTable() -->
+        <!-- Old inline revenue rows removed -->
 
         <!-- ── EXPENSES card ────────────────────────────────────── -->
         <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)">
@@ -1373,7 +1368,7 @@
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=20260319g"></script>
+<script src="app.js?v=20260324a"></script>
 
 <!-- ─── REJECT MODAL ─────────────────────────────────────────────────────── -->
 <div id="rejectModal" style="display:none;position:fixed;inset:0;z-index:3000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(4px)">
