@@ -2700,14 +2700,60 @@ var ADDABLE_FIELDS = [
   {id:'hd-parking',   label:'Parking Income',             src:'hd', defaultTable:'lower'},
   {id:'hd-other-inc', label:'Other Income',               src:'hd', defaultTable:'lower'},
   {id:'hd-egi',       label:'Effective Gross Income (EGI)',src:'hd', defaultTable:'lower', warn:'egi'},
-  {id:'hd-dog-rent',  label:'Dogs: Monthly Rent',         src:'hd', defaultTable:'upper'},
-  {id:'hd-cat-rent',  label:'Cats: Monthly Rent',         src:'hd', defaultTable:'upper'},
-  {id:'hd-app-fee',   label:'Application Fee',            src:'hd', defaultTable:'upper'},
-  {id:'hd-storage',   label:'Storage Fee',                src:'hd', defaultTable:'upper'},
-  {id:'hd-parking-covered',  label:'Covered Parking',     src:'hd', defaultTable:'upper'},
-  {id:'hd-parking-garage',   label:'Garage Parking',      src:'hd', defaultTable:'upper'},
-  {id:'hd-parking-surface',  label:'Surface Lot Parking',  src:'hd', defaultTable:'upper'},
 ];
+
+// ── EXPENSES TABLE CONSTANTS ───────────────────────────────
+var EXP_UPPER_TABLE_LABELS = [
+  'Property Tax','Property Insurance','Management Fee',
+  'Electricity','Gas','Water','Telephone / WiFi',
+  'Cleaning & Janitorial','Garbage & Recycling','Pest Control',
+  'Plumbing','HVAC','Appliance Repair','Repairs - Other','Supplies',
+  'Salary Expense','Office Expense','Bank Fees'
+];
+
+var EXP_DUAL_SOURCE = {
+  'Property Tax':       {hdLabel:'Real Estate Taxes'},
+  'Property Insurance': {hdLabel:'Property Insurance'},
+  'Management Fee':     {hdLabel:'Management Fees'}
+};
+
+var EXP_ADDABLE_FIELDS = [
+  {id:'t12-mortgage-interest',  label:'Mortgage Interest',        src:'t12', defaultTable:'lower'},
+  {id:'t12-mortgage-other',     label:'Mortgage - Other',         src:'t12', defaultTable:'lower'},
+  {id:'t12-other-interest',     label:'Other Interest',           src:'t12', defaultTable:'lower'},
+  {id:'t12-depreciation',       label:'Depreciation Expense',     src:'t12', defaultTable:'lower'},
+  {id:'t12-amortization',       label:'Amortization Expense',     src:'t12', defaultTable:'lower'},
+  {id:'t12-refinance-fee',      label:'Refinance Fee Expense',    src:'t12', defaultTable:'lower'},
+  {id:'t12-misc-expense',       label:'Miscellaneous Expense',    src:'t12', defaultTable:'lower'},
+  {id:'t12-guaranteed-pay',     label:'Guaranteed Payments',      src:'t12', defaultTable:'lower'},
+  {id:'t12-pref-int',           label:'Pref - Int',               src:'t12', defaultTable:'lower'},
+  {id:'t12-ask-accountant',     label:'Ask My Accountant',        src:'t12', defaultTable:'lower'},
+  {id:'t12-marketing-expense',  label:'Marketing Expense',        src:'t12', defaultTable:'lower'},
+  {id:'hd-utilities',           label:'Utilities',                src:'hd', defaultTable:'upper'},
+  {id:'hd-repair-maintenance',  label:'Repair and Maintenance',   src:'hd', defaultTable:'upper'},
+  {id:'hd-payroll-benefits',    label:'Payroll and Benefits',     src:'hd', defaultTable:'upper'},
+  {id:'hd-marketing',           label:'Marketing',                src:'hd', defaultTable:'lower'},
+  {id:'hd-professional-fees',   label:'Professional Fees',        src:'hd', defaultTable:'lower'},
+  {id:'hd-gen-admin',           label:'General and Administrative',src:'hd', defaultTable:'lower'},
+  {id:'hd-other-expenses',      label:'Other Expenses',           src:'hd', defaultTable:'lower'},
+  {id:'hd-total-opex',          label:'Total Operating Expenses', src:'hd', defaultTable:'lower'}
+];
+
+// Expense row sources (per-row T12/HD selection for dual-source fields)
+function _getExpRowSources(pid) {
+  try { return JSON.parse(localStorage.getItem('expense_row_sources_'+pid)||'{}'); } catch(e) { return {}; }
+}
+function _saveExpRowSources(pid, obj) {
+  localStorage.setItem('expense_row_sources_'+pid, JSON.stringify(obj));
+}
+
+// Expense added fields tracking
+function _getExpAddedFields(pid) {
+  try { return JSON.parse(localStorage.getItem('expense_added_'+pid)||'[]'); } catch(e) { return []; }
+}
+function _saveExpAddedFields(pid, arr) {
+  localStorage.setItem('expense_added_'+pid, JSON.stringify(arr));
+}
 
 // Track which addable fields have been added (per project)
 function _getAddedFields(pid) {
@@ -3003,7 +3049,7 @@ function buildIncomeTable() {
     }
 
     // Source dropdown
-    var selStyle = 'font-size:10px;padding:2px 6px;border:1px solid '+c.tag+';border-radius:4px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;width:100%;font-weight:600';
+    var selStyle = 'font-size:8px;padding:1px 5px;border:none;border-radius:3px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.04em;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width=\'6\' height=\'4\' viewBox=\'0 0 6 4\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0l3 4 3-4z\' fill=\''+encodeURIComponent(c.tag)+'\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 3px center;padding-right:12px';
     var selHtml = '<select onchange="changeRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)" style="'+selStyle+'">';
     availSrcs.forEach(function(s) {
       selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+'>'+DS_COLORS[s].label+'</option>';
@@ -3121,10 +3167,341 @@ function buildIncomeTable() {
     + '</tr>';
 }
 
+// ── EXPENSE TABLE (Per-Unit + Flat) ─────────────────────────────
+function buildExpenseTable() {
+  var upperBody = document.getElementById('pfExpUpperBody');
+  var upperSub  = document.getElementById('pfExpUpperSubtotal');
+  var lowerBody = document.getElementById('pfExpLowerBody');
+  var lowerSub  = document.getElementById('pfExpLowerSubtotal');
+  var totalBody = document.getElementById('pfExpTotalBody');
+  if(!upperBody) return;
+
+  var pf = PF_DATA;
+  var nCols = 7;
+  var asmt = getProjectAssumptions();
+  var opexRate = 1 + (asmt.opexGrowth / 100);
+  var taxRate  = 1 + (asmt.taxGrowth / 100);
+  var units = (pf.unitMix && pf.unitMix.length > 0) ? pf.unitMix[pf.unitMix.length-1].units : 27;
+  var pid = window._currentProjectId || 'default';
+  var expRowSources = _getExpRowSources(pid);
+  var isEditMode = !!document.querySelector('.edit-mode') || (typeof _globalEditMode !== 'undefined' && _globalEditMode);
+
+  // Check for manual overrides
+  var pfOverrides = {};
+  try { pfOverrides = JSON.parse(localStorage.getItem('glcapital_pf_overrides_'+pid)||'{}'); } catch(e){}
+  function _getRowOv(label) {
+    var sanitized = (label||'').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    var overrides = {};
+    var hasAny = false;
+    for(var i = 0; i < nCols; i++) {
+      var ov = pfOverrides[sanitized + '_' + i];
+      if(ov) { overrides[i] = ov.value; hasAny = true; }
+    }
+    ['perunit','units','stab'].forEach(function(f) {
+      var mk = sanitized + '_manual_' + f;
+      if(pfOverrides[mk]) hasAny = true;
+    });
+    return hasAny ? overrides : null;
+  }
+
+  // Project values with appropriate growth rate
+  function projectExpVals(vals, label) {
+    var v = (vals||[]).slice(0, 2);
+    var rate = (label === 'Property Tax') ? taxRate : opexRate;
+    // Y3 (Stab) = Avg(Y1, Y2)
+    var y1 = v[0]||0, y2 = v[1]||0;
+    var y3 = (y1 + y2) / 2;
+    v[2] = y3;
+    // Y4+ projected from Y3
+    for(var i = 3; i < nCols; i++) {
+      v.push(Math.round(v[i-1] * rate * 100) / 100);
+    }
+    return v;
+  }
+
+  // Helpers (same as buildIncomeTable)
+  function fmtNum(v, src) {
+    if(v === null || v === undefined) return '<span style="color:var(--muted)">—</span>';
+    var n = parseFloat(v);
+    if(isNaN(n) || n === 0) return '<span style="color:var(--muted)">—</span>';
+    var c = DS_COLORS[src || 't12'];
+    if(n < 0) return '<span style="color:#c0392b">('+Math.abs(Math.round(n)).toLocaleString()+')</span>';
+    return '<span style="color:'+c.tag+'">'+Math.round(n).toLocaleString()+'</span>';
+  }
+  function fmtNumPlain(v) {
+    if(v === null || v === undefined) return '<span style="color:var(--muted)">—</span>';
+    var n = parseFloat(v);
+    if(isNaN(n) || n === 0) return '<span style="color:var(--muted)">—</span>';
+    if(n < 0) return '<span style="color:#c0392b">('+Math.abs(Math.round(n)).toLocaleString()+')</span>';
+    return Math.round(n).toLocaleString();
+  }
+  function fmtPerUnit(v, src) {
+    if(v === null || v === undefined || isNaN(v) || v === 0) return '<span style="color:var(--muted)">—</span>';
+    var c = DS_COLORS[src || 't12'];
+    if(v < 0) return '<span style="color:#c0392b">($'+Math.abs(Math.round(v)).toLocaleString()+')</span>';
+    return '<span style="color:'+c.tag+'">$'+Math.round(v).toLocaleString()+'</span>';
+  }
+
+  var _cellPad = 'padding:7px 8px;';
+  var _cellRight = 'text-align:right;';
+  var _cellFont = 'font-size:12px;';
+  var _editInputBase = 'width:100%;text-align:right;font-size:11px;padding:3px 6px;border-radius:3px;box-sizing:border-box;outline:none;';
+
+  // Separate expenses into upper (per-unit) and lower (flat)
+  var upperItems = [];
+  var lowerItems = [];
+
+  pf.expenses.forEach(function(item) {
+    if(item.isSectionHdr || item.isTotal || item.isPct) return;
+    var isUpper = EXP_UPPER_TABLE_LABELS.indexOf(item.label) !== -1;
+    var rowSrc = expRowSources[item.label] || 't12';
+    if(isUpper) {
+      upperItems.push({label: item.label, vals: item.vals, src: rowSrc});
+    } else {
+      lowerItems.push({label: item.label, vals: item.vals, src: rowSrc});
+    }
+  });
+
+  // Build upper table rows
+  var upperHtml = '';
+  var upperTotals = new Array(nCols).fill(0);
+
+  upperItems.forEach(function(item, idx) {
+    var src = item.src;
+    var isDual = !!EXP_DUAL_SOURCE[item.label];
+    var vals, perUnitMonthly;
+    var rate = (item.label === 'Property Tax') ? taxRate : opexRate;
+
+    if(src === 'hd' && isDual) {
+      // HD source: placeholder - no real HD data yet, show blank
+      perUnitMonthly = 0;
+      vals = new Array(nCols).fill(0);
+    } else {
+      src = 't12';
+      vals = projectExpVals(item.vals, item.label);
+      perUnitMonthly = vals[2] / units / 12;
+    }
+
+    // Check for manual overrides
+    var manualOverrides = _getRowOv(item.label);
+    if(manualOverrides) src = 'manual';
+
+    // Accumulate totals
+    vals.forEach(function(v,ci) { upperTotals[ci] += (v||0); });
+
+    var c = DS_COLORS[src];
+    var stripe = idx % 2 === 1 ? 'background:rgba(0,0,0,0.02);' : '';
+    upperHtml += '<tr style="'+stripe+'border-bottom:1px solid var(--border)">';
+
+    // Line Item + colored tag
+    upperHtml += '<td style="'+_cellPad+'padding-left:14px;font-size:12px;color:var(--body);white-space:nowrap">'+_dsTag(src)+' '+item.label+'</td>';
+
+    // Per Unit
+    var puDisplay = fmtPerUnit(perUnitMonthly, src);
+    if(isEditMode) {
+      upperHtml += '<td style="'+_cellPad+_cellRight+'min-width:90px">'
+        + '<input type="text" value="'+Math.round(perUnitMonthly)+'"'
+        + ' onchange="onExpenseFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'perunit\',this.value)"'
+        + ' style="'+_editInputBase+'border:1px solid '+c.tag+';color:'+c.tag+';background:'+c.tagBg+'">'
+        + '</td>';
+    } else {
+      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;min-width:90px" title="Per Unit/mo">'+puDisplay+'<span style="font-size:9px;color:var(--muted)">/mo</span></td>';
+    }
+
+    // Source dropdown (only for dual-source fields)
+    if(isDual) {
+      var availSrcs = ['t12','hd'];
+      var selStyle = 'font-size:8px;padding:1px 5px;border:none;border-radius:3px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.04em;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width=\'6\' height=\'4\' viewBox=\'0 0 6 4\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0l3 4 3-4z\' fill=\'%232E7D32\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 3px center;padding-right:12px';
+      var selHtml = '<select onchange="changeExpRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)" style="'+selStyle+'">';
+      availSrcs.forEach(function(s) {
+        selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+'>'+DS_COLORS[s].label+'</option>';
+      });
+      selHtml += '</select>';
+      upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:70px">'+selHtml+'</td>';
+    } else {
+      upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:70px">'+_dsTag('t12')+'</td>';
+    }
+
+    // Units
+    if(isEditMode) {
+      upperHtml += '<td style="'+_cellPad+_cellRight+'min-width:55px">'
+        + '<input type="number" value="'+units+'"'
+        + ' onchange="onExpenseFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'units\',this.value)"'
+        + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent">'
+        + '</td>';
+    } else {
+      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;color:var(--body);min-width:55px">'+units+'</td>';
+    }
+
+    // Y1-Y7
+    vals.forEach(function(v, ci) {
+      var isProj = ci >= 3;
+      var isStab = ci === 2;
+      var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+      var cellBg = isProj ? 'background:rgba(74,124,89,0.03);' : '';
+
+      if(isEditMode && isStab) {
+        upperHtml += '<td style="'+_cellPad+_cellRight+cellBg+borderL+'">'
+          + '<input type="text" value="'+Math.round(v).toLocaleString()+'"'
+          + ' onchange="onExpenseFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'stab\',this.value)"'
+          + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent">'
+          + '</td>';
+      } else {
+        var displayVal = ci < 2 ? fmtNumPlain(v) : fmtNum(v, src);
+        upperHtml += '<td style="'+_cellPad+_cellRight+_cellFont+cellBg+borderL+'">'+displayVal+'</td>';
+      }
+    });
+    upperHtml += '</tr>';
+  });
+  upperBody.innerHTML = upperHtml;
+
+  // Upper subtotal
+  upperSub.innerHTML = '<tr style="background:rgba(74,124,89,0.08);border-top:1px solid rgba(74,124,89,0.2);border-bottom:2px solid rgba(74,124,89,0.25)">'
+    + '<td style="padding:7px 14px;font-size:12px;font-weight:700;color:var(--header)">Subtotal (Per-Unit Expenses)</td>'
+    + '<td></td><td></td><td></td>'
+    + upperTotals.map(function(v, ci) {
+        var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+        var bg = ci >= 3 ? 'background:rgba(74,124,89,0.06);' : '';
+        return '<td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:700;color:var(--header);'+bg+borderL+'">'+fmtNumPlain(v)+'</td>';
+      }).join('')
+    + '</tr>';
+
+  // Build lower table rows
+  var lowerHtml = '';
+  var lowerTotals = new Array(nCols).fill(0);
+
+  lowerItems.forEach(function(item, idx) {
+    var vals = projectExpVals(item.vals, item.label);
+    vals.forEach(function(v,ci) { lowerTotals[ci] += (v||0); });
+
+    var stripe = idx % 2 === 1 ? 'background:rgba(0,0,0,0.02);' : '';
+    lowerHtml += '<tr style="'+stripe+'border-bottom:1px solid var(--border)">';
+    lowerHtml += '<td style="padding:7px 14px;font-size:12px;color:var(--body)">'+_dsTag('t12')+' '+item.label+'</td>';
+    lowerHtml += '<td style="padding:7px 8px;text-align:right;font-size:11px;color:var(--muted)">—</td>';
+    lowerHtml += '<td style="padding:7px 8px;text-align:center;font-size:10px;color:var(--muted)">—</td>';
+    lowerHtml += '<td style="padding:7px 8px;text-align:right;font-size:11px;color:var(--muted)">—</td>';
+    vals.forEach(function(v, ci) {
+      var isProj = ci >= 3;
+      var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+      var bg = isProj ? 'background:rgba(74,124,89,0.03);' : '';
+      lowerHtml += '<td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);'+bg+borderL+'">'+fmtNumPlain(v)+'</td>';
+    });
+    lowerHtml += '</tr>';
+  });
+
+  if(lowerItems.length === 0) {
+    lowerHtml = '<tr><td colspan="11" style="padding:7px 14px;font-size:11px;color:var(--muted);font-style:italic">No flat expense items</td></tr>';
+  }
+  lowerBody.innerHTML = lowerHtml;
+
+  // Lower subtotal
+  lowerSub.innerHTML = '<tr style="background:rgba(74,124,89,0.08);border-top:1px solid rgba(74,124,89,0.2);border-bottom:1px solid rgba(74,124,89,0.2)">'
+    + '<td style="padding:7px 14px;font-size:12px;font-weight:700;color:var(--header)">Subtotal (Flat Expenses)</td>'
+    + '<td></td><td></td><td></td>'
+    + lowerTotals.map(function(v, ci) {
+        var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+        var bg = ci >= 3 ? 'background:rgba(74,124,89,0.06);' : '';
+        return '<td style="padding:7px 8px;text-align:right;font-size:12px;font-weight:700;color:var(--header);'+bg+borderL+'">'+fmtNumPlain(v)+'</td>';
+      }).join('')
+    + '</tr>';
+
+  // Total Expenses
+  var totalVals = upperTotals.map(function(v, ci) { return v + lowerTotals[ci]; });
+  var totalHtml = '<tr style="background:rgba(74,124,89,0.16);border-top:2px solid rgba(74,124,89,0.35);border-bottom:2px solid rgba(74,124,89,0.35)">'
+    + '<td style="padding:8px 14px;font-size:13px;font-weight:800;color:var(--green)">Total Expenses</td>'
+    + '<td></td><td></td><td></td>'
+    + totalVals.map(function(v, ci) {
+        var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+        var bg = ci >= 3 ? 'background:rgba(74,124,89,0.08);' : '';
+        return '<td style="padding:8px 8px;text-align:right;font-size:13px;font-weight:800;color:var(--green);'+bg+borderL+'">'+fmtNumPlain(v)+'</td>';
+      }).join('')
+    + '</tr>';
+
+  // % of EGI row
+  // Get revenue totals from income table if available
+  var revTotalEls = document.querySelectorAll('#pfRevTotalBody td');
+  totalHtml += '<tr style="background:rgba(0,0,0,0.022);border-bottom:1px solid var(--border)">'
+    + '<td style="padding:5px 14px;font-size:11px;font-style:italic;color:var(--muted)">% of EGI</td>'
+    + '<td></td><td></td><td></td>'
+    + totalVals.map(function(v, ci) {
+        var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+        var bg = ci >= 3 ? 'background:rgba(74,124,89,0.03);' : '';
+        return '<td style="padding:5px 8px;text-align:right;font-size:11px;font-style:italic;color:var(--muted);'+bg+borderL+'"></td>';
+      }).join('')
+    + '</tr>';
+
+  totalBody.innerHTML = totalHtml;
+
+  // Store totals for NOI calculation
+  window._expenseTotals = totalVals;
+}
+
+// ── Expense Add Field Modal ─────────────────────────────────
+function openExpAddFieldModal() {
+  var modal = document.getElementById('addExpFieldModal');
+  if(!modal) return;
+  var pid = window._currentProjectId || 'default';
+  var added = _getExpAddedFields(pid);
+  var list = document.getElementById('addExpFieldList');
+  if(!list) return;
+  var html = '';
+  EXP_ADDABLE_FIELDS.forEach(function(f) {
+    var isAdded = added.indexOf(f.id) !== -1;
+    var c = DS_COLORS[f.src];
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:'+(isAdded?'not-allowed':'pointer')+';'+(isAdded?'opacity:0.4;':'')+'background:rgba(0,0,0,0.02)">'
+      + '<input type="checkbox" name="addExpField" value="'+f.id+'"'+(isAdded?' disabled':'')+' style="accent-color:'+c.tag+'">'
+      + '<span style="flex:1;font-size:12px;color:var(--body)">'+f.label+'</span>'
+      + '<span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+c.tag+';background:'+c.tagBg+'">'+c.label+'</span>'
+      + '</label>';
+  });
+  list.innerHTML = html;
+  // Set default radio based on first checked item
+  var radios = modal.querySelectorAll('input[name="addExpFieldTarget"]');
+  if(radios.length) radios[0].checked = true;
+  modal.style.display = '';
+}
+
+function closeExpAddFieldModal() {
+  var modal = document.getElementById('addExpFieldModal');
+  if(modal) modal.style.display = 'none';
+}
+
+function confirmExpAddField() {
+  var pid = window._currentProjectId || 'default';
+  var checked = document.querySelectorAll('input[name="addExpField"]:checked');
+  if(!checked.length) { closeExpAddFieldModal(); return; }
+  var target = 'upper';
+  var radios = document.querySelectorAll('input[name="addExpFieldTarget"]');
+  radios.forEach(function(r){ if(r.checked) target = r.value; });
+  var added = _getExpAddedFields(pid);
+  checked.forEach(function(cb) { if(added.indexOf(cb.value)===-1) added.push(cb.value); });
+  _saveExpAddedFields(pid, added);
+  closeExpAddFieldModal();
+  buildExpenseTable();
+}
+
+// ── Expense field edit handler ──────────────────────────────
+function onExpenseFieldEdit(label, field, value) {
+  var pid = window._currentProjectId || 'default';
+  var pfOverrides = {};
+  try { pfOverrides = JSON.parse(localStorage.getItem('glcapital_pf_overrides_'+pid)||'{}'); } catch(e){}
+  var sanitized = (label||'').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+  pfOverrides[sanitized + '_manual_' + field] = {value: parseFloat(String(value).replace(/,/g,''))};
+  localStorage.setItem('glcapital_pf_overrides_'+pid, JSON.stringify(pfOverrides));
+  buildExpenseTable();
+}
+
+function changeExpRowSource(label, newSrc) {
+  var pid = window._currentProjectId || 'default';
+  var sources = _getExpRowSources(pid);
+  sources[label] = newSrc;
+  _saveExpRowSources(pid, sources);
+  buildExpenseTable();
+}
+
 function buildPFTable(){
   var pfEmpty  = document.getElementById('pfEmptyState');
   var pfRevUpperBody = document.getElementById('pfRevUpperBody');
-  var pfExpBody = document.getElementById('pfExpBody');
   var pfNoiBody = document.getElementById('pfNoiBody');
   if(!pfRevUpperBody) return;
 
@@ -3357,11 +3734,8 @@ function buildPFTable(){
   var hasHD = !!hdData;
   var modSrc = getModuleSrc(currentProjectId) || {};
   var revSrc = (modSrc.rev === 'hd' && hasHD) ? 'hd' : 't12';
-  var expSrc = (modSrc.exp === 'hd' && hasHD) ? 'hd' : 't12';
-
   // ── MODULE SOURCE BADGES on section headers ────────────────────
   _renderModuleSrcBadge('pfRevLabel', 'REVENUE', 'rev', revSrc, hasHD);
-  _renderModuleSrcBadge('pfExpLabel', 'EXPENSES', 'exp', expSrc, hasHD);
 
   // ── REVENUE (new Income layout) ──────────────────────────────────
   buildIncomeTable();
@@ -3371,23 +3745,15 @@ function buildPFTable(){
   var revTotalRow = pf.revenue.filter(function(r){return r.isTotal;})[0];
   if(revTotalRow) revOut.totals = projectRev(revTotalRow.vals);
 
-  // ── EXPENSES ────────────────────────────────────────────────────
-  var expItems, expProjFn;
-  if(expSrc === 'hd') {
-    expItems = _buildHDItems(hdData, 'exp', nCols, opexRate);
-    expProjFn = function(v){ return v.slice(); };
-  } else {
-    expItems = pf.expenses;
-    expProjFn = function(v, lbl){ return projectExp(v, lbl); };
-  }
-  var expOut = buildAccordion(expItems, expProjFn, expSrc);
-  if(pfExpBody) pfExpBody.innerHTML = expOut.html;
+  // ── EXPENSES (new Expense layout) ─────────────────────────────
+  buildExpenseTable();
 
   // ── NET OPERATING INCOME ──────────────────────────────────────
   var revEffV = revOut.totals;
-  var expEffV = expOut.totals;
+  var expEffV = window._expenseTotals || new Array(nCols).fill(0);
   var noiV = revEffV.map(function(rv, i){ return Math.round((rv - (expEffV[i]||0)) * 100)/100; });
-  var anyHDActive = revSrc === 'hd' || expSrc === 'hd';
+  window._noiTotals = noiV;
+  var anyHDActive = revSrc === 'hd';
 
   var noiCells = noiV.map(function(v, ci) {
     var borderL = ci === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
@@ -3519,6 +3885,9 @@ function buildPFTable(){
   // pfTableWrap is just the revenue card now; keep it visible
   var pfTable=document.getElementById('pfTableWrap');
   if(pfTable) pfTable.style.display='';
+
+  // Rebuild Debt Analysis with fresh NOI values
+  if(typeof buildDebtAnalysis === 'function') buildDebtAnalysis();
 }
 
 
@@ -3556,6 +3925,20 @@ function _findHDBySqft(hdUmix, targetSqft){
   return best;
 }
 
+// Unit Mix active rent source: 'rr' or 'hd'
+function _getUmixActiveSrc(pid) {
+  return localStorage.getItem('umix_active_src_'+(pid||'default')) || 'rr';
+}
+function _setUmixActiveSrc(pid, src) {
+  localStorage.setItem('umix_active_src_'+(pid||'default'), src);
+}
+function setUmixRentSource(src) {
+  var pid = window._currentProjectId || 'default';
+  _setUmixActiveSrc(pid, src);
+  buildPFUnitMix();
+}
+window.setUmixRentSource = setUmixRentSource;
+
 function buildPFUnitMix(){
   var headEl=document.getElementById('pfUnitMixHead');
   var bodyEl=document.getElementById('pfUnitMixBody');
@@ -3572,20 +3955,15 @@ function buildPFUnitMix(){
   var hdC = DS_COLORS.hd;
   var rrC = DS_COLORS.rr;
 
+  // Active source for As-is Rent: 'rr' or 'hd'
+  var activeRentSrc = _getUmixActiveSrc(pid);
+  // If HD not available, force RR
+  if(!showHD) activeRentSrc = 'rr';
+
   function fmtD(v){
     if(v==null||v===0) return '';
     return '$\u00a0'+Math.round(v).toLocaleString();
   }
-  function fmtGap(v){
-    if(v==null) return '';
-    var prefix = v > 0 ? '+' : '';
-    return prefix + '$'+Math.abs(Math.round(v)).toLocaleString();
-  }
-  function fmtPct(v){
-    if(v==null||!isFinite(v)) return '';
-    return (v>=0?'+':'') + v.toFixed(1) + '%';
-  }
-
   // ── THEAD ──
   var th = 'padding:8px 10px;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px';
   var thB = th+';border-left:1px solid var(--border)';
@@ -3596,40 +3974,44 @@ function buildPFUnitMix(){
   theadHtml += '<th style="'+th+';text-align:center"># Units</th>';
   theadHtml += '<th style="'+th+';text-align:center">Bedroom</th>';
   theadHtml += '<th style="'+th+';text-align:right">SQF</th>';
-  // As-is Rent with RR source tag
-  theadHtml += '<th style="'+thB+';text-align:right">'
+  // As-is Rent with RR source tag + active indicator
+  var rrActive = activeRentSrc === 'rr';
+  var rrCheckmark = rrActive ? '<span style="color:'+rrC.tag+';font-size:10px;margin-right:2px" title="Active source for calculations">✓</span>' : '';
+  var rrClickStyle = showHD ? 'cursor:pointer' : '';
+  var rrClickAttr = showHD ? ' onclick="setUmixRentSource(\'rr\')" title="Click to use RR as active source"' : '';
+  theadHtml += '<th style="'+thB+';text-align:right;'+rrClickStyle+(rrActive&&showHD?';background:rgba(106,27,154,0.06)':'')+'"'+rrClickAttr+'>'
     + '<span style="display:inline-flex;align-items:center;gap:5px;justify-content:flex-end">'
+    + rrCheckmark
     + '<span style="font-size:7px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+rrC.tag+';background:'+rrC.tagBg+'">RR</span>'
     + '2025 As-is Rent</span></th>';
 
   if(showHD){
     // Metric dropdown in header
-    var selHtml = '<select onchange="changeHDMetric(this.value)" style="font-size:9px;padding:1px 4px;border:1px solid '+hdC.tag+';border-radius:4px;color:'+hdC.tag+';background:'+hdC.tagBg+';cursor:pointer;font-weight:600;margin-left:4px">';
+    var selHtml = '<select onchange="changeHDMetric(this.value);event.stopPropagation()" style="font-size:9px;padding:1px 4px;border:1px solid '+hdC.tag+';border-radius:4px;color:'+hdC.tag+';background:'+hdC.tagBg+';cursor:pointer;font-weight:600;margin-left:4px">';
     HD_METRICS.forEach(function(m){
       selHtml += '<option value="'+m.key+'"'+(m.key===metricKey?' selected':'')+'>'+m.short+'</option>';
     });
     selHtml += '</select>';
 
-    theadHtml += '<th style="'+thB+';text-align:right;color:'+hdC.tag+';background:'+hdC.cell+'">'
+    var hdActive = activeRentSrc === 'hd';
+    var hdCheckmark = hdActive ? '<span style="color:'+hdC.tag+';font-size:10px;margin-right:2px" title="Active source for calculations">✓</span>' : '';
+    theadHtml += '<th style="'+thB+';text-align:right;color:'+hdC.tag+';background:'+(hdActive?'rgba(21,101,192,0.08)':hdC.cell)+';cursor:pointer" onclick="setUmixRentSource(\'hd\')" title="Click to use HD as active source">'
       + '<span style="display:inline-flex;align-items:center;gap:4px;justify-content:flex-end">'
+      + hdCheckmark
       + '<span style="font-size:7px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+hdC.tag+';background:'+hdC.tagBg+'">HD</span>'
       + (hdReportLabel ? '<span style="font-size:8px;color:var(--muted);font-weight:400">'+hdReportLabel+'</span>' : '')
       + selHtml
-      + (isEdit ? '<button onclick="hideHDUmixCols()" style="border:none;background:'+hdC.tagBg+';color:'+hdC.tag+';border-radius:3px;cursor:pointer;font-size:10px;padding:1px 5px;line-height:1.2" title="Hide HD columns">&times;</button>' : '')
+      + (isEdit ? '<button onclick="hideHDUmixCols();event.stopPropagation()" style="border:none;background:'+hdC.tagBg+';color:'+hdC.tag+';border-radius:3px;cursor:pointer;font-size:10px;padding:1px 5px;line-height:1.2" title="Hide HD columns">&times;</button>' : '')
       + '</span></th>';
-    // Gap column
-    theadHtml += '<th style="'+thB+';text-align:right;font-size:10px">Gap</th>';
-    // Gap % column
-    theadHtml += '<th style="'+th+';text-align:right;font-size:10px">Gap %</th>';
   }
   theadHtml += '<th style="'+thB+';text-align:right">2026 Growth</th>';
-  theadHtml += '<th style="'+th+';text-align:right">As-is Rent Annually</th>';
-  theadHtml += '<th style="'+th+';text-align:right;color:var(--green)">Projected Rent</th>';
+  theadHtml += '<th style="'+th+';text-align:right">2025 As-is Rent Annually</th>';
+  theadHtml += '<th style="'+th+';text-align:right;color:var(--green)">2026 Projected Rent</th>';
   theadHtml += '</tr>';
   headEl.innerHTML = theadHtml;
 
   // ── TBODY ──
-  var totalAsIs=0, totalProj=0, totalHDVal=0, totalGap=0, totalUnits=0;
+  var totalAsIs=0, totalProj=0, totalHDVal=0, totalUnits=0;
   var rows = (PF_DATA.unitMix||[]);
 
   var tbodyHtml = rows.map(function(u,i){
@@ -3656,11 +4038,7 @@ function buildPFUnitMix(){
     var hdMatch = (!isTot && u.sqft) ? _findHDBySqft(hdUmix, u.sqft) : null;
     var hdVal = hdMatch ? (hdMatch[metricKey]||0) : null;
     if(hdVal === 0) hdVal = null;
-    var gap = (hdVal && u.asIsRent) ? (hdVal - u.asIsRent) : null;
-    var gapPct = (gap !== null && u.asIsRent) ? (gap / u.asIsRent * 100) : null;
-
     if(!isTot && hdVal && u.units) totalHDVal += hdVal * 12 * u.units;
-    if(!isTot && gap !== null && u.units) totalGap += gap * 12 * u.units;
 
     if(isTot){ asIsAnn = totalAsIs; projAnn = totalProj; }
 
@@ -3670,22 +4048,16 @@ function buildPFUnitMix(){
     html += '<td'+(isTot?' id="rrTotalUnits"':'')+' style="'+cp+'text-align:center;'+hc+'">'+(u.units!=null?(isTot?totalUnits:u.units+'.00'):'')+'</td>';
     html += '<td style="'+cp+'text-align:center;'+mc+'">'+(isTot?'':(u.beds!=null?u.beds:''))+'</td>';
     html += '<td style="'+cp+'text-align:right;'+mc+'">'+(isTot?'':(u.sqft||'—'))+'</td>';
-    html += '<td style="'+cp+'text-align:right;'+hc+';border-left:1px solid var(--border)">'
+    html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);color:'+rrC.tag+';font-weight:'+fw+'">'
       +(u.asIsRent&&!isTot?'$\u00a0'+Number(u.asIsRent).toLocaleString():'')+'</td>';
 
     if(showHD){
       var hBg = 'background:'+hdC.cell+';';
       if(isTot){
-        var totalGapPct = (totalGap !== 0 && totalAsIs) ? (totalGap / totalAsIs * 100) : null;
         html += '<td style="'+cp+'text-align:right;font-weight:700;color:'+hdC.tag+';border-left:1px solid var(--border);'+hBg+'">'+(totalHDVal?fmtD(totalHDVal):'')+'</td>';
-        html += '<td style="'+cp+'text-align:right;font-weight:700;border-left:1px solid var(--border);color:'+(totalGap>0?'var(--green)':totalGap<0?'var(--red)':'var(--muted)')+'">'+fmtGap(totalGap)+'</td>';
-        html += '<td style="'+cp+'text-align:right;font-weight:700;color:'+(totalGapPct>0?'var(--green)':totalGapPct<0?'var(--red)':'var(--muted)')+'">'+fmtPct(totalGapPct)+'</td>';
       } else {
-        var gapColor = gap > 0 ? 'var(--green)' : gap < 0 ? 'var(--red)' : 'var(--muted)';
         html += '<td style="'+cp+'text-align:right;color:'+hdC.tag+';font-weight:500;border-left:1px solid var(--border);'+hBg+'">'
           +(hdVal?'$\u00a0'+Number(Math.round(hdVal)).toLocaleString():'—')+'</td>';
-        html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);color:'+gapColor+';font-weight:500">'+(gap!==null?fmtGap(gap):'—')+'</td>';
-        html += '<td style="'+cp+'text-align:right;color:'+gapColor+';font-weight:500">'+(gapPct!==null?fmtPct(gapPct):'—')+'</td>';
       }
     }
 
@@ -5400,6 +5772,156 @@ function debtCellEdit(el){
   });
 }
 
+// ── Debt data storage ─────────────────────────────────────────
+function _getDebtData(pid) {
+  try { return JSON.parse(localStorage.getItem('debt_data_'+pid)||'null'); } catch(e) { return null; }
+}
+function _saveDebtData(pid, data) {
+  localStorage.setItem('debt_data_'+pid, JSON.stringify(data));
+}
+
+// Build Debt Analysis page from parsed data or defaults
+function buildDebtAnalysis() {
+  var pid = window._currentProjectId || 'default';
+  var debtData = _getDebtData(pid);
+
+  // Use parsed data or fall back to defaults
+  var current = (debtData && debtData.current) || {
+    loanAmount: 4000000,
+    principal: 4200000,
+    interestPerAnnum: 3.25,
+    interestPerMonth: 0.2708,
+    mortgageConstant: 0.4352,
+    commencementDate: 'Nov 1, 2020',
+    finalMaturityDate: 'Oct 1, 2050',
+    durationYears: 30,
+    durationMonths: 360,
+    mortgageInsurancePremium: 0,
+    mortgageInsurancePremiumPerAnnum: 0,
+    mortgageInsurancePremiumPerMonth: 0,
+    annualMortgagePayments: 219344,
+    interestPerYear: 136500,
+    payment: 18279
+  };
+
+  var refi = (debtData && debtData.refi) || {
+    loanAmount: 3962686,
+    principal: 3962686,
+    interestPerAnnum: 5.50,
+    interestPerMonth: 0.4583,
+    mortgageConstant: 0.4583,
+    commencementDate: 'Jan 1, 2027',
+    finalMaturityDate: 'Dec 1, 2056',
+    durationYears: 30,
+    durationMonths: 360,
+    mortgageInsurancePremium: 0,
+    mortgageInsurancePremiumPerAnnum: 0,
+    mortgageInsurancePremiumPerMonth: 0,
+    annualMortgagePayments: 217948
+  };
+
+  // Render Current Debt card
+  var curBody = document.getElementById('debtCurrentBody');
+  if(curBody) {
+    curBody.innerHTML = _debtRows([
+      ['Loan Amount', _fmtCurrency(current.loanAmount), 'dcLoanAmount'],
+      ['Principal', _fmtCurrency(current.principal), 'dcPrincipal'],
+      ['Interest per Annum', current.interestPerAnnum + '%', 'dcInterestAnnum'],
+      ['Interest per Month', (current.interestPerMonth != null ? Number(current.interestPerMonth).toFixed(4) : '0.0000') + '%', 'dcInterestMonth'],
+      ['Mortgage Constant', current.mortgageConstant + '%/mo', 'dcMortgageConst'],
+      ['Commencement Date', current.commencementDate, 'dcCommenceDate'],
+      ['Final Maturity Date', current.finalMaturityDate, 'dcMaturityDate'],
+      ['Duration (Years)', current.durationYears, 'dcDurationYrs'],
+      ['Duration (Months)', current.durationMonths, 'dcDurationMos'],
+      ['Mortgage Insurance Premium', '', '_section'],
+      ['MIP per Annum', _fmtCurrency(current.mortgageInsurancePremiumPerAnnum), 'dcMIPAnnum'],
+      ['MIP per Month', _fmtCurrency(current.mortgageInsurancePremiumPerMonth), 'dcMIPMonth'],
+      ['Annual Mortgage Payments', _fmtCurrency(current.annualMortgagePayments), 'dcAnnualPayment', true],
+      ['Interest per year Payment', _fmtCurrency(current.interestPerYear), 'dcInterestYrPayment']
+    ]);
+  }
+
+  // Render Refinance card
+  var refiBody = document.getElementById('debtRefiBody');
+  if(refiBody) {
+    refiBody.innerHTML = _debtRows([
+      ['Loan Amount', _fmtCurrency(refi.loanAmount), 'drLoanAmount'],
+      ['Principal', _fmtCurrency(refi.principal), 'drPrincipal'],
+      ['Interest per Annum', refi.interestPerAnnum + '%', 'drInterestAnnum'],
+      ['Interest per Month', (refi.interestPerMonth != null ? Number(refi.interestPerMonth).toFixed(4) : '0.0000') + '%', 'drInterestMonth'],
+      ['Mortgage Constant', refi.mortgageConstant + '%/mo', 'drMortgageConst'],
+      ['Commencement Date', refi.commencementDate, 'drCommenceDate'],
+      ['Final Maturity Date', refi.finalMaturityDate, 'drMaturityDate'],
+      ['Duration (Years)', refi.durationYears, 'drDurationYrs'],
+      ['Duration (Months)', refi.durationMonths, 'drDurationMos'],
+      ['Mortgage Insurance Premium', '', '_section'],
+      ['MIP per Annum', _fmtCurrency(refi.mortgageInsurancePremiumPerAnnum), 'drMIPAnnum'],
+      ['MIP per Month', _fmtCurrency(refi.mortgageInsurancePremiumPerMonth), 'drMIPMonth'],
+      ['Annual Mortgage Payments', _fmtCurrency(refi.annualMortgagePayments), 'drAnnualPayment', true],
+      ['I/O', _fmtCurrency(Math.round((refi.interestPerAnnum / 100) * refi.principal)), 'drIO']
+    ]);
+  }
+
+  // Update PF_DATA.debt dynamically
+  var dsY1to3 = current.annualMortgagePayments || 219344;
+  var dsY4to7 = refi.annualMortgagePayments || 217948;
+  PF_DATA.debt = [dsY1to3, dsY1to3, dsY1to3, dsY4to7, dsY4to7, dsY4to7, dsY4to7];
+
+  // Render Year-by-Year DSCR table
+  var dscrBody = document.getElementById('debtDscrBody');
+  if(dscrBody) {
+    var noi = window._noiTotals || PF_DATA.noi || [];
+    var periods = ["Nov'23\u2013Oct'24","Nov'24\u2013Oct'25","Stabilized","Nov'26\u2013Oct'27","Nov'27\u2013Oct'28","Nov'28\u2013Oct'29","Nov'29\u2013Oct'30"];
+    var html = '';
+    for(var i = 0; i < 7; i++) {
+      var noiVal = noi[i] || 0;
+      var ds = i < 3 ? dsY1to3 : dsY4to7;
+      var dscr = ds > 0 ? (noiVal / ds) : 0;
+      var cf = noiVal - ds;
+      var isStab = i === 2;
+      var debtType = i < 3 ? '<span class="badge badge-t12" style="font-size:10px">Existing</span>' : '<span class="badge badge-rentcast" style="font-size:10px">Refi</span>';
+      var dscrColor = dscr >= 1.25 ? 'var(--green)' : dscr >= 1.0 ? '#E65100' : 'var(--red)';
+      var cfColor = cf >= 0 ? 'var(--green)' : 'var(--red)';
+      var cfText = cf >= 0 ? '+$' + Math.abs(Math.round(cf)).toLocaleString() : '\u2013$' + Math.abs(Math.round(cf)).toLocaleString();
+      var rowStyle = isStab ? ' style="background:rgba(139,115,85,0.04)"' : '';
+      var label = isStab ? '<strong>' + periods[i] + '</strong>' : periods[i];
+      var noiText = isStab ? '<strong>$' + Math.round(noiVal).toLocaleString() + '</strong>' : '$' + Math.round(noiVal).toLocaleString();
+      html += '<tr' + rowStyle + '>'
+        + '<td>' + label + '</td>'
+        + '<td>' + noiText + '</td>'
+        + '<td>$' + Math.round(ds).toLocaleString() + '</td>'
+        + '<td style="color:' + dscrColor + ';font-weight:' + (isStab?'700':'600') + '">' + dscr.toFixed(2) + '\u00d7</td>'
+        + '<td>' + debtType + '</td>'
+        + '<td style="color:' + cfColor + (isStab?';font-weight:600':'') + '">' + cfText + '</td>'
+        + '</tr>';
+    }
+    dscrBody.innerHTML = html;
+  }
+}
+
+function _debtRows(fields) {
+  var html = '';
+  fields.forEach(function(f) {
+    if(f[2] === '_section') {
+      // Section header row
+      html += '<tr><td colspan="2" style="padding:8px 0 4px;font-size:11px;font-weight:700;color:var(--header);letter-spacing:.03em;border-bottom:1px solid var(--border)">' + f[0] + '</td></tr>';
+      return;
+    }
+    var bold = f[3] ? ';font-weight:600' : '';
+    html += '<tr><td style="color:var(--muted)">' + f[0] + '</td>'
+      + '<td style="text-align:right' + bold + '" data-debt-field="' + f[2] + '" onclick="debtCellEdit(this)">' + f[1] + '</td></tr>';
+  });
+  return html;
+}
+
+function _fmtCurrency(v) {
+  if(v === null || v === undefined) return '$0';
+  var n = Number(v);
+  if(isNaN(n) || n === 0) return '$0';
+  if(n < 0) return '-$' + Math.abs(Math.round(n)).toLocaleString();
+  return '$' + Math.round(n).toLocaleString();
+}
+
 function showT12AddForm(cardId){
   var c=document.getElementById('t12af-'+cardId);
   if(!c) return;
@@ -5910,7 +6432,7 @@ window.addEventListener('DOMContentLoaded', function(){
 // ─── Patch buildPFTable to support edit mode ─────────────────────────────────
 var _origBuildPFTable = buildPFTable;
 buildPFTable = function(){
-  // Always run the base render (populates pfRevBody/pfExpBody/pfNoiBody/pfCfBody)
+  // Always run the base render (populates Income/Expense tables, pfNoiBody/pfCfBody)
   _origBuildPFTable();
   loadPFOverrides(currentProjectId);
   const tbody = document.getElementById('pfTableBody');
@@ -7271,7 +7793,6 @@ function rrAddRow(){
     '<td style="'+cs+';text-align:right"><input style="'+is+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
     '<td style="'+cs+';text-align:right;border-left:1px solid var(--border)"><input style="'+is+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>';
   if(showHD){
-    html += '<td style="'+cs+';text-align:right;border-left:1px solid var(--border);background:rgba(21,101,192,0.03);color:var(--muted)">—</td>';
     html += '<td style="'+cs+';text-align:right;border-left:1px solid var(--border);background:rgba(21,101,192,0.03);color:var(--muted)">—</td>';
   }
   html += '<td style="'+cs+';text-align:right;border-left:1px solid var(--border)"><input style="'+is+'text-align:right" type="number" min="0" placeholder="0" onchange="rrRecalcTotals()"></td>'+
