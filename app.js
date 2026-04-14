@@ -3831,12 +3831,10 @@ function buildPFTable(){
       var bg = isProj ? 'background:rgba(74,101,133,0.025);' : '';
       if(opts.isTot) bg = 'background:rgba(74,101,133,0.1);';
       var fw = opts.isTot ? 'font-weight:800;' : '';
-      var col = opts.isTot ? 'color:var(--blue);' : (opts.isDscr ? 'color:var(--green);font-weight:700;' : 'color:var(--body);');
+      var col = opts.isTot ? 'color:var(--blue);' : 'color:var(--body);';
       var txt;
       if(v === null || v === undefined) {
         txt = '<span style="color:var(--muted)">—</span>';
-      } else if(opts.isDscr) {
-        txt = parseFloat(v).toFixed(2) + '×';
       } else {
         var n = Math.round(parseFloat(v));
         txt = n < 0 ? '<span style="color:#c0392b">('+Math.abs(n).toLocaleString()+')</span>'
@@ -3846,54 +3844,59 @@ function buildPFTable(){
       return '<td style="padding:7px 8px;text-align:right;font-size:12px;'+fw+col+bg+bl+'">'+txt+'</td>';
     }
 
-    function cfLabelCell(label, opts) {
-      opts = opts || {};
-      var fw = opts.isTot ? 'font-weight:800;' : (opts.isSub ? 'font-style:italic;' : '');
-      var col = opts.isTot ? 'color:var(--blue);' : (opts.isSub ? 'color:var(--muted);' : 'color:var(--body);');
-      var bg = opts.isTot ? 'background:rgba(74,101,133,0.1);' : (opts.isSub ? 'background:rgba(0,0,0,0.015);' : '');
-      var indent = opts.isSub ? 'padding-left:24px;' : '';
-      return '<td style="padding:7px 14px;font-size:12px;'+fw+col+bg+indent+'">'+label+'</td>';
-    }
-
     function cfRow(label, vals, opts) {
       opts = opts || {};
-      var bg = opts.isTot ? 'background:rgba(74,101,133,0.1);border-top:2px solid rgba(74,101,133,0.25);' : (opts.isSub ? 'background:rgba(0,0,0,0.015);' : '');
+      var rowBg = opts.isTot ? 'background:rgba(74,101,133,0.1);border-top:2px solid rgba(74,101,133,0.25);' : '';
+      var fw = opts.isTot ? 'font-weight:800;' : (opts.isSub ? 'font-weight:400;' : 'font-weight:600;');
+      var col = opts.isTot ? 'color:var(--blue);' : (opts.isSub ? 'color:var(--muted);' : 'color:var(--body);');
+      var indent = opts.isSub ? 'padding-left:28px;' : '';
       var cells = vals.map(function(v,i){ return cfCell(v, i, opts); }).join('');
-      var puCell = '<td style="padding:7px 8px;'+bg+'"></td>';
-      return '<tr style="'+bg+'border-bottom:1px solid var(--border)">'+cfLabelCell(label,opts)+puCell+cells+'</tr>';
+      return '<tr style="'+rowBg+'border-bottom:1px solid var(--border)">'
+        + '<td style="padding:7px 14px;font-size:12px;'+fw+col+indent+'">'+label+'</td>'
+        + cells + '</tr>';
     }
 
     var rows = '';
-    // Adjustment
+    // Adjustment (sub-item of CF calculation)
     rows += cfRow('Adjustment', adjV, {isSub:true});
-    // Debt Service
+    // Debt Service (main item)
     rows += cfRow('Debt Service', dsV, {});
-    // Capex Reserves from Cash Flow (blank — placeholder)
+    // Capex Reserves from Cash Flow (sub-item, placeholder)
     rows += cfRow('Capex Reserves from Cash Flow', [null,null,null,null,null,null,null], {isSub:true});
     // Cash Flow after Debt Service — TOTAL
     rows += cfRow('Cash Flow after Debt Service', cf7, {isTot:true});
     // Separator
-    rows += '<tr style="height:8px;background:rgba(0,0,0,0.01)"><td colspan="9"></td></tr>';
-    // Reserve for Capex
+    rows += '<tr style="height:6px"><td colspan="8"></td></tr>';
+    // Reserve for Capex (sub-item, placeholder)
     rows += cfRow('Reserve for Capex', [null,null,null,null,null,null,null], {isSub:true});
-    // Capex Reserves from 2025 Cash Flow
+    // Capex Reserves from 2025 Cash Flow (sub-item, placeholder)
     rows += cfRow('Capex Reserves from 2025 Cash Flow', [null,null,null,null,null,null,null], {isSub:true});
-    // DSCR row — special
-    var dscrBg = 'background:rgba(74,124,89,0.07);border-top:2px solid rgba(74,124,89,0.25);';
-    var dscrCells = dscr7.map(function(v,i){
-      var isProj = i>=3;
-      var bl = i===3?'border-left:2px solid rgba(74,101,133,0.22);':'';
-      var bg = isProj?'background:rgba(74,124,89,0.05);':'';
-      var txt = v ? '<strong style="color:var(--green)">'+parseFloat(v).toFixed(2)+'×</strong>' : '<span style="color:var(--muted)">—</span>';
-      return '<td style="padding:8px 8px;text-align:right;font-size:12px;'+bg+bl+'">'+txt+'</td>';
-    }).join('');
-    rows += '<tr style="'+dscrBg+'border-bottom:2px solid rgba(74,124,89,0.25)">'+
-      '<td style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--green);'+dscrBg+'">DSCR</td>'+
-      '<td style="padding:8px 8px;'+dscrBg+'"></td>'+
-      dscrCells+
-    '</tr>';
 
     pfCfBody.innerHTML = rows;
+
+    // ── DEBT COVERAGE (separate table) ──
+    var pfDscrBody = document.getElementById('pfDscrBody');
+    if(pfDscrBody) {
+      var dcRows = '';
+      // NOI row (read-only reference)
+      dcRows += cfRow('Net Operating Income', noi7col, {isTot:true});
+      // Debt Service row
+      dcRows += cfRow('Debt Service', dsV, {});
+      // DSCR row
+      var dscrBg = 'background:rgba(74,124,89,0.07);border-top:2px solid rgba(74,124,89,0.25);';
+      var dscrCells = dscr7.map(function(v,i){
+        var isProj = i>=3;
+        var bl = i===3?'border-left:2px solid rgba(74,124,89,0.22);':'';
+        var bg = isProj?'background:rgba(74,124,89,0.05);':'';
+        var txt = v ? '<strong style="color:var(--green)">'+parseFloat(v).toFixed(2)+'×</strong>' : '<span style="color:var(--muted)">—</span>';
+        return '<td style="padding:8px 8px;text-align:right;font-size:12px;'+bg+bl+'">'+txt+'</td>';
+      }).join('');
+      dcRows += '<tr style="'+dscrBg+'border-bottom:2px solid rgba(74,124,89,0.25)">'+
+        '<td style="padding:8px 14px;font-size:12px;font-weight:800;color:var(--green)">DSCR</td>'+
+        dscrCells+
+      '</tr>';
+      pfDscrBody.innerHTML = dcRows;
+    }
   }
 
   // Show/hide unit mix
@@ -5326,7 +5329,7 @@ var T12D={
     totalAdmin:{y1:70442,y2:-13953},
     marketing:{y1:11071,y2:8548},advertising:{y1:12646,y2:0},
     meetings:{y1:1221,y2:0},totalMarketing:{y1:24938,y2:8548},
-    inspection:{y1:1790,y2:1600},totalBuilding:{y1:32005,y2:88099},
+    inspection:{y1:1790,y2:1600},depreciation:{y1:55642,y2:0},amortization:{y1:30857,y2:30857},refinanceFee:{y1:-642,y2:0},miscExpense:{y1:0,y2:0},totalBuilding:{y1:87647,y2:32457},depreciationUnused:{y1:69335,y2:0},
     guaranteedPayments:{y1:84077,y2:0},prefIntHo:{y1:4643,y2:0},totalPreferred:{y1:88721,y2:0},
     askAccountant:{y1:6248,y2:-2702},
     totalExpenses:{y1:742118,y2:686681}
@@ -5351,7 +5354,13 @@ var T12D={
   retainedEarnings:{y1:108767,y2:-245406},
   priorYearsRE:{y1:-997412,y2:-605164},
   totalAdjustments:{y1:1276209,y2:122561},
-  cashFlow:{y1:1468339,y2:-21477}
+  cashFlow:{y1:1468339,y2:-21477},
+  bankRecon:{
+    operatingCash:{begin:{y1:29498,y2:47418},end:{y1:47418,y2:25941}},
+    secChecking:{begin:{y1:27766,y2:20984},end:{y1:20984,y2:23894}},
+    otherChecking:{begin:{y1:0,y2:0},end:{y1:0,y2:0}},
+    securityDeposit:{begin:{y1:0,y2:0},end:{y1:0,y2:0}}
+  }
 };
 
 function t12Fmt(n){
@@ -5506,7 +5515,13 @@ function renderT12ParsedHTML(){
     +t12Div()
     +t12Sec(zh?'建筑费用':'BUILDING EXPENSES')
     +t12Field('Inspection Costs',D.expenses.inspection.y1,D.expenses.inspection.y2,2)
+    +t12Field('Depreciation Expense',D.expenses.depreciation?D.expenses.depreciation.y1:0,D.expenses.depreciation?D.expenses.depreciation.y2:0,2,{warn:true})
+    +t12Field('Amortization Expense',D.expenses.amortization?D.expenses.amortization.y1:0,D.expenses.amortization?D.expenses.amortization.y2:0,2,{warn:true})
+    +t12Field('Refinance Fee Expense',D.expenses.refinanceFee?D.expenses.refinanceFee.y1:0,D.expenses.refinanceFee?D.expenses.refinanceFee.y2:0,2,{warn:true})
+    +t12Field('Miscellaneous Expense',D.expenses.miscExpense?D.expenses.miscExpense.y1:0,D.expenses.miscExpense?D.expenses.miscExpense.y2:0,2)
     +t12Sub(zh?'小计 · 建筑费用':'TOTAL BUILDING EXPENSES',D.expenses.totalBuilding.y1,D.expenses.totalBuilding.y2)
+    +t12Div()
+    +t12Field('Depreciation Expense (Unused)',D.expenses.depreciationUnused?D.expenses.depreciationUnused.y1:0,D.expenses.depreciationUnused?D.expenses.depreciationUnused.y2:0,1,{warn:true})
     +t12Div()
     +t12Sec(zh?'优先回报':'PREFERRED RETURNS')
     +t12Field('Guaranteed Payments',D.expenses.guaranteedPayments.y1,D.expenses.guaranteedPayments.y2,2)
@@ -5653,6 +5668,25 @@ function renderT12ParsedHTML(){
     +mkHL(icoCF,'rgba(74,101,133,0.1)',cf>=0?'var(--blue)':'var(--red,#c0392b)',
       zh?'现金流':'CASH FLOW',D.cashFlow.y1,D.cashFlow.y2,
       'NET INCOME + TOTAL ADJUSTMENTS',cf>=0?'green':'red')
+    +(function(){
+      // ── BANK RECONCILIATION card ──
+      if(!D.bankRecon) return '';
+      var icoBank='<svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="width:18px;height:18px"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><line x1="4" y1="10" x2="4" y2="21"/><line x1="8" y1="10" x2="8" y2="21"/><line x1="12" y1="10" x2="12" y2="21"/><line x1="16" y1="10" x2="16" y2="21"/><line x1="20" y1="10" x2="20" y2="21"/></svg>';
+      function reconAcct(name,data){
+        var b1=data.begin.y1,b2=data.begin.y2,e1=data.end.y1,e2=data.end.y2;
+        var d1=e1-b1,d2=e2-b2;
+        return t12Sec(name)
+          +t12Field('Beginning Balance',b1,b2,2)
+          +t12Field('Ending Balance',e1,e2,2)
+          +t12Sub('Difference',d1,d2)
+          +t12Div();
+      }
+      var reconBody=reconAcct('Operating Cash',D.bankRecon.operatingCash)
+        +reconAcct('Secondary Checking',D.bankRecon.secChecking)
+        +reconAcct('Other Checking',D.bankRecon.otherChecking)
+        +reconAcct('Cash-Security Deposit',D.bankRecon.securityDeposit);
+      return mkCard('bankrecon',icoBank,'rgba(0,0,0,0.04)',zh?'银行对账':'BANK RECONCILIATION',0,0,reconBody);
+    })()
     +'</div>';
 }
 
