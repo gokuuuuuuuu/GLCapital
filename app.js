@@ -3782,9 +3782,27 @@ function buildPFTable(){
     var rentRate2 = 1 + (asmt2.rentGrowth / 100);
     var opRate2   = 1 + (asmt2.opexGrowth / 100);
 
-    // Historical data (cols 0-5) from Excel — exact values
-    var adjV  = [-17782.52, 2529.81, 2605.70, null,   null,   null  ];
-    var dsV   = [219344,    219344,  219344,   217948, 217948, 217948];
+    // ── Debt Service from Debt Analysis (localStorage or defaults) ──
+    var _cfPid = window._currentProjectId || 'default';
+    var _cfDebtData = null;
+    try { _cfDebtData = JSON.parse(localStorage.getItem('debt_data_'+_cfPid)||'null'); } catch(e){}
+    var _cfCurrent = (_cfDebtData && _cfDebtData.current) || {};
+    var _cfRefi    = (_cfDebtData && _cfDebtData.refi)    || {};
+    var dsY1to3 = _cfCurrent.annualMortgagePayments || 219344;
+    // I/O = Refinance Principal × Interest per annum
+    var _refiPrincipal = _cfRefi.principal || 3962686;
+    var _refiRate      = _cfRefi.interestPerAnnum || 5.50;
+    var dsIO = Math.round(_refiPrincipal * (_refiRate / 100));
+    var dsV   = [dsY1to3, dsY1to3, dsY1to3, dsIO, dsIO, dsIO];
+
+    // ── Adjustment: Y1,Y2 from T12; Y3=Avg(Y1,Y2); Y4+ grow at opexGrowth ──
+    var _adjSrc = PF_DATA.adjustment || [-17782.52, 2529.81];
+    var adjY1 = _adjSrc[0] || 0;
+    var adjY2 = _adjSrc[1] || 0;
+    var adjY3 = Math.round((adjY1 + adjY2) / 2 * 100) / 100;
+    var adjV  = [adjY1, adjY2, adjY3];
+    for(var _ai = 3; _ai < 6; _ai++) { adjV.push(Math.round(adjV[_ai-1] * opRate2 * 100) / 100); }
+
     var cf6   = [-10651,    72586,   109984,   106016, 121711, 138116];
     var dscr6 = [null,      null,    null,      1.49,   1.56,   1.63  ];
 
@@ -3795,12 +3813,13 @@ function buildPFTable(){
     while(expTot7.length < 7){ var le7=expTot7[expTot7.length-1]; expTot7.push(Math.round(le7*opRate2)); }
     var noi7col = revTot7.map(function(r,i){ return Math.round(r-expTot7[i]); });
 
-    // Build full 7-col arrays — first 6 from Excel, 7th computed
-    var ds7last  = dsV[5]; // loan constant stays same
+    // Build full 7-col arrays — first 6 from data, 7th computed
+    var ds7last  = dsV[5]; // I/O stays same for projected years
+    var adj7last = Math.round(adjV[5] * opRate2 * 100) / 100;
     var cf7last  = Math.round(noi7col[6] - ds7last);
     var dscr7last= (noi7col[6] / ds7last).toFixed(2);
 
-    adjV.push(null);
+    adjV.push(adj7last);
     dsV.push(ds7last);
     var cf7   = cf6.concat([cf7last]);
     var dscr7 = dscr6.concat([dscr7last]);
@@ -4020,15 +4039,6 @@ function buildPFUnitMix(){
     var rowBg=isTot?'background:rgba(196,220,196,0.35);border-top:2px solid rgba(74,124,89,0.3)'
                    :(i%2===1?'background:rgba(0,0,0,0.018)':'');
 
-    var asIsAnn  = (!isTot && u.asIsRent  && u.units) ? u.asIsRent  * 12 * u.units : 0;
-    var projAnn  = (!isTot && u.growthRent && u.units) ? u.growthRent* 12 * u.units : 0;
-
-    if(!isTot) {
-      totalAsIs += asIsAnn;
-      totalProj += projAnn;
-      totalUnits += (u.units||0);
-    }
-
     var hc = 'color:var(--header);font-weight:'+fw;
     var mc = 'color:var(--muted)';
     var gc = 'color:var(--green);font-weight:'+fw;
@@ -4039,6 +4049,20 @@ function buildPFUnitMix(){
     var hdVal = hdMatch ? (hdMatch[metricKey]||0) : null;
     if(hdVal === 0) hdVal = null;
     if(!isTot && hdVal && u.units) totalHDVal += hdVal * 12 * u.units;
+
+    // Active rent: use HD or RR depending on active source
+    var activeRent = (activeRentSrc === 'hd' && hdVal) ? hdVal : u.asIsRent;
+    var asIsAnn  = (!isTot && activeRent && u.units) ? activeRent * 12 * u.units : 0;
+    // Projected: apply growth ratio to active rent base
+    var growthFactor = (u.asIsRent && u.growthRent) ? u.growthRent / u.asIsRent : 1;
+    var projRent = activeRent ? activeRent * growthFactor : 0;
+    var projAnn  = (!isTot && projRent && u.units) ? projRent * 12 * u.units : 0;
+
+    if(!isTot) {
+      totalAsIs += asIsAnn;
+      totalProj += projAnn;
+      totalUnits += (u.units||0);
+    }
 
     if(isTot){ asIsAnn = totalAsIs; projAnn = totalProj; }
 
@@ -5773,6 +5797,12 @@ function debtCellEdit(el){
 }
 
 // ── Debt data storage ─────────────────────────────────────────
+function handleDebtUpload(evt) {
+  var file = evt.target.files && evt.target.files[0];
+  if(!file) return;
+  toast('Debt file upload coming soon', 'info');
+}
+
 function _getDebtData(pid) {
   try { return JSON.parse(localStorage.getItem('debt_data_'+pid)||'null'); } catch(e) { return null; }
 }
@@ -5904,7 +5934,7 @@ function _debtRows(fields) {
   fields.forEach(function(f) {
     if(f[2] === '_section') {
       // Section header row
-      html += '<tr><td colspan="2" style="padding:8px 0 4px;font-size:11px;font-weight:700;color:var(--header);letter-spacing:.03em;border-bottom:1px solid var(--border)">' + f[0] + '</td></tr>';
+      html += '<tr><td colspan="2" style="font-weight:700;color:var(--header);padding-top:10px;font-size:11px">' + f[0] + '</td></tr>';
       return;
     }
     var bold = f[3] ? ';font-weight:600' : '';
