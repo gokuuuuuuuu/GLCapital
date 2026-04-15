@@ -2675,9 +2675,10 @@ function _dsTag(src) {
 
 // Calculate explicit px width for a select showing UPPERCASE label — chevron included
 function _srcSelectWidth(labelText){
-  // Each char ~5.5px at 9px font + letter-spacing .05em, plus 18px padding(L+R) + 10px chevron area
+  // Uppercase 9px bold + letter-spacing .05em: each char ~7.2px
+  // Plus: left padding 10 + right padding 18 (includes 8px chevron area) + 4px safety = 32px
   var len = String(labelText||'').length;
-  return Math.max(len * 6 + 24, 52);
+  return Math.max(Math.ceil(len * 7.2) + 32, 56);
 }
 
 function _dsDropdown(rowId, currentSrc, availableSrcs) {
