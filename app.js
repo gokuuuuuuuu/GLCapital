@@ -2995,7 +2995,7 @@ function buildIncomeTable() {
   var _cellPad = 'padding:7px 8px;';
   var _cellRight = 'text-align:right;';
   var _cellFont = 'font-size:12px;';
-  var _editInputBase = 'width:100%;text-align:right;font-size:11px;padding:3px 6px;border-radius:3px;box-sizing:border-box;outline:none;';
+  var _editInputBase = 'text-align:right;font-size:11px;padding:3px 6px;border-radius:3px;box-sizing:content-box;outline:none;width:auto;min-width:40px;';
 
   // Build tooltip for Y3 (Stab) cell explaining the calculation
   function _stabTooltip(src, perUnitMonthly, units, y1, y2) {
@@ -3051,42 +3051,45 @@ function buildIncomeTable() {
     // Per Unit — consistent sizing in both modes
     var puDisplay = fmtPerUnit(perUnitMonthly, src);
     if(isEditMode) {
-      upperHtml += '<td style="'+_cellPad+_cellRight+'min-width:90px">'
-        + '<input type="text" value="'+Math.round(perUnitMonthly)+'"'
+      var puVal = Math.round(perUnitMonthly);
+      var puSize = Math.max(String(puVal).length + 1, 4);
+      upperHtml += '<td style="'+_cellPad+_cellRight+'">'
+        + '<input type="text" size="'+puSize+'" value="'+puVal+'"'
         + ' onchange="onIncomeFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'perunit\',this.value)"'
         + ' style="'+_editInputBase+'border:1px solid '+c.tag+';color:'+c.tag+';background:'+c.tagBg+'">'
         + '</td>';
     } else {
-      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;min-width:90px" title="Per Unit/mo from '+c.label+'">'+puDisplay+'<span style="font-size:9px;color:var(--muted)">/mo</span></td>';
+      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px" title="Per Unit/mo from '+c.label+'">'+puDisplay+'<span style="font-size:9px;color:var(--muted)">/mo</span></td>';
     }
 
-    // Source dropdown — polished pill design with chevron icon
+    // Source dropdown — compact pill, width adapts to content, text centered
     var selHtml;
     if(availSrcs.length > 1) {
-      var selStyle = 'font-size:9px;padding:3px 18px 3px 8px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center';
+      var selStyle = 'font-size:9px;padding:3px 20px 3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:auto;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center';
       selHtml = '<select onchange="changeRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)"'
         + ' onmouseenter="this.style.boxShadow=\'0 0 0 3px '+c.tagBg+'\'"'
         + ' onmouseleave="this.style.boxShadow=\'\'"'
         + ' style="'+selStyle+'" title="Change data source">';
       availSrcs.forEach(function(s) {
-        selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+' style="background:#fff;color:'+DS_COLORS[s].tag+'">'+DS_COLORS[s].label+'</option>';
+        selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+' style="background:#fff;color:'+DS_COLORS[s].tag+';text-align:center">'+DS_COLORS[s].label+'</option>';
       });
       selHtml += '</select>';
     } else {
-      // Single source: show as static pill (matches select sizing)
-      selHtml = '<span style="font-size:9px;padding:3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:inline-block">'+c.label+'</span>';
+      // Single source: static pill (same sizing)
+      selHtml = '<span style="font-size:9px;padding:3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:inline-block;text-align:center">'+c.label+'</span>';
     }
-    upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:90px">'+selHtml+'</td>';
+    upperHtml += '<td style="'+_cellPad+'text-align:center">'+selHtml+'</td>';
 
     // Units — consistent sizing
     if(isEditMode) {
-      upperHtml += '<td style="'+_cellPad+_cellRight+'min-width:55px">'
-        + '<input type="number" value="'+units+'"'
+      var uSize = Math.max(String(units).length + 1, 3);
+      upperHtml += '<td style="'+_cellPad+_cellRight+'">'
+        + '<input type="number" size="'+uSize+'" value="'+units+'"'
         + ' onchange="onIncomeFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'units\',this.value)"'
-        + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent">'
+        + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent;min-width:36px">'
         + '</td>';
     } else {
-      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;color:var(--body);min-width:55px">'+units+'</td>';
+      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;color:var(--body)">'+units+'</td>';
     }
 
     // Y1-Y7 with source-colored values + tooltips
@@ -3111,8 +3114,10 @@ function buildIncomeTable() {
 
       // Y3 (Stab) editable in edit mode
       if(isEditMode && isStab) {
+        var stabStr = Math.round(v).toLocaleString();
+        var stabSize = Math.max(stabStr.length + 1, 6);
         upperHtml += '<td style="'+_cellPad+_cellRight+cellBg+borderL+'" title="'+tooltip+'">'
-          + '<input type="text" value="'+Math.round(v).toLocaleString()+'"'
+          + '<input type="text" size="'+stabSize+'" value="'+stabStr+'"'
           + ' onchange="onIncomeFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'stab\',this.value)"'
           + ' style="'+_editInputBase+'border:1px solid '+(src!=='t12'?DS_COLORS[src].tag:'var(--border)')+';color:'+(src!=='t12'?DS_COLORS[src].tag:'var(--body)')+';background:transparent">'
           + '</td>';
@@ -3266,7 +3271,7 @@ function buildExpenseTable() {
   var _cellPad = 'padding:7px 8px;';
   var _cellRight = 'text-align:right;';
   var _cellFont = 'font-size:12px;';
-  var _editInputBase = 'width:100%;text-align:right;font-size:11px;padding:3px 6px;border-radius:3px;box-sizing:border-box;outline:none;';
+  var _editInputBase = 'text-align:right;font-size:11px;padding:3px 6px;border-radius:3px;box-sizing:content-box;outline:none;width:auto;min-width:40px;';
 
   // Separate expenses into upper (per-unit) and lower (flat)
   var upperItems = [];
@@ -3320,43 +3325,46 @@ function buildExpenseTable() {
     // Per Unit
     var puDisplay = fmtPerUnit(perUnitMonthly, src);
     if(isEditMode) {
-      upperHtml += '<td style="'+_cellPad+_cellRight+'min-width:90px">'
-        + '<input type="text" value="'+Math.round(perUnitMonthly)+'"'
+      var puVal = Math.round(perUnitMonthly);
+      var puSize = Math.max(String(puVal).length + 1, 4);
+      upperHtml += '<td style="'+_cellPad+_cellRight+'">'
+        + '<input type="text" size="'+puSize+'" value="'+puVal+'"'
         + ' onchange="onExpenseFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'perunit\',this.value)"'
         + ' style="'+_editInputBase+'border:1px solid '+c.tag+';color:'+c.tag+';background:'+c.tagBg+'">'
         + '</td>';
     } else {
-      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;min-width:90px" title="Per Unit/mo">'+puDisplay+'<span style="font-size:9px;color:var(--muted)">/mo</span></td>';
+      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px" title="Per Unit/mo">'+puDisplay+'<span style="font-size:9px;color:var(--muted)">/mo</span></td>';
     }
 
     // Source dropdown (only for dual-source fields)
     if(isDual) {
       var availSrcs = ['t12','hd'];
-      var selStyle = 'font-size:9px;padding:3px 18px 3px 8px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center';
+      var selStyle = 'font-size:9px;padding:3px 20px 3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:auto;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center';
       var selHtml = '<select onchange="changeExpRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)"'
         + ' onmouseenter="this.style.boxShadow=\'0 0 0 3px '+c.tagBg+'\'"'
         + ' onmouseleave="this.style.boxShadow=\'\'"'
         + ' style="'+selStyle+'" title="Change data source">';
       availSrcs.forEach(function(s) {
-        selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+' style="background:#fff;color:'+DS_COLORS[s].tag+'">'+DS_COLORS[s].label+'</option>';
+        selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+' style="background:#fff;color:'+DS_COLORS[s].tag+';text-align:center">'+DS_COLORS[s].label+'</option>';
       });
       selHtml += '</select>';
-      upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:90px">'+selHtml+'</td>';
+      upperHtml += '<td style="'+_cellPad+'text-align:center">'+selHtml+'</td>';
     } else {
       var tC = DS_COLORS.t12;
-      var tPill = '<span style="font-size:9px;padding:3px 10px;border:1px solid '+tC.tag+';border-radius:11px;color:'+tC.tag+';background:'+tC.tagBg+';font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:inline-block">'+tC.label+'</span>';
-      upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:90px">'+tPill+'</td>';
+      var tPill = '<span style="font-size:9px;padding:3px 10px;border:1px solid '+tC.tag+';border-radius:11px;color:'+tC.tag+';background:'+tC.tagBg+';font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:inline-block;text-align:center">'+tC.label+'</span>';
+      upperHtml += '<td style="'+_cellPad+'text-align:center">'+tPill+'</td>';
     }
 
     // Units
     if(isEditMode) {
-      upperHtml += '<td style="'+_cellPad+_cellRight+'min-width:55px">'
-        + '<input type="number" value="'+units+'"'
+      var uSize = Math.max(String(units).length + 1, 3);
+      upperHtml += '<td style="'+_cellPad+_cellRight+'">'
+        + '<input type="number" size="'+uSize+'" value="'+units+'"'
         + ' onchange="onExpenseFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'units\',this.value)"'
-        + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent">'
+        + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent;min-width:36px">'
         + '</td>';
     } else {
-      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;color:var(--body);min-width:55px">'+units+'</td>';
+      upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;color:var(--body)">'+units+'</td>';
     }
 
     // Y1-Y7
@@ -3367,8 +3375,10 @@ function buildExpenseTable() {
       var cellBg = isProj ? 'background:rgba(74,124,89,0.03);' : '';
 
       if(isEditMode && isStab) {
+        var stabStr = Math.round(v).toLocaleString();
+        var stabSize = Math.max(stabStr.length + 1, 6);
         upperHtml += '<td style="'+_cellPad+_cellRight+cellBg+borderL+'">'
-          + '<input type="text" value="'+Math.round(v).toLocaleString()+'"'
+          + '<input type="text" size="'+stabSize+'" value="'+stabStr+'"'
           + ' onchange="onExpenseFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'stab\',this.value)"'
           + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent">'
           + '</td>';
@@ -3973,19 +3983,50 @@ function _findHDBySqft(hdUmix, targetSqft){
   return best;
 }
 
-// Unit Mix active rent source: 'rr' or 'hd'
-function _getUmixActiveSrc(pid) {
-  return localStorage.getItem('umix_active_src_'+(pid||'default')) || 'rr';
+// Unit Mix per-row rent source: 'rr' | 'hd-leasedRent' | 'hd-ner' | 'hd-rent30' | 'hd-rent60' | 'hd-rent90' | 'manual'
+function _getUmixRowSrcs(pid) {
+  try { return JSON.parse(localStorage.getItem('umix_row_srcs_'+(pid||'default'))||'{}'); } catch(e){ return {}; }
 }
-function _setUmixActiveSrc(pid, src) {
-  localStorage.setItem('umix_active_src_'+(pid||'default'), src);
+function _saveUmixRowSrcs(pid, obj) {
+  localStorage.setItem('umix_row_srcs_'+(pid||'default'), JSON.stringify(obj));
 }
-function setUmixRentSource(src) {
+function setUmixRowSource(rowIdx, src) {
   var pid = window._currentProjectId || 'default';
-  _setUmixActiveSrc(pid, src);
+  var obj = _getUmixRowSrcs(pid);
+  obj[rowIdx] = src;
+  _saveUmixRowSrcs(pid, obj);
   buildPFUnitMix();
 }
-window.setUmixRentSource = setUmixRentSource;
+function _getUmixManualRent(pid, rowIdx) {
+  try {
+    var obj = JSON.parse(localStorage.getItem('umix_manual_rents_'+(pid||'default'))||'{}');
+    return obj[rowIdx];
+  } catch(e){ return null; }
+}
+function setUmixManualRent(rowIdx, val) {
+  var pid = window._currentProjectId || 'default';
+  var obj = {};
+  try { obj = JSON.parse(localStorage.getItem('umix_manual_rents_'+pid)||'{}'); } catch(e){}
+  obj[rowIdx] = parseFloat(String(val).replace(/[^\d.-]/g,''));
+  localStorage.setItem('umix_manual_rents_'+pid, JSON.stringify(obj));
+  // Also set source to manual
+  var srcs = _getUmixRowSrcs(pid);
+  srcs[rowIdx] = 'manual';
+  _saveUmixRowSrcs(pid, srcs);
+  buildPFUnitMix();
+}
+window.setUmixRowSource = setUmixRowSource;
+window.setUmixManualRent = setUmixManualRent;
+
+// Source options for As-is Rent column
+var UMIX_SRC_OPTIONS = [
+  {value:'rr',           label:'RR',        color:DS_COLORS.rr},
+  {value:'hd-leasedRent',label:'HD Leased', color:DS_COLORS.hd},
+  {value:'hd-ner',       label:'HD NER',    color:DS_COLORS.hd},
+  {value:'hd-rent30',    label:'HD 30d',    color:DS_COLORS.hd},
+  {value:'hd-rent60',    label:'HD 60d',    color:DS_COLORS.hd},
+  {value:'hd-rent90',    label:'HD 90d',    color:DS_COLORS.hd}
+];
 
 function buildPFUnitMix(){
   var headEl=document.getElementById('pfUnitMixHead');
@@ -4002,11 +4043,23 @@ function buildPFUnitMix(){
 
   var hdC = DS_COLORS.hd;
   var rrC = DS_COLORS.rr;
+  var manC = DS_COLORS.manual;
 
-  // Active source for As-is Rent: 'rr' or 'hd'
-  var activeRentSrc = _getUmixActiveSrc(pid);
-  // If HD not available, force RR
-  if(!showHD) activeRentSrc = 'rr';
+  var rowSrcs = _getUmixRowSrcs(pid);
+
+  // Helper: get effective rent for a row based on its source
+  function _getRowRent(rowIdx, u, hdMatch) {
+    var src = rowSrcs[rowIdx] || 'rr';
+    if(src === 'manual') {
+      var mv = _getUmixManualRent(pid, rowIdx);
+      if(mv != null && !isNaN(mv)) return {src:'manual', val:mv};
+    }
+    if(src.indexOf('hd-') === 0 && hdMatch) {
+      var metric = src.substring(3);
+      return {src:'hd', val: hdMatch[metric] || null, metric:metric};
+    }
+    return {src:'rr', val: u.asIsRent||null};
+  }
 
   function fmtD(v){
     if(v==null||v===0) return '';
@@ -4022,36 +4075,9 @@ function buildPFUnitMix(){
   theadHtml += '<th style="'+th+';text-align:center"># Units</th>';
   theadHtml += '<th style="'+th+';text-align:center">Bedroom</th>';
   theadHtml += '<th style="'+th+';text-align:right">SQF</th>';
-  // As-is Rent with RR source tag + active indicator
-  var rrActive = activeRentSrc === 'rr';
-  var rrCheckmark = rrActive ? '<span style="color:'+rrC.tag+';font-size:10px;margin-right:2px" title="Active source for calculations">✓</span>' : '';
-  var rrClickStyle = showHD ? 'cursor:pointer' : '';
-  var rrClickAttr = showHD ? ' onclick="setUmixRentSource(\'rr\')" title="Click to use RR as active source"' : '';
-  theadHtml += '<th style="'+thB+';text-align:right;'+rrClickStyle+(rrActive&&showHD?';background:rgba(106,27,154,0.06)':'')+'"'+rrClickAttr+'>'
-    + '<span style="display:inline-flex;align-items:center;gap:5px;justify-content:flex-end">'
-    + rrCheckmark
-    + '<span style="font-size:7px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+rrC.tag+';background:'+rrC.tagBg+'">RR</span>'
-    + '2025 As-is Rent</span></th>';
-
-  if(showHD){
-    // Metric dropdown in header
-    var selHtml = '<select onchange="changeHDMetric(this.value);event.stopPropagation()" style="font-size:9px;padding:1px 4px;border:1px solid '+hdC.tag+';border-radius:4px;color:'+hdC.tag+';background:'+hdC.tagBg+';cursor:pointer;font-weight:600;margin-left:4px">';
-    HD_METRICS.forEach(function(m){
-      selHtml += '<option value="'+m.key+'"'+(m.key===metricKey?' selected':'')+'>'+m.short+'</option>';
-    });
-    selHtml += '</select>';
-
-    var hdActive = activeRentSrc === 'hd';
-    var hdCheckmark = hdActive ? '<span style="color:'+hdC.tag+';font-size:10px;margin-right:2px" title="Active source for calculations">✓</span>' : '';
-    theadHtml += '<th style="'+thB+';text-align:right;color:'+hdC.tag+';background:'+(hdActive?'rgba(21,101,192,0.08)':hdC.cell)+';cursor:pointer" onclick="setUmixRentSource(\'hd\')" title="Click to use HD as active source">'
-      + '<span style="display:inline-flex;align-items:center;gap:4px;justify-content:flex-end">'
-      + hdCheckmark
-      + '<span style="font-size:7px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+hdC.tag+';background:'+hdC.tagBg+'">HD</span>'
-      + (hdReportLabel ? '<span style="font-size:8px;color:var(--muted);font-weight:400">'+hdReportLabel+'</span>' : '')
-      + selHtml
-      + (isEdit ? '<button onclick="hideHDUmixCols();event.stopPropagation()" style="border:none;background:'+hdC.tagBg+';color:'+hdC.tag+';border-radius:3px;cursor:pointer;font-size:10px;padding:1px 5px;line-height:1.2" title="Hide HD columns">&times;</button>' : '')
-      + '</span></th>';
-  }
+  // Single combined As-is Rent column (source picked per-row via dropdown)
+  theadHtml += '<th style="'+thB+';text-align:right">2025 As-is Rent</th>';
+  theadHtml += '<th style="'+thB+';text-align:center;font-size:10px;color:var(--muted)">Source</th>';
   theadHtml += '<th style="'+thB+';text-align:right">2026 Growth</th>';
   theadHtml += '<th style="'+th+';text-align:right">2025 As-is Rent Annually</th>';
   theadHtml += '<th style="'+th+';text-align:right;color:var(--green)">2026 Projected Rent</th>';
@@ -4059,7 +4085,7 @@ function buildPFUnitMix(){
   headEl.innerHTML = theadHtml;
 
   // ── TBODY ──
-  var totalAsIs=0, totalProj=0, totalHDVal=0, totalUnits=0;
+  var totalAsIs=0, totalProj=0, totalUnits=0;
   var rows = (PF_DATA.unitMix||[]);
 
   var tbodyHtml = rows.map(function(u,i){
@@ -4075,14 +4101,15 @@ function buildPFUnitMix(){
 
     // HD match by sqft (closest)
     var hdMatch = (!isTot && u.sqft) ? _findHDBySqft(hdUmix, u.sqft) : null;
-    var hdVal = hdMatch ? (hdMatch[metricKey]||0) : null;
-    if(hdVal === 0) hdVal = null;
-    if(!isTot && hdVal && u.units) totalHDVal += hdVal * 12 * u.units;
 
-    // Active rent: use HD or RR depending on active source
-    var activeRent = (activeRentSrc === 'hd' && hdVal) ? hdVal : u.asIsRent;
+    // Determine active rent based on per-row source
+    var rentInfo = isTot ? {src:'rr', val:null} : _getRowRent(i, u, hdMatch);
+    var activeRent = rentInfo.val;
+    var activeSrc = rentInfo.src;
+    var rentColor = activeSrc==='hd'?hdC.tag:(activeSrc==='manual'?manC.tag:rrC.tag);
+    var rentBg = activeSrc==='hd'?hdC.cell:(activeSrc==='manual'?manC.cell:'transparent');
+
     var asIsAnn  = (!isTot && activeRent && u.units) ? activeRent * 12 * u.units : 0;
-    // Projected: apply growth ratio to active rent base
     var growthFactor = (u.asIsRent && u.growthRent) ? u.growthRent / u.asIsRent : 1;
     var projRent = activeRent ? activeRent * growthFactor : 0;
     var projAnn  = (!isTot && projRent && u.units) ? projRent * 12 * u.units : 0;
@@ -4101,17 +4128,27 @@ function buildPFUnitMix(){
     html += '<td'+(isTot?' id="rrTotalUnits"':'')+' style="'+cp+'text-align:center;'+hc+'">'+(u.units!=null?(isTot?totalUnits:u.units+'.00'):'')+'</td>';
     html += '<td style="'+cp+'text-align:center;'+mc+'">'+(isTot?'':(u.beds!=null?u.beds:''))+'</td>';
     html += '<td style="'+cp+'text-align:right;'+mc+'">'+(isTot?'':(u.sqft||'—'))+'</td>';
-    html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);color:'+rrC.tag+';font-weight:'+fw+'">'
-      +(u.asIsRent&&!isTot?'$\u00a0'+Number(u.asIsRent).toLocaleString():'')+'</td>';
 
-    if(showHD){
-      var hBg = 'background:'+hdC.cell+';';
-      if(isTot){
-        html += '<td style="'+cp+'text-align:right;font-weight:700;color:'+hdC.tag+';border-left:1px solid var(--border);'+hBg+'">'+(totalHDVal?fmtD(totalHDVal):'')+'</td>';
-      } else {
-        html += '<td style="'+cp+'text-align:right;color:'+hdC.tag+';font-weight:500;border-left:1px solid var(--border);'+hBg+'">'
-          +(hdVal?'$\u00a0'+Number(Math.round(hdVal)).toLocaleString():'—')+'</td>';
-      }
+    // As-is Rent (combined column, editable in edit mode)
+    if(isTot) {
+      html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);color:var(--header);font-weight:700"></td>';
+      html += '<td style="'+cp+'text-align:center;border-left:1px solid var(--border)"></td>';
+    } else if(isEdit) {
+      var valStr = activeRent?Math.round(activeRent):'';
+      var sz = Math.max(String(valStr).length + 1, 5);
+      html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);background:'+rentBg+'">'
+        + '<input type="text" size="'+sz+'" value="'+valStr+'"'
+        + ' onchange="setUmixManualRent('+i+',this.value)"'
+        + ' style="text-align:right;font-size:12px;padding:3px 6px;border-radius:4px;outline:none;'
+        + 'border:1px solid '+rentColor+';color:'+rentColor+';background:transparent;width:auto;box-sizing:content-box">'
+        + '</td>';
+      // Source dropdown
+      html += '<td style="'+cp+'text-align:center;border-left:1px solid var(--border)">'+_umixSrcSelect(i, activeSrc === 'hd' ? ('hd-'+(rentInfo.metric||'leasedRent')) : activeSrc, !!hdMatch)+'</td>';
+    } else {
+      html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);color:'+rentColor+';font-weight:'+fw+';background:'+rentBg+'">'
+        +(activeRent?'$\u00a0'+Number(Math.round(activeRent)).toLocaleString():'—')+'</td>';
+      // Source tag (not editable)
+      html += '<td style="'+cp+'text-align:center;border-left:1px solid var(--border)">'+_umixSrcTag(i, activeSrc === 'hd' ? ('hd-'+(rentInfo.metric||'leasedRent')) : activeSrc)+'</td>';
     }
 
     html += '<td style="'+cp+'text-align:right;'+hc+';border-left:1px solid var(--border)">'
@@ -4123,6 +4160,43 @@ function buildPFUnitMix(){
   }).join('');
 
   bodyEl.innerHTML = tbodyHtml;
+}
+
+// Render Unit Mix source dropdown (per-row) — pill style
+function _umixSrcSelect(rowIdx, currentSrc, hasHD){
+  var options = [{value:'rr', label:'RR', color:DS_COLORS.rr}];
+  if(hasHD){
+    options.push({value:'hd-leasedRent',label:'HD Leased',color:DS_COLORS.hd});
+    options.push({value:'hd-ner',       label:'HD NER',   color:DS_COLORS.hd});
+    options.push({value:'hd-rent30',    label:'HD 30d',   color:DS_COLORS.hd});
+    options.push({value:'hd-rent60',    label:'HD 60d',   color:DS_COLORS.hd});
+    options.push({value:'hd-rent90',    label:'HD 90d',   color:DS_COLORS.hd});
+  }
+  // Add manual only if current is manual
+  if(currentSrc === 'manual'){
+    options.push({value:'manual',label:'Manual',color:DS_COLORS.manual});
+  }
+  var cur = options.find(function(o){return o.value===currentSrc;}) || options[0];
+  var c = cur.color;
+  var style = 'font-size:9px;padding:3px 20px 3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:auto;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center';
+  var html = '<select onchange="setUmixRowSource('+rowIdx+',this.value)" style="'+style+'">';
+  options.forEach(function(o){
+    html += '<option value="'+o.value+'"'+(o.value===currentSrc?' selected':'')+' style="background:#fff;color:'+o.color.tag+';text-align:center">'+o.label+'</option>';
+  });
+  html += '</select>';
+  return html;
+}
+
+function _umixSrcTag(rowIdx, currentSrc){
+  var label = 'RR', color = DS_COLORS.rr;
+  if(currentSrc === 'manual'){ label='Manual'; color=DS_COLORS.manual; }
+  else if(currentSrc && currentSrc.indexOf('hd-')===0){
+    color = DS_COLORS.hd;
+    var metric = currentSrc.substring(3);
+    var metricMap = {leasedRent:'Leased',ner:'NER',rent30:'30d',rent60:'60d',rent90:'90d'};
+    label = 'HD ' + (metricMap[metric]||'Leased');
+  }
+  return '<span style="font-size:9px;padding:3px 10px;border:1px solid '+color.tag+';border-radius:11px;color:'+color.tag+';background:'+color.tagBg+';font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:inline-block">'+label+'</span>';
 }
 
 function hideHDUmixCols(){
