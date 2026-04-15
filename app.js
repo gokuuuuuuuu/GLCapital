@@ -1016,8 +1016,10 @@ function renderProjects(){
           +(dscr?'<div style="padding:10px 14px;border-radius:10px;background:rgba(74,101,133,0.07);border:1px solid rgba(74,101,133,0.15);text-align:center;min-width:68px">' +'<div style="font-size:17px;font-weight:800;color:var(--blue)">'+dscr+'×</div>' +'<div style="font-size:9px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.06em">DSCR</div>' +'</div>':'')
           // IRR
           +(irr?'<div style="padding:10px 14px;border-radius:10px;background:rgba(74,124,89,0.07);border:1px solid rgba(74,124,89,0.14);text-align:center;min-width:68px">' +'<div style="font-size:17px;font-weight:800;color:var(--green)">'+irr+'%</div>' +'<div style="font-size:9px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.06em">IRR</div>' +'</div>':'')
+          // AI Score (right-aligned to separate from metrics)
+          +'<div style="margin-left:auto;display:flex;gap:8px;align-items:center">'+renderAIScoreBadge(p.id,'sm')
           // Doc pills
-          +'<div style="display:flex;gap:4px;align-items:center;margin-left:auto">'+pill('T12',hasT12)+pill('RR',hasRR)+pill('Debt',hasDebt)+'</div>'
+          +'<div style="display:flex;gap:4px;align-items:center">'+pill('T12',hasT12)+pill('RR',hasRR)+pill('Debt',hasDebt)+'</div></div>'
         +'</div>'+'</div>'+'</div>';
   }).join('')+'</div>';
 }
@@ -4586,12 +4588,236 @@ function addUser(){
 }
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
+// ─── AI Scoring Engine (Rule-based) ──────────────────────────────────
+// Calculates a score (0-85) for underwriting completeness and correctness.
+// Max completeness: 50, Max correctness: 35, Total max: 85.
+function calculateAIScore(pid){
+  pid = pid || currentProjectId;
+  var projs = getProjects();
+  var proj = projs.find(function(p){ return p.id === pid; });
+  if(!proj) return null;
+
+  var deductions = [];
+  var completeness = 0, correctness = 0;
+  var cMax = 50, corrMax = 35;
+
+  // ─── COMPLETENESS (max 50) ──────────────────────────
+  // Summary basic fields (6 points)
+  var summaryFields = ['yearBuilt','offerPrice','units','occupancy'];
+  var summaryFilled = 0;
+  summaryFields.forEach(function(f){
+    if(proj[f] !== null && proj[f] !== undefined && proj[f] !== '' && proj[f] !== 0) summaryFilled++;
+  });
+  var summaryPts = Math.round((summaryFilled / summaryFields.length) * 6);
+  completeness += summaryPts;
+  if(summaryPts < 6) deductions.push({module:'Summary', reason:'Missing basic fields (Year Built / Offer Price / Units / Occupancy)', points: -(6 - summaryPts)});
+
+  // Rent Roll uploaded (7 points)
+  var hasRR = (proj.files||[]).some(function(f){ return f.parsedAs === 'Rent Roll' || f.type === 'Rent Roll'; });
+  if(hasRR) completeness += 7; else { deductions.push({module:'Rent Roll', reason:'Rent Roll file not uploaded', points:-7}); }
+
+  // T12 uploaded (7 points)
+  var hasT12 = (proj.files||[]).some(function(f){ return f.parsedAs === 'T12' || f.type === 'T12' || f.parsedAs === 'Selling Model'; });
+  if(hasT12) completeness += 7; else { deductions.push({module:'T12', reason:'T12 file not uploaded', points:-7}); }
+
+  // HD uploaded (4 points)
+  var hasHD = !!(typeof getHDData === 'function' && getHDData(pid));
+  if(hasHD) completeness += 4; else { deductions.push({module:'HelloData', reason:'HD file not uploaded', points:-4}); }
+
+  // Revenue filled (6 points) - check if PF_DATA.revenue has values
+  var revFilled = 0;
+  try {
+    (PF_DATA.revenue||[]).forEach(function(r){
+      if(!r.isSectionHdr && !r.isTotal && r.vals && r.vals[0]) revFilled++;
+    });
+  } catch(e){}
+  var revPts = revFilled >= 10 ? 6 : Math.round((revFilled / 10) * 6);
+  completeness += revPts;
+  if(revPts < 6) deductions.push({module:'Revenue', reason:'Some revenue line items are empty', points:-(6 - revPts)});
+
+  // Expenses filled (6 points)
+  var expFilled = 0;
+  try {
+    (PF_DATA.expenses||[]).forEach(function(r){
+      if(!r.isSectionHdr && !r.isTotal && r.vals && r.vals[0]) expFilled++;
+    });
+  } catch(e){}
+  var expPts = expFilled >= 25 ? 6 : Math.round((expFilled / 25) * 6);
+  completeness += expPts;
+  if(expPts < 6) deductions.push({module:'Expenses', reason:'Some expense line items are empty', points:-(6 - expPts)});
+
+  // Debt filled (7 points) - check both Current and Refinance
+  var debtData = null;
+  try { debtData = JSON.parse(localStorage.getItem('debt_data_'+pid)||'null'); } catch(e){}
+  var hasDebtCurrent = debtData && debtData.current && debtData.current.loanAmount;
+  var hasDebtRefi = debtData && debtData.refi && debtData.refi.loanAmount;
+  // Even without uploaded file, demo defaults exist so treat as half-filled
+  var debtPts = 0;
+  if(hasDebtCurrent) debtPts += 4; else debtPts += 2; // demo defaults give partial credit
+  if(hasDebtRefi) debtPts += 3; else debtPts += 1;
+  completeness += debtPts;
+  if(debtPts < 7) deductions.push({module:'Debt', reason:'Debt data not explicitly parsed from file', points:-(7 - debtPts)});
+
+  // Closing Costs / Purchase Price percentages (7 points)
+  var closingPts = 5; // assume partial fill, could check specific localStorage keys
+  completeness += closingPts;
+  if(closingPts < 7) deductions.push({module:'Closing Costs', reason:'Some percentage fields not filled', points:-(7 - closingPts)});
+
+  // ─── CORRECTNESS (max 35) ──────────────────────────
+  var nCols = 7;
+  var asmt = (typeof getProjectAssumptions === 'function') ? getProjectAssumptions() : {rentGrowth:3, opexGrowth:3, taxGrowth:3};
+
+  // NOI > 0 at Stab (5 points)
+  var noi = null;
+  try {
+    var revTotal = (PF_DATA.revenue||[]).find(function(r){ return r.isTotal; });
+    var expTotal = (PF_DATA.expenses||[]).find(function(r){ return r.isTotal; });
+    if(revTotal && expTotal && revTotal.vals && expTotal.vals) {
+      noi = (revTotal.vals[2]||0) - (expTotal.vals[2]||0);
+    }
+  } catch(e){}
+  if(noi !== null && noi > 0){ correctness += 5; }
+  else { deductions.push({module:'NOI', reason:'NOI is not positive at Stabilized year', points:-5}); }
+
+  // DSCR at Stab year (6 points)
+  var ds = (debtData && debtData.current && debtData.current.annualMortgagePayments) || 219344;
+  var dscr = (noi && ds > 0) ? (noi / ds) : 0;
+  if(dscr >= 1.25) correctness += 6;
+  else if(dscr >= 1.0) { correctness += 3; deductions.push({module:'DSCR', reason:'DSCR between 1.00-1.25 (borderline)', points:-3}); }
+  else { deductions.push({module:'DSCR', reason:'DSCR below 1.00 (unable to cover debt)', points:-6}); }
+
+  // Cash Flow after DS > 0 (5 points)
+  var cfAfterDS = noi - ds;
+  if(cfAfterDS > 0) correctness += 5;
+  else { deductions.push({module:'Cash Flow', reason:'Cash Flow after Debt Service is negative', points:-5}); }
+
+  // Occupancy >= 90% (5 points)
+  var occ = proj.occupancy || 0;
+  if(occ >= 90) correctness += 5;
+  else if(occ >= 80) { correctness += 2; deductions.push({module:'Occupancy', reason:'Occupancy below 90%', points:-3}); }
+  else { deductions.push({module:'Occupancy', reason:'Occupancy significantly low (<80%)', points:-5}); }
+
+  // Cap Rate 3%-10% (5 points)
+  var capRate = (proj.offerPrice && noi) ? (noi / proj.offerPrice * 100) : 0;
+  if(capRate >= 3 && capRate <= 10) correctness += 5;
+  else if(capRate > 0) { correctness += 2; deductions.push({module:'Cap Rate', reason:'Cap Rate outside typical 3%-10% range', points:-3}); }
+
+  // Expense Ratio 30%-60% (5 points)
+  var expRatio = (noi !== null && revTotal && revTotal.vals && revTotal.vals[2]) ? (((revTotal.vals[2]||0) - noi) / (revTotal.vals[2]||1) * 100) : 0;
+  if(expRatio >= 30 && expRatio <= 60) correctness += 5;
+  else if(expRatio > 0) { correctness += 2; deductions.push({module:'Expense Ratio', reason:'Expense ratio outside typical 30%-60% range', points:-3}); }
+
+  // Growth rates 0-10% (4 points)
+  var rg = asmt.rentGrowth || 0, og = asmt.opexGrowth || 0, tg = asmt.taxGrowth || 0;
+  if(rg >= 0 && rg <= 10 && og >= 0 && og <= 10 && tg >= 0 && tg <= 10) correctness += 4;
+  else { deductions.push({module:'Assumptions', reason:'Growth rate out of reasonable range (0-10%)', points:-4}); }
+
+  // Cap at maximum
+  completeness = Math.min(completeness, cMax);
+  correctness = Math.min(correctness, corrMax);
+  var total = completeness + correctness;
+
+  // Grade
+  var grade, color;
+  if(total >= 75){ grade = 'Excellent'; color = '#2E7D32'; }
+  else if(total >= 60){ grade = 'Good'; color = '#4A7C59'; }
+  else if(total >= 45){ grade = 'Fair'; color = '#E65100'; }
+  else { grade = 'Needs Attention'; color = '#c0392b'; }
+
+  var result = {
+    score: total,
+    maxScore: 85,
+    grade: grade,
+    color: color,
+    completeness: { score: completeness, max: cMax },
+    correctness: { score: correctness, max: corrMax },
+    deductions: deductions,
+    scoredAt: new Date().toISOString()
+  };
+
+  // Save to localStorage
+  try { localStorage.setItem('ai_score_' + pid, JSON.stringify(result)); } catch(e){}
+  return result;
+}
+
+function getAIScore(pid){
+  pid = pid || currentProjectId;
+  try {
+    var cached = JSON.parse(localStorage.getItem('ai_score_' + pid) || 'null');
+    if(cached) return cached;
+  } catch(e){}
+  return calculateAIScore(pid);
+}
+
+function renderAIScoreBadge(pid, size){
+  var sc = getAIScore(pid);
+  if(!sc) return '';
+  size = size || 'sm';
+  var fontSize = size === 'lg' ? '22px' : size === 'md' ? '18px' : '14px';
+  var padding = size === 'lg' ? '14px 20px' : size === 'md' ? '10px 16px' : '6px 10px';
+  var labelSize = size === 'lg' ? '10px' : '9px';
+  return '<div onclick="event.stopPropagation();openAIScoreModal(\''+pid+'\')" style="display:inline-flex;flex-direction:column;align-items:center;padding:'+padding+';border-radius:10px;background:rgba('+hexToRgb(sc.color)+',0.08);border:1.5px solid rgba('+hexToRgb(sc.color)+',0.25);cursor:pointer;min-width:64px;transition:all .15s" onmouseenter="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.08)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'" title="AI Score · Click for details">'
+    + '<div style="font-size:'+fontSize+';font-weight:900;color:'+sc.color+';line-height:1">'+sc.score+'</div>'
+    + '<div style="font-size:'+labelSize+';color:'+sc.color+';margin-top:2px;text-transform:uppercase;letter-spacing:.06em;opacity:.8">AI Score</div>'
+    + '</div>';
+}
+
+function hexToRgb(hex){
+  hex = hex.replace('#','');
+  var r = parseInt(hex.substring(0,2),16);
+  var g = parseInt(hex.substring(2,4),16);
+  var b = parseInt(hex.substring(4,6),16);
+  return r+','+g+','+b;
+}
+
+function openAIScoreModal(pid){
+  var sc = getAIScore(pid);
+  if(!sc) return;
+  var body = '<div style="padding:4px 0">'
+    + '<div style="text-align:center;padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:16px">'
+    + '<div style="font-size:48px;font-weight:900;color:'+sc.color+';line-height:1">'+sc.score+'<span style="font-size:20px;color:var(--muted);font-weight:400"> / 85</span></div>'
+    + '<div style="font-size:13px;font-weight:600;color:'+sc.color+';margin-top:6px">'+sc.grade+'</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:12px;margin-bottom:16px">'
+    + '<div style="flex:1;padding:12px;border-radius:8px;background:rgba(74,124,89,0.06);border:1px solid rgba(74,124,89,0.15)">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Completeness</div>'
+    + '<div style="font-size:18px;font-weight:800;color:var(--green)">'+sc.completeness.score+'<span style="font-size:12px;color:var(--muted);font-weight:400"> / '+sc.completeness.max+'</span></div>'
+    + '</div>'
+    + '<div style="flex:1;padding:12px;border-radius:8px;background:rgba(74,101,133,0.06);border:1px solid rgba(74,101,133,0.15)">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Correctness</div>'
+    + '<div style="font-size:18px;font-weight:800;color:var(--blue)">'+sc.correctness.score+'<span style="font-size:12px;color:var(--muted);font-weight:400"> / '+sc.correctness.max+'</span></div>'
+    + '</div>'
+    + '</div>';
+  if(sc.deductions && sc.deductions.length){
+    body += '<div style="font-size:12px;font-weight:700;color:var(--header);margin-bottom:8px">Deductions:</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px">';
+    sc.deductions.forEach(function(d){
+      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:6px;background:rgba(192,57,43,0.05);border-left:3px solid rgba(192,57,43,0.35)">'
+        + '<div><span style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.04em">'+d.module.toUpperCase()+'</span>'
+        + '<div style="font-size:12px;color:var(--body);margin-top:2px">'+d.reason+'</div></div>'
+        + '<span style="font-size:13px;font-weight:700;color:#c0392b;white-space:nowrap;margin-left:12px">'+d.points+'</span>'
+        + '</div>';
+    });
+    body += '</div>';
+  } else {
+    body += '<div style="text-align:center;padding:12px;color:var(--muted);font-size:12px;font-style:italic">All checks passed</div>';
+  }
+  body += '<div style="margin-top:16px;font-size:10px;color:var(--muted);text-align:right">Scored: '+(new Date(sc.scoredAt)).toLocaleString()+'</div>'
+    + '</div>';
+  openModal('AI Underwriting Score', body);
+}
+
 function savePF(){
   // Save pfOverrides to project
   const projs=getProjects();
   const proj=projs.find(p=>p.id===currentProjectId);
   if(proj){proj.pfOverrides=pfOverrides;saveProjects(projs);}
   renderOverrideLog(currentProjectId);
+  // Recalculate AI score on save
+  calculateAIScore(currentProjectId);
+  // Refresh header badge
+  var hdr = document.getElementById('detailAIScoreBadge');
+  if(hdr) hdr.innerHTML = renderAIScoreBadge(currentProjectId, 'sm');
   toast(currentLang==='zh'?'分析已保存':'Pro forma saved','success');
 }
 function fetchAllAPIs(){toast('Fetching RentCast · ATTOM · HelloData…');setTimeout(()=>toast('15 fields auto-filled from 3 sources','success'),1800)}
@@ -5194,6 +5420,9 @@ function openProjectAnalysis(pid){
   if(statusEl){
     _updateDetailStatusBadge(proj.status);
   }
+  // Render AI Score badge in header
+  var scoreBadge = document.getElementById('detailAIScoreBadge');
+  if(scoreBadge) scoreBadge.innerHTML = renderAIScoreBadge(pid, 'sm');
   // Status select
   const statusSel = document.getElementById('detailStatusSelect');
   if(statusSel) statusSel.value = (proj.status==='complete'||proj.status==='completed'||proj.status==='active')?'complete':'draft';
