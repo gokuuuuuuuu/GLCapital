@@ -3989,49 +3989,51 @@ function _findHDBySqft(hdUmix, targetSqft){
   return best;
 }
 
-// Unit Mix per-row rent source: 'rr' | 'hd-leasedRent' | 'hd-ner' | 'hd-rent30' | 'hd-rent60' | 'hd-rent90' | 'manual'
-function _getUmixRowSrcs(pid) {
-  try { return JSON.parse(localStorage.getItem('umix_row_srcs_'+(pid||'default'))||'{}'); } catch(e){ return {}; }
+// Unit Mix column-level rent source: 'rr' | 'hd-leasedRent' | 'hd-rent30' | 'hd-rent60' | 'hd-rent90'
+function _getUmixColSrc(pid) {
+  return localStorage.getItem('umix_col_src_'+(pid||'default')) || 'rr';
 }
-function _saveUmixRowSrcs(pid, obj) {
-  localStorage.setItem('umix_row_srcs_'+(pid||'default'), JSON.stringify(obj));
+function _setUmixColSrc(pid, src) {
+  localStorage.setItem('umix_col_src_'+(pid||'default'), src);
 }
-function setUmixRowSource(rowIdx, src) {
+function setUmixColSource(src) {
   var pid = window._currentProjectId || 'default';
-  var obj = _getUmixRowSrcs(pid);
-  obj[rowIdx] = src;
-  _saveUmixRowSrcs(pid, obj);
+  _setUmixColSrc(pid, src);
   buildPFUnitMix();
 }
+// Manual per-row override (applies only when user edits a cell in Edit Mode)
+function _getUmixManualRents(pid) {
+  try { return JSON.parse(localStorage.getItem('umix_manual_rents_'+(pid||'default'))||'{}'); } catch(e){ return {}; }
+}
 function _getUmixManualRent(pid, rowIdx) {
-  try {
-    var obj = JSON.parse(localStorage.getItem('umix_manual_rents_'+(pid||'default'))||'{}');
-    return obj[rowIdx];
-  } catch(e){ return null; }
+  var obj = _getUmixManualRents(pid);
+  return obj[rowIdx];
 }
 function setUmixManualRent(rowIdx, val) {
   var pid = window._currentProjectId || 'default';
-  var obj = {};
-  try { obj = JSON.parse(localStorage.getItem('umix_manual_rents_'+pid)||'{}'); } catch(e){}
+  var obj = _getUmixManualRents(pid);
   obj[rowIdx] = parseFloat(String(val).replace(/[^\d.-]/g,''));
   localStorage.setItem('umix_manual_rents_'+pid, JSON.stringify(obj));
-  // Also set source to manual
-  var srcs = _getUmixRowSrcs(pid);
-  srcs[rowIdx] = 'manual';
-  _saveUmixRowSrcs(pid, srcs);
   buildPFUnitMix();
 }
-window.setUmixRowSource = setUmixRowSource;
+function clearUmixManualRent(rowIdx) {
+  var pid = window._currentProjectId || 'default';
+  var obj = _getUmixManualRents(pid);
+  delete obj[rowIdx];
+  localStorage.setItem('umix_manual_rents_'+pid, JSON.stringify(obj));
+  buildPFUnitMix();
+}
+window.setUmixColSource = setUmixColSource;
 window.setUmixManualRent = setUmixManualRent;
+window.clearUmixManualRent = clearUmixManualRent;
 
-// Source options for As-is Rent column
+// Source options for As-is Rent column header
 var UMIX_SRC_OPTIONS = [
-  {value:'rr',           label:'RR',        color:DS_COLORS.rr},
-  {value:'hd-leasedRent',label:'HD Leased', color:DS_COLORS.hd},
-  {value:'hd-ner',       label:'HD NER',    color:DS_COLORS.hd},
-  {value:'hd-rent30',    label:'HD 30d',    color:DS_COLORS.hd},
-  {value:'hd-rent60',    label:'HD 60d',    color:DS_COLORS.hd},
-  {value:'hd-rent90',    label:'HD 90d',    color:DS_COLORS.hd}
+  {value:'rr',           label:'RR',              color:DS_COLORS.rr},
+  {value:'hd-leasedRent',label:'HD Leased',       color:DS_COLORS.hd},
+  {value:'hd-rent30',    label:'HD 30D Leased',   color:DS_COLORS.hd},
+  {value:'hd-rent60',    label:'HD 60D Leased',   color:DS_COLORS.hd},
+  {value:'hd-rent90',    label:'HD 90D Leased',   color:DS_COLORS.hd}
 ];
 
 function buildPFUnitMix(){
@@ -4051,17 +4053,18 @@ function buildPFUnitMix(){
   var rrC = DS_COLORS.rr;
   var manC = DS_COLORS.manual;
 
-  var rowSrcs = _getUmixRowSrcs(pid);
+  var colSrc = _getUmixColSrc(pid);
+  // If HD not available, force RR
+  if(!showHD && colSrc.indexOf('hd-') === 0) colSrc = 'rr';
+  var manualRents = _getUmixManualRents(pid);
 
-  // Helper: get effective rent for a row based on its source
+  // Helper: get effective rent for a row based on column source (+ manual override)
   function _getRowRent(rowIdx, u, hdMatch) {
-    var src = rowSrcs[rowIdx] || 'rr';
-    if(src === 'manual') {
-      var mv = _getUmixManualRent(pid, rowIdx);
-      if(mv != null && !isNaN(mv)) return {src:'manual', val:mv};
-    }
-    if(src.indexOf('hd-') === 0 && hdMatch) {
-      var metric = src.substring(3);
+    // Manual override always wins if present
+    var mv = manualRents[rowIdx];
+    if(mv != null && !isNaN(mv)) return {src:'manual', val: mv};
+    if(colSrc.indexOf('hd-') === 0 && hdMatch) {
+      var metric = colSrc.substring(3);
       return {src:'hd', val: hdMatch[metric] || null, metric:metric};
     }
     return {src:'rr', val: u.asIsRent||null};
@@ -4081,8 +4084,19 @@ function buildPFUnitMix(){
   theadHtml += '<th style="'+th+';text-align:center"># Units</th>';
   theadHtml += '<th style="'+th+';text-align:center">Bedroom</th>';
   theadHtml += '<th style="'+th+';text-align:right">SQF</th>';
-  // Single As-is Rent column — rent value + inline compact source dropdown
-  theadHtml += '<th style="'+thB+';text-align:right">2025 As-is Rent</th>';
+  // Single As-is Rent column — header holds the column-level Source select
+  var curOpt = UMIX_SRC_OPTIONS.find(function(o){return o.value===colSrc;}) || UMIX_SRC_OPTIONS[0];
+  var cOptC = curOpt.color;
+  var optW = _srcSelectWidth(curOpt.label);
+  var headerSelStyle = 'font-size:9px;padding:3px 18px 3px 10px;border:1px solid '+cOptC.tag+';border-radius:11px;color:'+cOptC.tag+';background:'+cOptC.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:'+optW+'px;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(cOptC.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;margin-left:8px';
+  var headerSelHtml = '<select onchange="setUmixColSource(this.value)" style="'+headerSelStyle+'" title="Change source for all rows">';
+  UMIX_SRC_OPTIONS.forEach(function(o){
+    // Hide HD options if HD not uploaded
+    if(!showHD && o.value.indexOf('hd-')===0) return;
+    headerSelHtml += '<option value="'+o.value+'"'+(o.value===colSrc?' selected':'')+' style="background:#fff;color:'+o.color.tag+';text-align:center">'+o.label+'</option>';
+  });
+  headerSelHtml += '</select>';
+  theadHtml += '<th style="'+thB+';text-align:right;white-space:nowrap">2025 As-is Rent '+headerSelHtml+'</th>';
   theadHtml += '<th style="'+thB+';text-align:right">2026 Growth</th>';
   theadHtml += '<th style="'+th+';text-align:right">2025 As-is Rent Annually</th>';
   theadHtml += '<th style="'+th+';text-align:right;color:var(--green)">2026 Projected Rent</th>';
@@ -4134,30 +4148,27 @@ function buildPFUnitMix(){
     html += '<td style="'+cp+'text-align:center;'+mc+'">'+(isTot?'':(u.beds!=null?u.beds:''))+'</td>';
     html += '<td style="'+cp+'text-align:right;'+mc+'">'+(isTot?'':(u.sqft||'—'))+'</td>';
 
-    // As-is Rent — value + inline compact source dropdown (same cell)
+    // As-is Rent — row shows only the value (source is column-level via header)
     if(isTot) {
       html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);color:var(--header);font-weight:700"></td>';
-    } else {
-      var fullSrc = activeSrc === 'hd' ? ('hd-'+(rentInfo.metric||'leasedRent')) : activeSrc;
-      var srcChip = isEdit
-        ? _umixSrcSelect(i, fullSrc, !!hdMatch)
-        : _umixSrcTag(i, fullSrc);
-      var rentCell;
-      if(isEdit){
-        var valStr = activeRent?Math.round(activeRent):'';
-        var vW = Math.max(String(valStr).length * 8 + 16, 48);
-        rentCell = '<input type="text" value="'+valStr+'"'
-          + ' onchange="setUmixManualRent('+i+',this.value)"'
-          + ' style="text-align:right;font-size:12px;padding:3px 6px;border-radius:4px;outline:none;'
-          + 'border:1px solid '+rentColor+';color:'+rentColor+';background:transparent;width:'+vW+'px;box-sizing:content-box">';
-      } else {
-        rentCell = '<span style="color:'+rentColor+';font-weight:'+fw+'">'
-          +(activeRent?'$\u00a0'+Number(Math.round(activeRent)).toLocaleString():'—')+'</span>';
-      }
+    } else if(isEdit) {
+      var valStr = activeRent?Math.round(activeRent):'';
+      var vW = Math.max(String(valStr).length * 8 + 16, 48);
+      // Manual badge if this row has a manual override
+      var manBadge = (activeSrc === 'manual') ? '<span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+manC.tag+';background:'+manC.tagBg+';margin-right:6px">MANUAL</span>' : '';
+      var clearBtn = (activeSrc === 'manual') ? '<button onclick="clearUmixManualRent('+i+')" style="margin-left:6px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:11px" title="Clear manual override">×</button>' : '';
       html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);background:'+rentBg+'">'
-        + '<div style="display:inline-flex;align-items:center;gap:8px;justify-content:flex-end">'
-        + rentCell + srcChip
+        + '<div style="display:inline-flex;align-items:center;justify-content:flex-end">'
+        + manBadge
+        + '<input type="text" value="'+valStr+'"'
+        + ' onchange="setUmixManualRent('+i+',this.value)"'
+        + ' style="text-align:right;font-size:12px;padding:3px 6px;border-radius:4px;outline:none;'
+        + 'border:1px solid '+rentColor+';color:'+rentColor+';background:transparent;width:'+vW+'px;box-sizing:content-box">'
+        + clearBtn
         + '</div></td>';
+    } else {
+      html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);color:'+rentColor+';font-weight:'+fw+';background:'+rentBg+'">'
+        +(activeRent?'$\u00a0'+Number(Math.round(activeRent)).toLocaleString():'—')+'</td>';
     }
 
     html += '<td style="'+cp+'text-align:right;'+hc+';border-left:1px solid var(--border)">'
@@ -4169,44 +4180,6 @@ function buildPFUnitMix(){
   }).join('');
 
   bodyEl.innerHTML = tbodyHtml;
-}
-
-// Render Unit Mix source dropdown (per-row) — pill style with width matching current label
-function _umixSrcSelect(rowIdx, currentSrc, hasHD){
-  var options = [{value:'rr', label:'RR', color:DS_COLORS.rr}];
-  if(hasHD){
-    options.push({value:'hd-leasedRent',label:'HD Leased',color:DS_COLORS.hd});
-    options.push({value:'hd-ner',       label:'HD NER',   color:DS_COLORS.hd});
-    options.push({value:'hd-rent30',    label:'HD 30d',   color:DS_COLORS.hd});
-    options.push({value:'hd-rent60',    label:'HD 60d',   color:DS_COLORS.hd});
-    options.push({value:'hd-rent90',    label:'HD 90d',   color:DS_COLORS.hd});
-  }
-  // Add manual only if current is manual
-  if(currentSrc === 'manual'){
-    options.push({value:'manual',label:'Manual',color:DS_COLORS.manual});
-  }
-  var cur = options.find(function(o){return o.value===currentSrc;}) || options[0];
-  var c = cur.color;
-  var w = _srcSelectWidth(cur.label);
-  var style = 'font-size:9px;padding:3px 18px 3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:'+w+'px;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center';
-  var html = '<select onchange="setUmixRowSource('+rowIdx+',this.value)" style="'+style+'">';
-  options.forEach(function(o){
-    html += '<option value="'+o.value+'"'+(o.value===currentSrc?' selected':'')+' style="background:#fff;color:'+o.color.tag+';text-align:center">'+o.label+'</option>';
-  });
-  html += '</select>';
-  return html;
-}
-
-function _umixSrcTag(rowIdx, currentSrc){
-  var label = 'RR', color = DS_COLORS.rr;
-  if(currentSrc === 'manual'){ label='Manual'; color=DS_COLORS.manual; }
-  else if(currentSrc && currentSrc.indexOf('hd-')===0){
-    color = DS_COLORS.hd;
-    var metric = currentSrc.substring(3);
-    var metricMap = {leasedRent:'Leased',ner:'NER',rent30:'30d',rent60:'60d',rent90:'90d'};
-    label = 'HD ' + (metricMap[metric]||'Leased');
-  }
-  return '<span style="font-size:9px;padding:3px 10px;border:1px solid '+color.tag+';border-radius:11px;color:'+color.tag+';background:'+color.tagBg+';font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:inline-block">'+label+'</span>';
 }
 
 function hideHDUmixCols(){
