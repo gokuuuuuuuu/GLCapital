@@ -2666,8 +2666,8 @@ var DS_COLORS = {
   t12:      { tag:'#2E7D32', tagBg:'rgba(46,125,50,0.08)',   cell:'rgba(46,125,50,0.04)',   label:'T12' },
   hd:       { tag:'#1565C0', tagBg:'rgba(21,101,192,0.08)',  cell:'rgba(21,101,192,0.04)',  label:'HelloData' },
   rr:       { tag:'#6A1B9A', tagBg:'rgba(106,27,154,0.08)',  cell:'rgba(106,27,154,0.04)',  label:'Rent Roll' },
-  rc:       { tag:'#00695C', tagBg:'rgba(0,105,92,0.08)',    cell:'rgba(0,105,92,0.04)',    label:'RentCast' },
-  rentcast: { tag:'#00695C', tagBg:'rgba(0,105,92,0.08)',    cell:'rgba(0,105,92,0.04)',    label:'RentCast' },
+  rc:       { tag:'#0891B2', tagBg:'rgba(8,145,178,0.10)',   cell:'rgba(8,145,178,0.04)',   label:'RentCast' },
+  rentcast: { tag:'#0891B2', tagBg:'rgba(8,145,178,0.10)',   cell:'rgba(8,145,178,0.04)',   label:'RentCast' },
   attom:    { tag:'#37474F', tagBg:'rgba(55,71,79,0.08)',    cell:'rgba(55,71,79,0.04)',    label:'ATTOM' },
   manual:   { tag:'#E65100', tagBg:'rgba(230,81,0,0.10)',    cell:'rgba(230,81,0,0.04)',    label:'Manual' }
 };
@@ -2872,13 +2872,23 @@ function onIncomeFieldEdit(rowLabel, field, value) {
   }
 }
 
-// HD demo data — Per Unit monthly values (from Cedar Run Financial Analysis Per Unit Median ÷ 12)
+// HD demo data — Per Unit monthly values (mocked from HD Expense Benchmarks / Property fees)
 var HD_PER_UNIT_MONTHLY = {
-  'Rent Income': 1291,  // GPR Per Unit Median $15,488/yr ÷ 12
+  'Rent Income':              1845,  // GPR Median / Units / 12
+  'Other Rental Income':      8,
+  'Application Fee Income':   5,
+  'NSF Fees Collected':       0.5,
+  'Late Fee':                 12,
+  'Pet Fee':                  2,
+  'Furniture Charge':         0,
+  'Laundry Income':           7,
+  'Insurance Services':       2,
+  'Utility Reimbursement Fee':1,
+  'Concessions':              -15
 };
-// RC demo data — rent estimate
+// RC demo data — rent estimates (RentCast typically only provides Rent Income)
 var RC_PER_UNIT_MONTHLY = {
-  'Rent Income': 1350,  // Simulated RentCast estimate
+  'Rent Income':              1920  // Simulated RentCast estimate (slightly higher than HD)
 };
 
 function buildIncomeTable() {
@@ -3050,14 +3060,23 @@ function buildIncomeTable() {
       upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;min-width:90px" title="Per Unit/mo from '+c.label+'">'+puDisplay+'<span style="font-size:9px;color:var(--muted)">/mo</span></td>';
     }
 
-    // Source dropdown
-    var selStyle = 'font-size:8px;padding:1px 5px;border:none;border-radius:3px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.04em;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width=\'6\' height=\'4\' viewBox=\'0 0 6 4\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0l3 4 3-4z\' fill=\''+encodeURIComponent(c.tag)+'\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 3px center;padding-right:12px';
-    var selHtml = '<select onchange="changeRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)" style="'+selStyle+'">';
-    availSrcs.forEach(function(s) {
-      selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+'>'+DS_COLORS[s].label+'</option>';
-    });
-    selHtml += '</select>';
-    upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:70px">'+selHtml+'</td>';
+    // Source dropdown — polished pill design with chevron icon
+    var selHtml;
+    if(availSrcs.length > 1) {
+      var selStyle = 'font-size:9px;padding:3px 18px 3px 8px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center';
+      selHtml = '<select onchange="changeRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)"'
+        + ' onmouseenter="this.style.boxShadow=\'0 0 0 3px '+c.tagBg+'\'"'
+        + ' onmouseleave="this.style.boxShadow=\'\'"'
+        + ' style="'+selStyle+'" title="Change data source">';
+      availSrcs.forEach(function(s) {
+        selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+' style="background:#fff;color:'+DS_COLORS[s].tag+'">'+DS_COLORS[s].label+'</option>';
+      });
+      selHtml += '</select>';
+    } else {
+      // Single source: show as static pill (matches select sizing)
+      selHtml = '<span style="font-size:9px;padding:3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:inline-block">'+c.label+'</span>';
+    }
+    upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:90px">'+selHtml+'</td>';
 
     // Units — consistent sizing
     if(isEditMode) {
@@ -3313,15 +3332,20 @@ function buildExpenseTable() {
     // Source dropdown (only for dual-source fields)
     if(isDual) {
       var availSrcs = ['t12','hd'];
-      var selStyle = 'font-size:8px;padding:1px 5px;border:none;border-radius:3px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.04em;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width=\'6\' height=\'4\' viewBox=\'0 0 6 4\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0l3 4 3-4z\' fill=\'%232E7D32\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 3px center;padding-right:12px';
-      var selHtml = '<select onchange="changeExpRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)" style="'+selStyle+'">';
+      var selStyle = 'font-size:9px;padding:3px 18px 3px 8px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center';
+      var selHtml = '<select onchange="changeExpRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)"'
+        + ' onmouseenter="this.style.boxShadow=\'0 0 0 3px '+c.tagBg+'\'"'
+        + ' onmouseleave="this.style.boxShadow=\'\'"'
+        + ' style="'+selStyle+'" title="Change data source">';
       availSrcs.forEach(function(s) {
-        selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+'>'+DS_COLORS[s].label+'</option>';
+        selHtml += '<option value="'+s+'"'+(s===src?' selected':'')+' style="background:#fff;color:'+DS_COLORS[s].tag+'">'+DS_COLORS[s].label+'</option>';
       });
       selHtml += '</select>';
-      upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:70px">'+selHtml+'</td>';
+      upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:90px">'+selHtml+'</td>';
     } else {
-      upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:70px">'+_dsTag('t12')+'</td>';
+      var tC = DS_COLORS.t12;
+      var tPill = '<span style="font-size:9px;padding:3px 10px;border:1px solid '+tC.tag+';border-radius:11px;color:'+tC.tag+';background:'+tC.tagBg+';font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:inline-block">'+tC.label+'</span>';
+      upperHtml += '<td style="'+_cellPad+'text-align:center;min-width:90px">'+tPill+'</td>';
     }
 
     // Units
