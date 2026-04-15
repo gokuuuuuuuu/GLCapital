@@ -1016,9 +1016,9 @@ function renderProjects(){
           +(dscr?'<div style="padding:10px 14px;border-radius:10px;background:rgba(74,101,133,0.07);border:1px solid rgba(74,101,133,0.15);text-align:center;min-width:68px">' +'<div style="font-size:17px;font-weight:800;color:var(--blue)">'+dscr+'×</div>' +'<div style="font-size:9px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.06em">DSCR</div>' +'</div>':'')
           // IRR
           +(irr?'<div style="padding:10px 14px;border-radius:10px;background:rgba(74,124,89,0.07);border:1px solid rgba(74,124,89,0.14);text-align:center;min-width:68px">' +'<div style="font-size:17px;font-weight:800;color:var(--green)">'+irr+'%</div>' +'<div style="font-size:9px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.06em">IRR</div>' +'</div>':'')
-          // AI Score (right-aligned to separate from metrics)
-          +'<div style="margin-left:auto;display:flex;gap:8px;align-items:center">'+renderAIScoreBadge(p.id,'sm')
-          // Doc pills
+          // AI Score + Doc pills (right-aligned, separated)
+          +'<div style="margin-left:auto;display:flex;gap:14px;align-items:center">'
+          +'<div style="padding:0 10px;border-left:1.5px solid var(--border2)">'+renderAIScoreBadge(p.id,'sm')+'</div>'
           +'<div style="display:flex;gap:4px;align-items:center">'+pill('T12',hasT12)+pill('RR',hasRR)+pill('Debt',hasDebt)+'</div></div>'
         +'</div>'+'</div>'+'</div>';
   }).join('')+'</div>';
@@ -4753,13 +4753,45 @@ function renderAIScoreBadge(pid, size){
   var sc = getAIScore(pid);
   if(!sc) return '';
   size = size || 'sm';
-  var fontSize = size === 'lg' ? '22px' : size === 'md' ? '18px' : '14px';
-  var padding = size === 'lg' ? '14px 20px' : size === 'md' ? '10px 16px' : '6px 10px';
-  var labelSize = size === 'lg' ? '10px' : '9px';
-  return '<div onclick="event.stopPropagation();openAIScoreModal(\''+pid+'\')" style="display:inline-flex;flex-direction:column;align-items:center;padding:'+padding+';border-radius:10px;background:rgba('+hexToRgb(sc.color)+',0.08);border:1.5px solid rgba('+hexToRgb(sc.color)+',0.25);cursor:pointer;min-width:64px;transition:all .15s" onmouseenter="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.08)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'" title="AI Score · Click for details">'
-    + '<div style="font-size:'+fontSize+';font-weight:900;color:'+sc.color+';line-height:1">'+sc.score+'</div>'
-    + '<div style="font-size:'+labelSize+';color:'+sc.color+';margin-top:2px;text-transform:uppercase;letter-spacing:.06em;opacity:.8">AI Score</div>'
-    + '</div>';
+  // Ring dimensions per size
+  var dims = {
+    sm: {ring:52, stroke:4, fontScore:16, fontLabel:8, fontGrade:0, showGrade:false, gap:8},
+    md: {ring:72, stroke:5, fontScore:22, fontLabel:9, fontGrade:10, showGrade:true, gap:10},
+    lg: {ring:96, stroke:6, fontScore:30, fontLabel:10, fontGrade:11, showGrade:true, gap:12}
+  };
+  var d = dims[size] || dims.sm;
+  var r = (d.ring - d.stroke) / 2;
+  var cx = d.ring / 2;
+  var circumference = 2 * Math.PI * r;
+  // Progress based on /100 scale
+  var progress = Math.min(sc.score / 100, 1);
+  var dashOffset = circumference * (1 - progress);
+  var trackColor = 'rgba(0,0,0,0.08)';
+
+  var ringSvg = '<svg width="'+d.ring+'" height="'+d.ring+'" viewBox="0 0 '+d.ring+' '+d.ring+'" style="flex-shrink:0">'
+    + '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="'+trackColor+'" stroke-width="'+d.stroke+'" fill="none"/>'
+    + '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="'+sc.color+'" stroke-width="'+d.stroke+'" fill="none"'
+    +   ' stroke-linecap="round" stroke-dasharray="'+circumference.toFixed(2)+'" stroke-dashoffset="'+dashOffset.toFixed(2)+'"'
+    +   ' transform="rotate(-90 '+cx+' '+cx+')" style="transition:stroke-dashoffset .6s ease"/>'
+    + '<text x="'+cx+'" y="'+(cx + d.fontScore*0.15)+'" text-anchor="middle" dominant-baseline="middle"'
+    +   ' font-size="'+d.fontScore+'" font-weight="900" fill="'+sc.color+'" style="font-family:inherit">'+sc.score+'</text>'
+    + '<text x="'+cx+'" y="'+(cx + d.fontScore*0.75)+'" text-anchor="middle" dominant-baseline="middle"'
+    +   ' font-size="'+d.fontLabel+'" font-weight="600" fill="'+sc.color+'" opacity="0.65" style="font-family:inherit;letter-spacing:.04em">/100</text>'
+    + '</svg>';
+
+  var gradeHtml = '';
+  if(d.showGrade){
+    gradeHtml = '<div style="display:flex;flex-direction:column;gap:2px">'
+      + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">AI Score</div>'
+      + '<div style="font-size:'+d.fontGrade+'px;font-weight:700;color:'+sc.color+';letter-spacing:.02em">'+sc.grade+'</div>'
+      + '</div>';
+  }
+
+  return '<div onclick="event.stopPropagation();openAIScoreModal(\''+pid+'\')"'
+    + ' style="display:inline-flex;align-items:center;gap:'+d.gap+'px;cursor:pointer;padding:2px;border-radius:10px;transition:all .15s"'
+    + ' onmouseenter="this.style.background=\'rgba(0,0,0,0.03)\'" onmouseleave="this.style.background=\'\'"'
+    + ' title="AI Score · Click for details">'
+    + ringSvg + gradeHtml + '</div>';
 }
 
 function hexToRgb(hex){
@@ -4775,7 +4807,7 @@ function openAIScoreModal(pid){
   if(!sc) return;
   var body = '<div style="padding:4px 0">'
     + '<div style="text-align:center;padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:16px">'
-    + '<div style="font-size:48px;font-weight:900;color:'+sc.color+';line-height:1">'+sc.score+'<span style="font-size:20px;color:var(--muted);font-weight:400"> / 85</span></div>'
+    + '<div style="font-size:48px;font-weight:900;color:'+sc.color+';line-height:1">'+sc.score+'<span style="font-size:20px;color:var(--muted);font-weight:400"> / 100</span></div>'
     + '<div style="font-size:13px;font-weight:600;color:'+sc.color+';margin-top:6px">'+sc.grade+'</div>'
     + '</div>'
     + '<div style="display:flex;gap:12px;margin-bottom:16px">'
@@ -4817,7 +4849,7 @@ function savePF(){
   calculateAIScore(currentProjectId);
   // Refresh header badge
   var hdr = document.getElementById('detailAIScoreBadge');
-  if(hdr) hdr.innerHTML = renderAIScoreBadge(currentProjectId, 'sm');
+  if(hdr) hdr.innerHTML = renderAIScoreBadge(currentProjectId, 'md');
   toast(currentLang==='zh'?'分析已保存':'Pro forma saved','success');
 }
 function fetchAllAPIs(){toast('Fetching RentCast · ATTOM · HelloData…');setTimeout(()=>toast('15 fields auto-filled from 3 sources','success'),1800)}
@@ -5422,7 +5454,7 @@ function openProjectAnalysis(pid){
   }
   // Render AI Score badge in header
   var scoreBadge = document.getElementById('detailAIScoreBadge');
-  if(scoreBadge) scoreBadge.innerHTML = renderAIScoreBadge(pid, 'sm');
+  if(scoreBadge) scoreBadge.innerHTML = renderAIScoreBadge(pid, 'md');
   // Status select
   const statusSel = document.getElementById('detailStatusSelect');
   if(statusSel) statusSel.value = (proj.status==='complete'||proj.status==='completed'||proj.status==='active')?'complete':'draft';
