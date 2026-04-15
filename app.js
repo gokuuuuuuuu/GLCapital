@@ -686,14 +686,16 @@ function initProjects(){
     if(patched){ _lsSet(PROJECTS_KEY, JSON.stringify(projs)); }
   }
   // Seed HD Unit Mix demo data for Cherry Commons (p1) — simulates HD async dataset upload
-  if(!localStorage.getItem('hd_umix_p1')){
+  // Updated with more distinct values across metrics for demo
+  if(!localStorage.getItem('hd_umix_p1') || localStorage.getItem('hd_umix_seed_v') !== '2'){
     var hdUmixDemo = [
-      {beds:1, floorplan:'1 Bedroom',    units:9,  sqft:540,  leasedRent:1560, ner:1490, activeRent:1620, activeNer:1550, rent30:1580, ner30:1510, rent60:1545, ner60:1475, rent90:1530, ner90:1460, psf:2.89, activeListings:1, dom:18},
-      {beds:2, floorplan:'2 Bedroom',    units:15, sqft:840,  leasedRent:2050, ner:1980, activeRent:2120, activeNer:2040, rent30:2080, ner30:2010, rent60:2030, ner60:1960, rent90:2000, ner90:1930, psf:2.44, activeListings:2, dom:14},
-      {beds:2, floorplan:'2BR Deluxe',   units:3,  sqft:960,  leasedRent:2280, ner:2200, activeRent:2350, activeNer:2270, rent30:2300, ner30:2220, rent60:2250, ner60:2170, rent90:2220, ner90:2140, psf:2.38, activeListings:0, dom:10},
+      {beds:1, floorplan:'1 Bedroom',    units:9,  sqft:540,  leasedRent:1680, ner:1590, activeRent:1750, activeNer:1650, rent30:1700, ner30:1610, rent60:1660, ner60:1560, rent90:1630, ner90:1520, psf:2.89, activeListings:1, dom:18},
+      {beds:2, floorplan:'2 Bedroom',    units:15, sqft:840,  leasedRent:2100, ner:1990, activeRent:2180, activeNer:2060, rent30:2110, ner30:2000, rent60:2070, ner60:1950, rent90:2020, ner90:1900, psf:2.44, activeListings:2, dom:14},
+      {beds:2, floorplan:'2BR Deluxe',   units:3,  sqft:960,  leasedRent:2320, ner:2210, activeRent:2400, activeNer:2290, rent30:2340, ner30:2230, rent60:2280, ner60:2170, rent90:2240, ner90:2130, psf:2.38, activeListings:0, dom:10},
     ];
     localStorage.setItem('hd_umix_p1', JSON.stringify(hdUmixDemo));
     localStorage.setItem('hd_umix_hidden_p1', '0');
+    localStorage.setItem('hd_umix_seed_v', '2');
   }
   if(!localStorage.getItem('hd_meta_p1')){
     localStorage.setItem('hd_meta_p1', JSON.stringify({
@@ -1113,10 +1115,6 @@ function openNewProjectModal(){
   openModal('New Project',`
     <div class="form-group"><label class="form-label">Project Name</label><input class="form-input" id="newProjName" placeholder="e.g. Cherry Commons"></div>
     <div class="form-group"><label class="form-label">Property Address</label><input class="form-input" id="newProjAddr" placeholder="1234 Main St, City, State ZIP"></div>
-    <div class="bento bento-2" style="gap:12px">
-      <div class="form-group"><label class="form-label">Offer Price ($)</label><input class="form-input" id="newProjPrice" type="number" placeholder="6200000"></div>
-      <div class="form-group"><label class="form-label">Total Units</label><input class="form-input" id="newProjUnits" type="number" placeholder="28"></div>
-    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="createProject()">Create Project</button>
@@ -1127,11 +1125,9 @@ function openNewProjectModal(){
 function createProject(){
   const name=document.getElementById('newProjName').value.trim();
   const addr=document.getElementById('newProjAddr').value.trim();
-  const price=parseFloat(document.getElementById('newProjPrice').value)||0;
-  const units=parseInt(document.getElementById('newProjUnits').value)||0;
   if(!name){toast('Project name is required','error');return}
   const sess=getSession();
-  const newP={id:'p'+Date.now(),name,address:addr,offerPrice:price,units,status:'draft',ownerId:sess.id,published:false,lastUpdated:new Date().toISOString().slice(0,10)};
+  const newP={id:'p'+Date.now(),name,address:addr,offerPrice:0,units:0,status:'draft',ownerId:sess.id,published:false,lastUpdated:new Date().toISOString().slice(0,10)};
   const projs=getProjects();projs.push(newP);saveProjects(projs);
   closeModal();renderProjects();buildProjectDropdowns();
   toast(currentLang==="zh"?"项目已创建":"Project created",'success');
@@ -2677,6 +2673,13 @@ function _dsTag(src) {
   return '<span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:'+c.tag+';background:'+c.tagBg+'">'+c.label+'</span>';
 }
 
+// Calculate explicit px width for a select showing UPPERCASE label — chevron included
+function _srcSelectWidth(labelText){
+  // Each char ~5.5px at 9px font + letter-spacing .05em, plus 18px padding(L+R) + 10px chevron area
+  var len = String(labelText||'').length;
+  return Math.max(len * 6 + 24, 52);
+}
+
 function _dsDropdown(rowId, currentSrc, availableSrcs) {
   var html = '<select onchange="changeRowSource(\''+rowId+'\',this.value)" style="font-size:10px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--card-bg,#fff);cursor:pointer;min-width:60px">';
   availableSrcs.forEach(function(s) {
@@ -2995,7 +2998,7 @@ function buildIncomeTable() {
   var _cellPad = 'padding:7px 8px;';
   var _cellRight = 'text-align:right;';
   var _cellFont = 'font-size:12px;';
-  var _editInputBase = 'text-align:right;font-size:11px;padding:3px 6px;border-radius:3px;box-sizing:content-box;outline:none;width:auto;min-width:40px;';
+  var _editInputBase = 'text-align:right;font-size:11px;padding:3px 6px;border-radius:3px;box-sizing:content-box;outline:none;';
 
   // Build tooltip for Y3 (Stab) cell explaining the calculation
   function _stabTooltip(src, perUnitMonthly, units, y1, y2) {
@@ -3052,20 +3055,21 @@ function buildIncomeTable() {
     var puDisplay = fmtPerUnit(perUnitMonthly, src);
     if(isEditMode) {
       var puVal = Math.round(perUnitMonthly);
-      var puSize = Math.max(String(puVal).length + 1, 4);
+      var puW = Math.max(String(puVal).length * 7 + 16, 40);
       upperHtml += '<td style="'+_cellPad+_cellRight+'">'
-        + '<input type="text" size="'+puSize+'" value="'+puVal+'"'
+        + '<input type="text" value="'+puVal+'"'
         + ' onchange="onIncomeFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'perunit\',this.value)"'
-        + ' style="'+_editInputBase+'border:1px solid '+c.tag+';color:'+c.tag+';background:'+c.tagBg+'">'
+        + ' style="'+_editInputBase+'width:'+puW+'px;border:1px solid '+c.tag+';color:'+c.tag+';background:'+c.tagBg+'">'
         + '</td>';
     } else {
       upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px" title="Per Unit/mo from '+c.label+'">'+puDisplay+'<span style="font-size:9px;color:var(--muted)">/mo</span></td>';
     }
 
-    // Source dropdown — compact pill, width adapts to content, text centered
+    // Source dropdown — width fits current selected label exactly
     var selHtml;
     if(availSrcs.length > 1) {
-      var selStyle = 'font-size:9px;padding:3px 20px 3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:auto;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center';
+      var w = _srcSelectWidth(c.label);
+      var selStyle = 'font-size:9px;padding:3px 18px 3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:'+w+'px;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center';
       selHtml = '<select onchange="changeRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)"'
         + ' onmouseenter="this.style.boxShadow=\'0 0 0 3px '+c.tagBg+'\'"'
         + ' onmouseleave="this.style.boxShadow=\'\'"'
@@ -3075,18 +3079,18 @@ function buildIncomeTable() {
       });
       selHtml += '</select>';
     } else {
-      // Single source: static pill (same sizing)
+      // Single source: static pill (no chevron, compact)
       selHtml = '<span style="font-size:9px;padding:3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:inline-block;text-align:center">'+c.label+'</span>';
     }
     upperHtml += '<td style="'+_cellPad+'text-align:center">'+selHtml+'</td>';
 
     // Units — consistent sizing
     if(isEditMode) {
-      var uSize = Math.max(String(units).length + 1, 3);
+      var uW = Math.max(String(units).length * 8 + 16, 34);
       upperHtml += '<td style="'+_cellPad+_cellRight+'">'
-        + '<input type="number" size="'+uSize+'" value="'+units+'"'
+        + '<input type="number" value="'+units+'"'
         + ' onchange="onIncomeFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'units\',this.value)"'
-        + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent;min-width:36px">'
+        + ' style="'+_editInputBase+'width:'+uW+'px;border:1px solid var(--border);color:var(--body);background:transparent">'
         + '</td>';
     } else {
       upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;color:var(--body)">'+units+'</td>';
@@ -3115,11 +3119,11 @@ function buildIncomeTable() {
       // Y3 (Stab) editable in edit mode
       if(isEditMode && isStab) {
         var stabStr = Math.round(v).toLocaleString();
-        var stabSize = Math.max(stabStr.length + 1, 6);
+        var stabW = Math.max(stabStr.length * 7 + 16, 60);
         upperHtml += '<td style="'+_cellPad+_cellRight+cellBg+borderL+'" title="'+tooltip+'">'
-          + '<input type="text" size="'+stabSize+'" value="'+stabStr+'"'
+          + '<input type="text" value="'+stabStr+'"'
           + ' onchange="onIncomeFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'stab\',this.value)"'
-          + ' style="'+_editInputBase+'border:1px solid '+(src!=='t12'?DS_COLORS[src].tag:'var(--border)')+';color:'+(src!=='t12'?DS_COLORS[src].tag:'var(--body)')+';background:transparent">'
+          + ' style="'+_editInputBase+'width:'+stabW+'px;border:1px solid '+(src!=='t12'?DS_COLORS[src].tag:'var(--border)')+';color:'+(src!=='t12'?DS_COLORS[src].tag:'var(--body)')+';background:transparent">'
           + '</td>';
       } else {
         var displayVal = ci < 2 ? fmtNumPlain(v) : fmtNum(v, cellSrc);
@@ -3271,7 +3275,7 @@ function buildExpenseTable() {
   var _cellPad = 'padding:7px 8px;';
   var _cellRight = 'text-align:right;';
   var _cellFont = 'font-size:12px;';
-  var _editInputBase = 'text-align:right;font-size:11px;padding:3px 6px;border-radius:3px;box-sizing:content-box;outline:none;width:auto;min-width:40px;';
+  var _editInputBase = 'text-align:right;font-size:11px;padding:3px 6px;border-radius:3px;box-sizing:content-box;outline:none;';
 
   // Separate expenses into upper (per-unit) and lower (flat)
   var upperItems = [];
@@ -3326,11 +3330,11 @@ function buildExpenseTable() {
     var puDisplay = fmtPerUnit(perUnitMonthly, src);
     if(isEditMode) {
       var puVal = Math.round(perUnitMonthly);
-      var puSize = Math.max(String(puVal).length + 1, 4);
+      var puW = Math.max(String(puVal).length * 7 + 16, 40);
       upperHtml += '<td style="'+_cellPad+_cellRight+'">'
-        + '<input type="text" size="'+puSize+'" value="'+puVal+'"'
+        + '<input type="text" value="'+puVal+'"'
         + ' onchange="onExpenseFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'perunit\',this.value)"'
-        + ' style="'+_editInputBase+'border:1px solid '+c.tag+';color:'+c.tag+';background:'+c.tagBg+'">'
+        + ' style="'+_editInputBase+'width:'+puW+'px;border:1px solid '+c.tag+';color:'+c.tag+';background:'+c.tagBg+'">'
         + '</td>';
     } else {
       upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px" title="Per Unit/mo">'+puDisplay+'<span style="font-size:9px;color:var(--muted)">/mo</span></td>';
@@ -3339,7 +3343,8 @@ function buildExpenseTable() {
     // Source dropdown (only for dual-source fields)
     if(isDual) {
       var availSrcs = ['t12','hd'];
-      var selStyle = 'font-size:9px;padding:3px 20px 3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:auto;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center';
+      var w2 = _srcSelectWidth(c.label);
+      var selStyle = 'font-size:9px;padding:3px 18px 3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:'+w2+'px;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center';
       var selHtml = '<select onchange="changeExpRowSource(\''+item.label.replace(/'/g,"\\'")+'\',this.value)"'
         + ' onmouseenter="this.style.boxShadow=\'0 0 0 3px '+c.tagBg+'\'"'
         + ' onmouseleave="this.style.boxShadow=\'\'"'
@@ -3357,11 +3362,11 @@ function buildExpenseTable() {
 
     // Units
     if(isEditMode) {
-      var uSize = Math.max(String(units).length + 1, 3);
+      var uW = Math.max(String(units).length * 8 + 16, 34);
       upperHtml += '<td style="'+_cellPad+_cellRight+'">'
-        + '<input type="number" size="'+uSize+'" value="'+units+'"'
+        + '<input type="number" value="'+units+'"'
         + ' onchange="onExpenseFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'units\',this.value)"'
-        + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent;min-width:36px">'
+        + ' style="'+_editInputBase+'width:'+uW+'px;border:1px solid var(--border);color:var(--body);background:transparent">'
         + '</td>';
     } else {
       upperHtml += '<td style="'+_cellPad+_cellRight+'font-size:11px;color:var(--body)">'+units+'</td>';
@@ -3376,11 +3381,11 @@ function buildExpenseTable() {
 
       if(isEditMode && isStab) {
         var stabStr = Math.round(v).toLocaleString();
-        var stabSize = Math.max(stabStr.length + 1, 6);
+        var stabW = Math.max(stabStr.length * 7 + 16, 60);
         upperHtml += '<td style="'+_cellPad+_cellRight+cellBg+borderL+'">'
-          + '<input type="text" size="'+stabSize+'" value="'+stabStr+'"'
+          + '<input type="text" value="'+stabStr+'"'
           + ' onchange="onExpenseFieldEdit(\''+item.label.replace(/'/g,"\\'")+'\',\'stab\',this.value)"'
-          + ' style="'+_editInputBase+'border:1px solid var(--border);color:var(--body);background:transparent">'
+          + ' style="'+_editInputBase+'width:'+stabW+'px;border:1px solid var(--border);color:var(--body);background:transparent">'
           + '</td>';
       } else {
         var displayVal = ci < 2 ? fmtNumPlain(v) : fmtNum(v, src);
@@ -4075,9 +4080,8 @@ function buildPFUnitMix(){
   theadHtml += '<th style="'+th+';text-align:center"># Units</th>';
   theadHtml += '<th style="'+th+';text-align:center">Bedroom</th>';
   theadHtml += '<th style="'+th+';text-align:right">SQF</th>';
-  // Single combined As-is Rent column (source picked per-row via dropdown)
+  // Single As-is Rent column — rent value + inline compact source dropdown
   theadHtml += '<th style="'+thB+';text-align:right">2025 As-is Rent</th>';
-  theadHtml += '<th style="'+thB+';text-align:center;font-size:10px;color:var(--muted)">Source</th>';
   theadHtml += '<th style="'+thB+';text-align:right">2026 Growth</th>';
   theadHtml += '<th style="'+th+';text-align:right">2025 As-is Rent Annually</th>';
   theadHtml += '<th style="'+th+';text-align:right;color:var(--green)">2026 Projected Rent</th>';
@@ -4129,26 +4133,30 @@ function buildPFUnitMix(){
     html += '<td style="'+cp+'text-align:center;'+mc+'">'+(isTot?'':(u.beds!=null?u.beds:''))+'</td>';
     html += '<td style="'+cp+'text-align:right;'+mc+'">'+(isTot?'':(u.sqft||'—'))+'</td>';
 
-    // As-is Rent (combined column, editable in edit mode)
+    // As-is Rent — value + inline compact source dropdown (same cell)
     if(isTot) {
       html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);color:var(--header);font-weight:700"></td>';
-      html += '<td style="'+cp+'text-align:center;border-left:1px solid var(--border)"></td>';
-    } else if(isEdit) {
-      var valStr = activeRent?Math.round(activeRent):'';
-      var sz = Math.max(String(valStr).length + 1, 5);
-      html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);background:'+rentBg+'">'
-        + '<input type="text" size="'+sz+'" value="'+valStr+'"'
-        + ' onchange="setUmixManualRent('+i+',this.value)"'
-        + ' style="text-align:right;font-size:12px;padding:3px 6px;border-radius:4px;outline:none;'
-        + 'border:1px solid '+rentColor+';color:'+rentColor+';background:transparent;width:auto;box-sizing:content-box">'
-        + '</td>';
-      // Source dropdown
-      html += '<td style="'+cp+'text-align:center;border-left:1px solid var(--border)">'+_umixSrcSelect(i, activeSrc === 'hd' ? ('hd-'+(rentInfo.metric||'leasedRent')) : activeSrc, !!hdMatch)+'</td>';
     } else {
-      html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);color:'+rentColor+';font-weight:'+fw+';background:'+rentBg+'">'
-        +(activeRent?'$\u00a0'+Number(Math.round(activeRent)).toLocaleString():'—')+'</td>';
-      // Source tag (not editable)
-      html += '<td style="'+cp+'text-align:center;border-left:1px solid var(--border)">'+_umixSrcTag(i, activeSrc === 'hd' ? ('hd-'+(rentInfo.metric||'leasedRent')) : activeSrc)+'</td>';
+      var fullSrc = activeSrc === 'hd' ? ('hd-'+(rentInfo.metric||'leasedRent')) : activeSrc;
+      var srcChip = isEdit
+        ? _umixSrcSelect(i, fullSrc, !!hdMatch)
+        : _umixSrcTag(i, fullSrc);
+      var rentCell;
+      if(isEdit){
+        var valStr = activeRent?Math.round(activeRent):'';
+        var vW = Math.max(String(valStr).length * 8 + 16, 48);
+        rentCell = '<input type="text" value="'+valStr+'"'
+          + ' onchange="setUmixManualRent('+i+',this.value)"'
+          + ' style="text-align:right;font-size:12px;padding:3px 6px;border-radius:4px;outline:none;'
+          + 'border:1px solid '+rentColor+';color:'+rentColor+';background:transparent;width:'+vW+'px;box-sizing:content-box">';
+      } else {
+        rentCell = '<span style="color:'+rentColor+';font-weight:'+fw+'">'
+          +(activeRent?'$\u00a0'+Number(Math.round(activeRent)).toLocaleString():'—')+'</span>';
+      }
+      html += '<td style="'+cp+'text-align:right;border-left:1px solid var(--border);background:'+rentBg+'">'
+        + '<div style="display:inline-flex;align-items:center;gap:8px;justify-content:flex-end">'
+        + rentCell + srcChip
+        + '</div></td>';
     }
 
     html += '<td style="'+cp+'text-align:right;'+hc+';border-left:1px solid var(--border)">'
@@ -4162,7 +4170,7 @@ function buildPFUnitMix(){
   bodyEl.innerHTML = tbodyHtml;
 }
 
-// Render Unit Mix source dropdown (per-row) — pill style
+// Render Unit Mix source dropdown (per-row) — pill style with width matching current label
 function _umixSrcSelect(rowIdx, currentSrc, hasHD){
   var options = [{value:'rr', label:'RR', color:DS_COLORS.rr}];
   if(hasHD){
@@ -4178,7 +4186,8 @@ function _umixSrcSelect(rowIdx, currentSrc, hasHD){
   }
   var cur = options.find(function(o){return o.value===currentSrc;}) || options[0];
   var c = cur.color;
-  var style = 'font-size:9px;padding:3px 20px 3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:auto;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center';
+  var w = _srcSelectWidth(cur.label);
+  var style = 'font-size:9px;padding:3px 18px 3px 10px;border:1px solid '+c.tag+';border-radius:11px;color:'+c.tag+';background:'+c.tagBg+';cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;text-align:center;text-align-last:center;width:'+w+'px;background-image:url("data:image/svg+xml,%3Csvg width=\'8\' height=\'5\' viewBox=\'0 0 8 5\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l3 3 3-3\' stroke=\''+encodeURIComponent(c.tag)+'\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center';
   var html = '<select onchange="setUmixRowSource('+rowIdx+',this.value)" style="'+style+'">';
   options.forEach(function(o){
     html += '<option value="'+o.value+'"'+(o.value===currentSrc?' selected':'')+' style="background:#fff;color:'+o.color.tag+';text-align:center">'+o.label+'</option>';
