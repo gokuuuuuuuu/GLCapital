@@ -3239,9 +3239,20 @@ function buildExpenseTable() {
   function projectExpVals(vals, label) {
     var v = (vals||[]).slice(0, 2);
     var rate = (label === 'Property Tax') ? taxRate : opexRate;
-    // Y3 (Stab) = Avg(Y1, Y2)
-    var y1 = v[0]||0, y2 = v[1]||0;
-    var y3 = (y1 + y2) / 2;
+    // Y3 (Stab): for Property Tax, use Tax Assessment projected value if available
+    var y3;
+    if(label === 'Property Tax') {
+      var taxProjAnnual = (typeof getTaxProjectedAnnual === 'function') ? getTaxProjectedAnnual() : 0;
+      if(taxProjAnnual > 0) {
+        y3 = taxProjAnnual;
+      } else {
+        var y1 = v[0]||0, y2 = v[1]||0;
+        y3 = (y1 + y2) / 2;
+      }
+    } else {
+      var y1 = v[0]||0, y2 = v[1]||0;
+      y3 = (y1 + y2) / 2;
+    }
     v[2] = y3;
     // Y4+ projected from Y3
     for(var i = 3; i < nCols; i++) {
@@ -7790,114 +7801,337 @@ async function saveApiKeys() {
 }
 
 // ─── GL Capital: Tax Assessment ───────────────────────────────────────────────
-function getTaxRows() {
+function getTaxAssessment() {
   var projs = getProjects();
   var proj = projs.find(function(p){ return p.id === currentProjectId; });
-  if(!proj) return [];
-  return Array.isArray(proj.taxRows) ? proj.taxRows : [];
+  if(!proj) return {};
+  return proj.taxAssessment || {};
 }
-function saveTaxRows(rows) {
+function saveTaxAssessment(data) {
   var projs = getProjects();
   var idx = projs.findIndex(function(p){ return p.id === currentProjectId; });
   if(idx === -1) return;
-  projs[idx].taxRows = rows;
+  projs[idx].taxAssessment = data;
   saveProjects(projs);
+}
+function _taxGetUnits() {
+  var proj = getProjects().find(function(p){ return p.id === currentProjectId; }) || {};
+  return proj.units || 28;
+}
+function _taxGetOfferPrice() {
+  var proj = getProjects().find(function(p){ return p.id === currentProjectId; }) || {};
+  return proj.offerPrice || 0;
+}
+function _taxGetT12PropertyTax() {
+  // Try to read Property Tax from PF_DATA expenses
+  if(!window.PF_DATA || !PF_DATA.expenses) return null;
+  for(var i = 0; i < PF_DATA.expenses.length; i++) {
+    if(PF_DATA.expenses[i].label === 'Property Tax' && PF_DATA.expenses[i].vals) {
+      return { y1: PF_DATA.expenses[i].vals[0] || 0, y2: PF_DATA.expenses[i].vals[1] || 0 };
+    }
+  }
+  return null;
+}
+
+// Get the projected annual tax from Tax Assessment (used by Expenses linkage)
+function getTaxProjectedAnnual() {
+  var ta = getTaxAssessment();
+  var offerPrice = _taxGetOfferPrice();
+  var ratio = (ta.assessmentRatio != null ? parseFloat(ta.assessmentRatio) : 100) / 100;
+  var projRate = (ta.projectedRate != null ? parseFloat(ta.projectedRate) : (ta.currentRate != null ? parseFloat(ta.currentRate) : 1.620)) / 100;
+  var projValue = offerPrice * ratio;
+  if(!projValue) return 0;
+  return projValue * projRate;
 }
 
 function renderTaxTable() {
-  var tbody = document.getElementById('taxAssessBody');
-  if(!tbody) return;
-  var rows = getTaxRows();
-  if(!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="padding:28px 18px;text-align:center;color:var(--muted);font-size:12px;font-style:italic">No properties added yet — click <strong>Add Property</strong> to begin</td></tr>';
-    updateTaxTotals([]);
-    return;
+  var ta = getTaxAssessment();
+  var units = _taxGetUnits();
+  var offerPrice = _taxGetOfferPrice();
+  var t12Tax = _taxGetT12PropertyTax();
+  var asmt = getProjectAssumptions();
+
+  // Defaults
+  var curValue = ta.currentValue != null ? parseFloat(ta.currentValue) : '';
+  var curRate  = ta.currentRate  != null ? parseFloat(ta.currentRate)  : 1.620;
+  var asmtRatio = ta.assessmentRatio != null ? parseFloat(ta.assessmentRatio) : 100;
+  var projRate  = ta.projectedRate != null ? parseFloat(ta.projectedRate) : curRate;
+
+  // Computed
+  var curAnnual = curValue !== '' ? (parseFloat(curValue) || 0) * (curRate / 100) : 0;
+  var projAssessedValue = offerPrice * (asmtRatio / 100);
+  var projAnnual = projAssessedValue * (projRate / 100);
+  var taxPerUnit = units > 0 ? curAnnual / units : 0;
+  var projPerUnit = units > 0 ? projAnnual / units : 0;
+
+  var fmt = function(n) { return n ? '$' + Math.round(n).toLocaleString() : '—'; };
+  var inputStyle = 'border:1px solid var(--border);border-radius:4px;padding:5px 10px;font-size:13px;font-family:inherit;color:var(--header);background:transparent;outline:none;text-align:right;width:160px;';
+  var readonlyStyle = 'font-size:14px;font-weight:700;color:var(--blue);text-align:right;min-width:160px;';
+  var labelStyle = 'font-size:12px;color:var(--body);min-width:200px;';
+  var rowStyle = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.04);';
+
+  // ── Section 1: Current ──
+  var sec1 = document.getElementById('taxCurrentSection');
+  if(sec1) {
+    var html1 = '';
+    html1 += '<div style="'+rowStyle+'">'
+      + '<span style="'+labelStyle+'">Current Assessed Value</span>'
+      + '<input type="number" id="taxCurValue" value="'+(curValue !== '' ? curValue : '')+'" placeholder="e.g. 3,100,000" min="0" step="10000" '
+      + 'oninput="onTaxFieldChange(\'currentValue\',this.value)" style="'+inputStyle+'">'
+      + '</div>';
+    html1 += '<div style="'+rowStyle+'">'
+      + '<span style="'+labelStyle+'">Current Tax Rate (%)</span>'
+      + '<input type="number" id="taxCurRate" value="'+curRate+'" min="0" max="100" step="0.001" '
+      + 'oninput="onTaxFieldChange(\'currentRate\',this.value)" style="'+inputStyle+'width:100px;">'
+      + '</div>';
+    html1 += '<div style="'+rowStyle+'">'
+      + '<span style="'+labelStyle+'">Current Annual Tax</span>'
+      + '<span id="taxCurAnnual" style="'+readonlyStyle+'">'+(curAnnual ? fmt(curAnnual) : '—')+'</span>'
+      + '</div>';
+    html1 += '<div style="'+rowStyle+'">'
+      + '<span style="'+labelStyle+'">Tax Per Unit</span>'
+      + '<span id="taxCurPerUnit" style="'+readonlyStyle+'font-size:12px;font-weight:600;color:var(--body);">'+(taxPerUnit ? fmt(taxPerUnit)+'/yr' : '—')+'</span>'
+      + '</div>';
+    // T12 reference
+    if(t12Tax) {
+      html1 += '<div style="padding:8px 0;font-size:11px;color:var(--muted);border-top:1px solid var(--border);margin-top:4px">'
+        + '<span style="display:inline-block;padding:2px 7px;border-radius:3px;background:rgba(46,125,50,0.08);color:#2E7D32;font-weight:700;font-size:10px;margin-right:6px">T12</span>'
+        + 'Property Tax: '+fmt(t12Tax.y1)+' (Y1) / '+fmt(t12Tax.y2)+' (Y2)'
+        + '</div>';
+    }
+    sec1.innerHTML = html1;
   }
-  tbody.innerHTML = rows.map(function(r, i) {
-    var annualTax = (parseFloat(r.value)||0) * (parseFloat(r.rate)||0) / 100;
-    var bg = i%2===1 ? 'background:rgba(0,0,0,0.015);' : '';
-    return (
-      '<tr style="'+bg+'border-bottom:1px solid var(--border)">' +
-      '<td style="padding:7px 18px">' +
-        '<input value="'+escTax(r.label)+'" placeholder="e.g. Land, Building, Equipment…" ' +
-        'oninput="updateTaxRow('+i+',\'label\',this.value)" ' +
-        'style="width:100%;border:none;background:transparent;font-size:12px;color:var(--header);font-family:inherit;outline:none;padding:2px 0">' +
-      '</td>' +
-      '<td style="padding:7px 14px">' +
-        '<input type="number" value="'+r.value+'" min="0" step="1000" placeholder="0" ' +
-        'oninput="updateTaxRow('+i+',\'value\',this.value)" ' +
-        'style="width:100%;border:none;background:transparent;font-size:12px;color:var(--header);font-family:inherit;outline:none;text-align:right;padding:2px 0">' +
-      '</td>' +
-      '<td style="padding:7px 14px">' +
-        '<input type="number" value="'+r.rate+'" min="0" max="100" step="0.001" placeholder="0.000" ' +
-        'oninput="updateTaxRow('+i+',\'rate\',this.value)" ' +
-        'style="width:100%;border:none;background:transparent;font-size:12px;color:var(--header);font-family:inherit;outline:none;text-align:right;padding:2px 0">' +
-      '</td>' +
-      '<td style="padding:7px 14px;text-align:right;font-weight:600;color:var(--blue)">' +
-        (annualTax ? '$'+Math.round(annualTax).toLocaleString() : '<span style="color:var(--muted)">—</span>') +
-      '</td>' +
-      '</tr>'
-    );
-  }).join('');
-  updateTaxTotals(rows);
-}
 
-function escTax(s) { return (s||'').replace(/"/g,'&quot;'); }
+  // ── Section 2: Post-Acquisition ──
+  var sec2 = document.getElementById('taxProjectedSection');
+  if(sec2) {
+    var html2 = '';
+    html2 += '<div style="'+rowStyle+'">'
+      + '<span style="'+labelStyle+'">Purchase Price</span>'
+      + '<span id="taxPurchasePrice" style="'+readonlyStyle+'">'+(offerPrice ? fmt(offerPrice) : '<span style="color:var(--muted);font-size:12px;font-weight:400">Set in Purchase Price tab</span>')+'</span>'
+      + '</div>';
+    html2 += '<div style="'+rowStyle+'">'
+      + '<span style="'+labelStyle+'">Assessment Ratio (%)</span>'
+      + '<input type="number" id="taxAsmtRatio" value="'+asmtRatio+'" min="0" max="200" step="1" '
+      + 'oninput="onTaxFieldChange(\'assessmentRatio\',this.value)" style="'+inputStyle+'width:100px;">'
+      + '</div>';
+    html2 += '<div style="'+rowStyle+'">'
+      + '<span style="'+labelStyle+'">Projected Assessed Value</span>'
+      + '<span id="taxProjValue" style="'+readonlyStyle+'">'+(projAssessedValue ? fmt(projAssessedValue) : '—')+'</span>'
+      + '</div>';
+    html2 += '<div style="'+rowStyle+'">'
+      + '<span style="'+labelStyle+'">Projected Tax Rate (%)</span>'
+      + '<input type="number" id="taxProjRate" value="'+projRate+'" min="0" max="100" step="0.001" '
+      + 'oninput="onTaxFieldChange(\'projectedRate\',this.value)" style="'+inputStyle+'width:100px;">'
+      + '</div>';
+    html2 += '<div style="'+rowStyle+'">'
+      + '<span style="'+labelStyle+'">Projected Annual Tax</span>'
+      + '<span id="taxProjAnnual" style="'+readonlyStyle+'">'+(projAnnual ? fmt(projAnnual) : '—')+'</span>'
+      + '</div>';
+    html2 += '<div style="'+rowStyle+'border-bottom:none">'
+      + '<span style="'+labelStyle+'">Projected Tax Per Unit</span>'
+      + '<span id="taxProjPerUnit" style="'+readonlyStyle+'font-size:12px;font-weight:600;color:var(--body);">'+(projPerUnit ? fmt(projPerUnit)+'/yr' : '—')+'</span>'
+      + '</div>';
+    sec2.innerHTML = html2;
+  }
 
-function updateTaxTotals(rows) {
-  var totalValue = 0, totalTax = 0;
-  rows.forEach(function(r) {
-    var v = parseFloat(r.value)||0;
-    var rt = parseFloat(r.rate)||0;
-    totalValue += v;
-    totalTax   += v * rt / 100;
-  });
-  var blended = totalValue > 0 ? ((totalTax/totalValue)*100).toFixed(3)+'%' : '—';
-  var fmt = function(n){ return n ? '$'+Math.round(n).toLocaleString() : '$0'; };
+  // Tax increase alert
+  var bar = document.getElementById('taxIncreaseBar');
+  if(bar) {
+    if(curAnnual > 0 && projAnnual > 0 && projAnnual !== curAnnual) {
+      var diff = projAnnual - curAnnual;
+      var pct = ((diff / curAnnual) * 100).toFixed(1);
+      var sign = diff > 0 ? '+' : '';
+      bar.style.display = '';
+      if(diff > 0) {
+        bar.style.borderTopColor = 'rgba(217,119,6,0.2)';
+        bar.style.background = 'rgba(217,119,6,0.06)';
+        bar.style.color = '#92400e';
+        bar.innerHTML = '&#9888; Tax Increase: ' + sign + fmt(diff) + ' (' + sign + pct + '%) — Post-acquisition reassessment will raise property tax';
+      } else {
+        bar.style.borderTopColor = 'rgba(46,125,50,0.2)';
+        bar.style.background = 'rgba(46,125,50,0.06)';
+        bar.style.color = '#2E7D32';
+        bar.innerHTML = '&#10003; Tax Decrease: ' + fmt(diff) + ' (' + pct + '%)';
+      }
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  // ── Section 3: Multi-Year ──
+  var nCols = 7;
+  var escalation = asmt.taxGrowth;
+  var escRow = document.getElementById('taxEscalationRow');
+  if(escRow) {
+    escRow.innerHTML = '<div style="display:flex;align-items:center;gap:10px">'
+      + '<span style="font-size:12px;color:var(--body)">Tax Escalation Rate (%)</span>'
+      + '<input type="number" id="taxEscRate" value="'+escalation+'" min="0" max="20" step="0.1" '
+      + 'oninput="onTaxEscalationChange(this.value)" style="'+inputStyle+'width:80px;">'
+      + '<span style="font-size:10px;color:var(--muted)">Synced with Growth Assumptions</span>'
+      + '</div>';
+  }
+
+  var yearHead = document.getElementById('taxYearHead');
+  var yearRow = document.getElementById('taxYearRow');
+  var yearPURow = document.getElementById('taxYearPerUnitRow');
+  if(yearHead && yearRow) {
+    var headHtml = '<th style="padding:9px 14px;text-align:left;font-weight:700;color:var(--header);min-width:140px"></th>';
+    var rowHtml  = '<td style="padding:8px 14px;font-size:12px;font-weight:700;color:var(--header)">Annual Tax</td>';
+    var puHtml   = '<td style="padding:6px 14px;font-size:11px;color:var(--muted)">Per Unit</td>';
+    var rate = 1 + (escalation / 100);
+    var base = projAnnual || curAnnual || 0;
+
+    for(var yi = 0; yi < nCols; yi++) {
+      var yLabel = 'Y' + (yi + 1);
+      var yVal;
+      if(yi === 0) {
+        yVal = base;
+      } else {
+        yVal = base * Math.pow(rate, yi);
+      }
+      var isProj = yi >= 3;
+      var borderL = yi === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+      var bg = isProj ? 'background:rgba(74,124,89,0.03);' : '';
+      headHtml += '<th style="padding:9px 10px;text-align:right;font-weight:700;color:var(--header);font-size:11px;'+bg+borderL+'">'+yLabel+'</th>';
+      rowHtml  += '<td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:600;color:var(--blue);'+bg+borderL+'">'+(yVal ? fmt(yVal) : '—')+'</td>';
+      var puVal = units > 0 && yVal ? Math.round(yVal / units) : 0;
+      puHtml   += '<td style="padding:6px 10px;text-align:right;font-size:11px;color:var(--muted);'+bg+borderL+'">'+(puVal ? '$'+puVal.toLocaleString() : '—')+'</td>';
+    }
+    yearHead.innerHTML = headHtml;
+    yearRow.innerHTML = rowHtml;
+    if(yearPURow) yearPURow.innerHTML = puHtml;
+  }
+
+  // ── Summary strip ──
   var el;
-  el = document.getElementById('taxTotalCell');      if(el) el.textContent = fmt(totalTax);
-  el = document.getElementById('taxTotalEl');        if(el) el.textContent = fmt(totalTax);
-  el = document.getElementById('taxAssessedTotalEl');if(el) el.textContent = fmt(totalValue);
-  el = document.getElementById('taxBlendedRateEl');  if(el) el.textContent = blended;
-  el = document.getElementById('taxCountEl');        if(el) el.textContent = rows.length;
+  el = document.getElementById('taxSumCurrent');   if(el) el.textContent = curAnnual ? fmt(curAnnual) : '—';
+  el = document.getElementById('taxSumProjected'); if(el) el.textContent = projAnnual ? fmt(projAnnual) : '—';
+  el = document.getElementById('taxSumPerUnit');   if(el) el.textContent = projPerUnit ? fmt(projPerUnit)+'/yr' : '—';
+  var incEl = document.getElementById('taxSumIncrease');
+  if(incEl) {
+    if(curAnnual > 0 && projAnnual > 0) {
+      var d = projAnnual - curAnnual;
+      var p = ((d / curAnnual) * 100).toFixed(1);
+      incEl.textContent = (d >= 0 ? '+' : '') + fmt(d) + ' (' + (d >= 0 ? '+' : '') + p + '%)';
+      incEl.style.color = d > 0 ? '#d97706' : '#2E7D32';
+    } else {
+      incEl.textContent = '—';
+      incEl.style.color = '#d97706';
+    }
+  }
 }
 
-function addTaxRow() {
-  var rows = getTaxRows();
-  rows.push({ label:'', value:'', rate:'1.620' });
-  saveTaxRows(rows);
-  renderTaxTable();
-  // focus last label input
-  setTimeout(function(){
-    var inputs = document.querySelectorAll('#taxAssessBody input');
-    if(inputs.length) inputs[inputs.length-4].focus();
-  }, 50);
+function onTaxFieldChange(field, val) {
+  var ta = getTaxAssessment();
+  ta[field] = val;
+  saveTaxAssessment(ta);
+  _taxUpdateComputed();
 }
 
-function deleteTaxRow(i) {
-  var rows = getTaxRows();
-  rows.splice(i,1);
-  saveTaxRows(rows);
-  renderTaxTable();
+function onTaxEscalationChange(val) {
+  // Sync with global assumptions
+  var projs = getProjects();
+  var idx = projs.findIndex(function(p){ return p.id === currentProjectId; });
+  if(idx === -1) return;
+  if(!projs[idx].assumptions) projs[idx].assumptions = {};
+  projs[idx].assumptions.taxGrowth = parseFloat(val) || 3.0;
+  saveProjects(projs);
+  _taxUpdateComputed();
 }
 
-function updateTaxRow(i, field, val) {
-  var rows = getTaxRows();
-  if(!rows[i]) return;
-  rows[i][field] = val;
-  saveTaxRows(rows);
-  // Update annual tax cell + totals inline (no full re-render to preserve focus)
-  updateTaxTotals(rows);
-  var tbody = document.getElementById('taxAssessBody');
-  if(tbody) {
-    var trs = tbody.querySelectorAll('tr');
-    var tr = trs[i];
-    if(tr) {
-      var annualTax = (parseFloat(rows[i].value)||0) * (parseFloat(rows[i].rate)||0) / 100;
-      var taxCell = tr.cells[3];
-      if(taxCell) taxCell.innerHTML = annualTax
-        ? '<span style="font-weight:600;color:var(--blue)">$'+Math.round(annualTax).toLocaleString()+'</span>'
-        : '<span style="color:var(--muted)">—</span>';
+// Lightweight update: only recompute readonly/computed fields, preserve input focus
+function _taxUpdateComputed() {
+  var ta = getTaxAssessment();
+  var units = _taxGetUnits();
+  var offerPrice = _taxGetOfferPrice();
+  var asmt = getProjectAssumptions();
+
+  var curValue = ta.currentValue != null ? parseFloat(ta.currentValue) : 0;
+  var curRate  = ta.currentRate  != null ? parseFloat(ta.currentRate)  : 1.620;
+  var asmtRatio = ta.assessmentRatio != null ? parseFloat(ta.assessmentRatio) : 100;
+  var projRate  = ta.projectedRate != null ? parseFloat(ta.projectedRate) : curRate;
+
+  var curAnnual = (curValue || 0) * (curRate / 100);
+  var projAssessedValue = offerPrice * (asmtRatio / 100);
+  var projAnnual = projAssessedValue * (projRate / 100);
+  var taxPerUnit = units > 0 ? curAnnual / units : 0;
+  var projPerUnit = units > 0 ? projAnnual / units : 0;
+
+  var fmt = function(n) { return n ? '$' + Math.round(n).toLocaleString() : '—'; };
+  var _s = function(id, txt) { var e = document.getElementById(id); if(e) e.textContent = txt; };
+
+  // Section 1 computed
+  _s('taxCurAnnual', curAnnual ? fmt(curAnnual) : '—');
+  _s('taxCurPerUnit', taxPerUnit ? fmt(taxPerUnit)+'/yr' : '—');
+
+  // Section 2 computed
+  _s('taxProjValue', projAssessedValue ? fmt(projAssessedValue) : '—');
+  _s('taxProjAnnual', projAnnual ? fmt(projAnnual) : '—');
+  _s('taxProjPerUnit', projPerUnit ? fmt(projPerUnit)+'/yr' : '—');
+
+  // Tax increase alert bar
+  var bar = document.getElementById('taxIncreaseBar');
+  if(bar) {
+    if(curAnnual > 0 && projAnnual > 0 && projAnnual !== curAnnual) {
+      var diff = projAnnual - curAnnual;
+      var pct = ((diff / curAnnual) * 100).toFixed(1);
+      var sign = diff > 0 ? '+' : '';
+      bar.style.display = '';
+      if(diff > 0) {
+        bar.style.borderTopColor = 'rgba(217,119,6,0.2)';
+        bar.style.background = 'rgba(217,119,6,0.06)';
+        bar.style.color = '#92400e';
+        bar.innerHTML = '&#9888; Tax Increase: ' + sign + fmt(diff) + ' (' + sign + pct + '%) — Post-acquisition reassessment will raise property tax';
+      } else {
+        bar.style.borderTopColor = 'rgba(46,125,50,0.2)';
+        bar.style.background = 'rgba(46,125,50,0.06)';
+        bar.style.color = '#2E7D32';
+        bar.innerHTML = '&#10003; Tax Decrease: ' + fmt(diff) + ' (' + pct + '%)';
+      }
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  // Multi-year projection table
+  var nCols = 7;
+  var escalation = asmt.taxGrowth;
+  var rate = 1 + (escalation / 100);
+  var base = projAnnual || curAnnual || 0;
+  var yearRow = document.getElementById('taxYearRow');
+  var yearPURow = document.getElementById('taxYearPerUnitRow');
+  if(yearRow) {
+    var rowHtml = '<td style="padding:8px 14px;font-size:12px;font-weight:700;color:var(--header)">Annual Tax</td>';
+    var puHtml  = '<td style="padding:6px 14px;font-size:11px;color:var(--muted)">Per Unit</td>';
+    for(var yi = 0; yi < nCols; yi++) {
+      var yVal = yi === 0 ? base : base * Math.pow(rate, yi);
+      var isProj = yi >= 3;
+      var borderL = yi === 3 ? 'border-left:2px solid rgba(74,124,89,0.3);' : '';
+      var bg = isProj ? 'background:rgba(74,124,89,0.03);' : '';
+      rowHtml += '<td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:600;color:var(--blue);'+bg+borderL+'">'+(yVal ? fmt(yVal) : '—')+'</td>';
+      var puVal = units > 0 && yVal ? Math.round(yVal / units) : 0;
+      puHtml  += '<td style="padding:6px 10px;text-align:right;font-size:11px;color:var(--muted);'+bg+borderL+'">'+(puVal ? '$'+puVal.toLocaleString() : '—')+'</td>';
+    }
+    yearRow.innerHTML = rowHtml;
+    if(yearPURow) yearPURow.innerHTML = puHtml;
+  }
+
+  // Summary strip
+  var el;
+  el = document.getElementById('taxSumCurrent');   if(el) el.textContent = curAnnual ? fmt(curAnnual) : '—';
+  el = document.getElementById('taxSumProjected'); if(el) el.textContent = projAnnual ? fmt(projAnnual) : '—';
+  el = document.getElementById('taxSumPerUnit');   if(el) el.textContent = projPerUnit ? fmt(projPerUnit)+'/yr' : '—';
+  var incEl = document.getElementById('taxSumIncrease');
+  if(incEl) {
+    if(curAnnual > 0 && projAnnual > 0) {
+      var d = projAnnual - curAnnual;
+      var p = ((d / curAnnual) * 100).toFixed(1);
+      incEl.textContent = (d >= 0 ? '+' : '') + fmt(d) + ' (' + (d >= 0 ? '+' : '') + p + '%)';
+      incEl.style.color = d > 0 ? '#d97706' : '#2E7D32';
+    } else {
+      incEl.textContent = '—';
+      incEl.style.color = '#d97706';
     }
   }
 }
@@ -8006,7 +8240,7 @@ document.addEventListener('DOMContentLoaded', function setupListeners2() {
   on('#loadDemoPFBtn',          'click', function() { loadDemoProForma(); });
   on('#openAssumptionsBtn',     'click', function() { openAssumptionsModal(); });
   on('#exportPFBtn',            'click', function() { exportPF(); });
-  on('#addTaxRowBtn',           'click', function() { addTaxRow(); });
+  // addTaxRowBtn removed — Tax Assessment redesigned to single-property model
 
   // ── Universal dblclick inline editor ─────────────────────────
   function _inlineEditCell(el, onCommit) {
@@ -8085,7 +8319,7 @@ document.addEventListener('DOMContentLoaded', function setupListeners2() {
   }
   document.addEventListener('contextmenu', function(e){
     if(!_globalEditMode) return;
-    var tr = e.target.closest('#taxAssessBody tr, #pfUnitMixBody tr:not(#rrTotalRow)');
+    var tr = e.target.closest('#pfUnitMixBody tr:not(#rrTotalRow)');
     if(!tr) return;
     e.preventDefault();
     _hideCtxMenu();
@@ -8101,11 +8335,7 @@ document.addEventListener('DOMContentLoaded', function setupListeners2() {
     if(!_ctxTargetRow){ _hideCtxMenu(); return; }
     var tr = _ctxTargetRow;
     _hideCtxMenu();
-    if(tr.closest('#taxAssessBody')){
-      var tbody = document.getElementById('taxAssessBody');
-      var idx = Array.from(tbody.querySelectorAll('tr')).indexOf(tr);
-      if(idx !== -1) deleteTaxRow(idx);
-    } else if(tr.closest('#pfUnitMixBody')){
+    if(tr.closest('#pfUnitMixBody')){
       tr.remove();
       rrRecalcTotals();
     }
