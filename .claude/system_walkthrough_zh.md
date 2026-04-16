@@ -2,9 +2,11 @@ GL Capital Underwriting 系统功能介绍
 
 说明
 
-由于本次需求尚在明确过程中，本版本是我们基于初步理解先行设计的一版，可能与你们预期存在一定偏差。你们可以在此基础上提出更明确的需求或修改意见，我们会在后续迭代中快速响应。
+当前平台为 **prototype（原型）**，可以理解为可交互的界面展示，尚非完整可用的系统。
 
-文中标注 ⚠ 的部分，是我们在需求不完整情况下所做的内部逻辑假设，需要你们重点确认。
+由于你们未提供详细的需求描述和规则说明，我们基于你们提供的文件（Cherry Commons 物业模型、HelloData 数据集 Excel）推导出了业务逻辑，其中可能存在偏差。如有不符合你们预期的地方，请随时指出，我们可以快速调整。
+
+文中标注 ⚠ 的部分，是我们在需求不完整情况下所做的内部逻辑假设，需要你们确认是否正确。
 
 
 ---
@@ -103,8 +105,8 @@ Revenue 表分为上下两个子表：
 
 上表：Per-Unit Income（按单元计算的收入）
 - 每行展示：Per Unit/月、Source（下拉）、Units、Y1–Y7。
-- Rent Income 是唯一支持 T12 / HD / RentCast 三源切换的字段：
-  - T12 源：Per Unit = Avg(Y1, Y2) ÷ Units ÷ 12，Y3 = Avg(Y1, Y2)
+- 部分字段（如 Rent Income）支持多数据源切换（T12 / HD / RentCast）：
+  - T12 源：Per Unit = Avg(Y1, Y2) ÷ Units ÷ 12，Y3 = Avg(Y1, Y2)（此规则基于 Cherry Commons 示例推导）
   - HD 源：Per Unit = GPR Median ÷ 最大 Units ÷ 12，Y3 = GPR Median，Y1/Y2 留空（HD 无历史数据）
   - RentCast 源：逻辑类似 HD
 - 其他行（Late Fee / Pet Fee 等）只有 T12 源，Source 列显示为固定 T12 标签。
@@ -330,6 +332,7 @@ Cash to Close
 Total Acquisition − Loan to Cost − Acquisition Fee
 
 Refinance 场景（在 Regular 的基础上增加）
+再融资视图会新增一行期初/期末收支（I/O Payment），并调整交割现金流的计算公式，将收购储备金纳入计算范围。
 
 字段
 百分率
@@ -399,7 +402,7 @@ Final Proceeds − Reserve for Unit Upgrades
 ⚠ 需 你们 确认
 - Waterfall Distribution：请提供详细的分配规则（优先回报率、IRR 门槛、Catch-up、Carried Interest 分层等），以便我们实现自动计算。
 - Tax Assessment：请说明具体诉求（标准折旧计划？税务申诉流程？）以便我们进一步设计。
-  
+- **请提供尽可能详细的业务规则和需求描述。**
 
 ---
 
