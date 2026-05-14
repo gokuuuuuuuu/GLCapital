@@ -4,7 +4,7 @@
     {
       "name": "GLCapital",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "3456", "--directory", "E:/PersonalFiles/ClaudeWorkspace/GLCapital.github.io"],
+      "runtimeArgs": ["-m", "http.server", "3456", "--directory", "E:/PersonalFiles/ClaudeWorkspace/GLCapital.github.io/.claude/worktrees/lucid-elgamal-889c15"],
       "port": 3456
     }
   ]
