@@ -5189,6 +5189,644 @@ function buildPFTable(){
 
   // Rebuild Debt Analysis with fresh NOI values
   if(typeof buildDebtAnalysis === 'function') buildDebtAnalysis();
+
+  if(typeof buildConstructionEquityTab === 'function') buildConstructionEquityTab();
+
+  if(typeof initSeRegValueOfProperty === 'function') initSeRegValueOfProperty();
+  if(typeof initSeRefValueOfProperty === 'function') initSeRefValueOfProperty();
+  if(typeof buildEquityRequiredTab === 'function') buildEquityRequiredTab();
+  if(typeof buildRefinanceEventTab === 'function') buildRefinanceEventTab();
+  if(typeof initWfTemplate === 'function') initWfTemplate();
+}
+
+// ── Waterfall Template Picker (Step 1: scaffold + persistence) ───────────
+var WF_TEMPLATES = {
+  'straight': {
+    label: 'Straight Split (no pref)',
+    desc: 'All cash splits at a fixed ratio from $1, no preferred return.',
+    params: [
+      { id:'invSplit', label:'Investor Split', suffix:'%', default:80, step:0.5 }
+    ]
+  },
+  'simple': {
+    label: 'Simple Pref + Promote',
+    desc: 'Pref → Return of Capital → remainder split.',
+    params: [
+      { id:'prefRate', label:'Pref Rate',       suffix:'%', default:8, step:0.25 },
+      { id:'invSplit', label:'Investor Split above pref', suffix:'%', default:80, step:0.5 }
+    ]
+  },
+  'two-tier': {
+    label: 'Two-Tier IRR Hurdle',
+    desc: 'Pref → ROC → Tier 1 until IRR hurdle → Tier 2 thereafter.',
+    params: [
+      { id:'prefRate',  label:'Pref Rate',        suffix:'%', default:8,  step:0.25 },
+      { id:'hurdle1',   label:'Hurdle IRR',       suffix:'%', default:12, step:0.5 },
+      { id:'tier1Inv',  label:'Tier 1 Inv Split', suffix:'%', default:80, step:0.5 },
+      { id:'tier2Inv',  label:'Tier 2 Inv Split', suffix:'%', default:70, step:0.5 }
+    ]
+  },
+  'three-tier': {
+    label: 'Three-Tier IRR Hurdle',
+    desc: 'Pref → ROC → 3 IRR-hurdle tiers, each with its own promote split.',
+    params: [
+      { id:'prefRate',  label:'Pref Rate',        suffix:'%', default:8,  step:0.25 },
+      { id:'hurdle1',   label:'Hurdle 1 IRR',     suffix:'%', default:12, step:0.5 },
+      { id:'hurdle2',   label:'Hurdle 2 IRR',     suffix:'%', default:17, step:0.5 },
+      { id:'tier1Inv',  label:'Tier 1 Inv Split', suffix:'%', default:80, step:0.5 },
+      { id:'tier2Inv',  label:'Tier 2 Inv Split', suffix:'%', default:70, step:0.5 },
+      { id:'tier3Inv',  label:'Tier 3 Inv Split', suffix:'%', default:60, step:0.5 }
+    ]
+  }
+};
+function _wfKey(pid){ return 'wf_template_'+pid; }
+function getWfState(){
+  var pid = window._currentProjectId || 'default';
+  try { return JSON.parse(localStorage.getItem(_wfKey(pid))||'null') || {}; } catch(e){ return {}; }
+}
+function setWfState(s){
+  var pid = window._currentProjectId || 'default';
+  localStorage.setItem(_wfKey(pid), JSON.stringify(s));
+}
+function initWfTemplate(){
+  var sel = document.getElementById('wfTemplate'); if(!sel) return;
+  var s = getWfState();
+  if(s.template && WF_TEMPLATES[s.template]) sel.value = s.template;
+  renderWfTemplate();
+}
+function renderWfTemplate(){
+  var sel = document.getElementById('wfTemplate'); if(!sel) return;
+  var tmplKey = sel.value;
+  var tmpl = WF_TEMPLATES[tmplKey]; if(!tmpl) return;
+  var descEl = document.getElementById('wfTemplateDesc');
+  if(descEl) descEl.textContent = tmpl.desc;
+  var badge = document.getElementById('wfActiveTemplateBadge');
+  if(badge) badge.textContent = 'Template: ' + tmpl.label;
+
+  var s = getWfState();
+  if(s.template !== tmplKey){ s.template = tmplKey; s.params = s.params || {}; }
+  s.params[tmplKey] = s.params[tmplKey] || {};
+
+  var box = document.getElementById('wfParams'); if(!box) return;
+  box.innerHTML = tmpl.params.map(function(p){
+    var saved = s.params[tmplKey][p.id];
+    var val = (saved != null) ? saved : p.default;
+    return '<div style="display:flex;flex-direction:column;gap:3px">'
+         + '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">'+p.label+'</label>'
+         + '<div style="display:flex;align-items:center;gap:4px">'
+         +   '<input type="number" step="'+p.step+'" data-wf-param="'+p.id+'" value="'+val+'" class="pct-input" style="width:80px;text-align:right" onchange="onWfParamChange()">'
+         +   '<span style="font-size:11px;color:var(--muted);font-weight:600">'+p.suffix+'</span>'
+         + '</div>'
+         + '</div>';
+  }).join('');
+
+  setWfState(s);
+  buildWaterfallTab();
+}
+function onWfParamChange(){
+  var sel = document.getElementById('wfTemplate'); if(!sel) return;
+  var tmplKey = sel.value;
+  var s = getWfState();
+  s.template = tmplKey;
+  s.params = s.params || {};
+  s.params[tmplKey] = s.params[tmplKey] || {};
+  var inputs = document.querySelectorAll('#wfParams input[data-wf-param]');
+  inputs.forEach(function(inp){
+    var pid = inp.getAttribute('data-wf-param');
+    var v = parseFloat(inp.value);
+    if(!isNaN(v)) s.params[tmplKey][pid] = v;
+  });
+  setWfState(s);
+  buildWaterfallTab();
+}
+
+// ── Waterfall: gather inputs + compute + render ──────────────────────────
+function _wfParseMoney(s){
+  if(!s) return 0;
+  var str = String(s).trim();
+  var neg = /^\(.*\)$/.test(str) || /^-/.test(str);
+  var n = parseFloat(str.replace(/[^0-9.]/g,''));
+  if(isNaN(n)) return 0;
+  return neg ? -n : n;
+}
+function _wfFmt(n, opts){
+  opts = opts || {};
+  if(n === null || n === undefined) return '<span style="color:var(--muted)">—</span>';
+  if(opts.pct) return (n*100).toFixed(opts.dec!=null?opts.dec:1) + '%';
+  var rounded = Math.round(n);
+  if(rounded === 0 && !opts.keepZero) return '<span style="color:var(--muted)">—</span>';
+  if(rounded < 0) return '('+Math.abs(rounded).toLocaleString()+')';
+  return rounded.toLocaleString();
+}
+function _wfIrr(cashflows){
+  // Bisection method on NPV; cashflows[0] is t=0 (typically negative contribution)
+  function npv(r){
+    var v = 0;
+    for(var i=0; i<cashflows.length; i++){ v += cashflows[i] / Math.pow(1+r, i); }
+    return v;
+  }
+  var hasPos = false, hasNeg = false;
+  for(var i=0;i<cashflows.length;i++){ if(cashflows[i]>0) hasPos = true; if(cashflows[i]<0) hasNeg = true; }
+  if(!hasPos || !hasNeg) return null;
+  var lo = -0.99, hi = 10;
+  for(var k=0; k<100; k++){
+    var mid = (lo+hi)/2;
+    var v = npv(mid);
+    if(Math.abs(v) < 0.5) return mid;
+    if(npv(lo) * v < 0) hi = mid; else lo = mid;
+  }
+  return (lo+hi)/2;
+}
+
+function _wfGatherInputs(){
+  var asmt = (typeof getProjectAssumptions === 'function' ? getProjectAssumptions() : {});
+  var ay = asmt.acquisitionYear || 2026;
+  var years = [];
+  for(var i=-2; i<=4; i++) years.push(ay + i);
+
+  // Operating CF — from R&E "Cash Flow after Debt Service" row (computed earlier in buildPFTable)
+  // PF_DATA doesn't have this directly; pull from DOM (pfCfBody row labeled "Cash Flow after Debt Service")
+  var operatingCF = [0,0,0,0,0,0,0];
+  try {
+    var rows = document.querySelectorAll('#pfCfBody tr');
+    rows.forEach(function(tr){
+      var label = (tr.children[0] && tr.children[0].textContent || '').trim();
+      if(/Cash Flow after Debt Service/i.test(label)){
+        for(var i=0; i<7; i++){
+          var c = tr.children[i+1];
+          if(c) operatingCF[i] = _wfParseMoney(c.textContent);
+        }
+      }
+    });
+  } catch(e){}
+
+  // Asset Mgmt Fee — $5k/yr from AY+1 onward
+  var amf = [0,0,0,5000,5000,5000,5000];
+
+  // Initial Equity — from Equity Required Regular Equity row
+  var eqEl = document.getElementById('eqRegEqAmt');
+  var initialEquity = eqEl ? _wfParseMoney(eqEl.textContent) : 1600000;
+  if(!initialEquity) initialEquity = 1600000;
+
+  // Refi: year + Total Distribution amount (from Refinance Event tab)
+  var refiYearCell = document.querySelector('#pfsp-pf-refi table.pf-data-table tr:nth-child(2) .amount-col');
+  var refiYear = refiYearCell ? parseInt(_wfParseMoney(refiYearCell.textContent)) : (ay + 1);
+  // Total Distribution row is the .pf-tot
+  var refiTotalEl = document.querySelector('#pfsp-pf-refi tr.pf-tot .amount-col');
+  var refiAmount = refiTotalEl ? _wfParseMoney(refiTotalEl.textContent) : 0;
+
+  // Sale: year + Final Proceeds from Sale (After Refinance subtab — exit at end of hold)
+  var saleYearCell = document.querySelector('#pfsp2-se-ref table.pf-data-table tr:nth-child(2) .amount-col');
+  var saleYear = saleYearCell ? parseInt(_wfParseMoney(saleYearCell.textContent)) : (ay + 4);
+  var saleProceedsEl = document.querySelector('#pfsp2-se-ref tr.pf-hi .amount-col'); // Final Proceeds from Sale
+  var saleAmount = saleProceedsEl ? _wfParseMoney(saleProceedsEl.textContent) : 0;
+
+  return {
+    years: years, ay: ay,
+    operatingCF: operatingCF, amf: amf,
+    initialEquity: initialEquity,
+    refiYear: refiYear, refiAmount: refiAmount,
+    saleYear: saleYear, saleAmount: saleAmount
+  };
+}
+
+function _wfCompute(template, params, inp){
+  var n = inp.years.length;
+  var prefRate = (params.prefRate != null ? params.prefRate : 0) / 100;
+  var contribIdx = 2; // AY index in [AY-2..AY+4]
+
+  var rows = {
+    operatingCF: inp.operatingCF.slice(),
+    amf: inp.amf.slice(),
+    distributableCF: [],
+    beginCap: [], prefAccrued: [], prefPaid: [], accruedUnpaid: [], endCap: [],
+    excessOp: [], invFromOp: [], gpFromOp: [],
+    refiInflow: [], refiToPref: [], refiToCap: [], refiExcess: [], invFromRefi: [], gpFromRefi: [],
+    saleGross: [], saleToPref: [], saleToCap: [], saleExcess: [], invFromSale: [], gpFromSale: [],
+    invContrib: [], invCF: [], gpCF: [], coc: [],
+    activeSplit: [] // per-year LP/GP split actually applied (for tier display)
+  };
+
+  var capBalance = inp.initialEquity;
+  var unpaidPref = 0;
+  var cumLpFlows = [];
+
+  function splitFor(template, params, irr){
+    if(template === 'straight') {
+      var s = (params.invSplit != null ? params.invSplit : 80) / 100;
+      return { inv: s, gp: 1 - s };
+    }
+    if(template === 'simple') {
+      var s2 = (params.invSplit != null ? params.invSplit : 80) / 100;
+      return { inv: s2, gp: 1 - s2 };
+    }
+    var h1 = (params.hurdle1 != null ? params.hurdle1 : 12) / 100;
+    var h2 = (params.hurdle2 != null ? params.hurdle2 : 17) / 100;
+    var t1 = (params.tier1Inv != null ? params.tier1Inv : 80) / 100;
+    var t2 = (params.tier2Inv != null ? params.tier2Inv : 70) / 100;
+    var t3 = (params.tier3Inv != null ? params.tier3Inv : 60) / 100;
+    if(template === 'two-tier') {
+      if(irr === null || irr < h1) return { inv: t1, gp: 1 - t1 };
+      return { inv: t2, gp: 1 - t2 };
+    }
+    if(template === 'three-tier') {
+      if(irr === null || irr < h1) return { inv: t1, gp: 1 - t1 };
+      if(irr < h2) return { inv: t2, gp: 1 - t2 };
+      return { inv: t3, gp: 1 - t3 };
+    }
+    return { inv: 0.8, gp: 0.2 };
+  }
+
+  for(var i=0; i<n; i++){
+    var distCF = rows.operatingCF[i] - rows.amf[i];
+    rows.distributableCF.push(distCF);
+    rows.beginCap.push(capBalance);
+
+    // Contribution at AY
+    var contrib = (i === contribIdx) ? -inp.initialEquity : 0;
+    rows.invContrib.push(contrib);
+
+    // Pref accrual on year-start capital (skip for straight template)
+    var prefAccrual = (template === 'straight') ? 0 : capBalance * prefRate;
+    unpaidPref += prefAccrual;
+    rows.prefAccrued.push(prefAccrual);
+
+    // Pre-acquisition years: no distributions, no pref accrual
+    if(i < contribIdx){
+      rows.prefAccrued[i] = 0;
+      unpaidPref = 0;
+      rows.prefPaid.push(0);
+      rows.accruedUnpaid.push(0);
+      rows.endCap.push(capBalance);
+      rows.excessOp.push(0); rows.invFromOp.push(0); rows.gpFromOp.push(0);
+      rows.refiInflow.push(0); rows.refiToPref.push(0); rows.refiToCap.push(0); rows.refiExcess.push(0); rows.invFromRefi.push(0); rows.gpFromRefi.push(0);
+      rows.saleGross.push(0); rows.saleToPref.push(0); rows.saleToCap.push(0); rows.saleExcess.push(0); rows.invFromSale.push(0); rows.gpFromSale.push(0);
+      rows.invCF.push(0); rows.gpCF.push(0); rows.coc.push(0);
+      rows.activeSplit.push({inv:0,gp:0});
+      cumLpFlows.push(0);
+      continue;
+    }
+
+    // Compute LP IRR from year-start (for tier split determination)
+    var lpIrr = _wfIrr(cumLpFlows.concat([0])); // use history before this year's distribution
+
+    var split = splitFor(template, params, lpIrr);
+    rows.activeSplit.push(split);
+
+    // 1) Pay pref from operating distributable CF
+    var cash = distCF;
+    var prefPaidOp = (template === 'straight') ? 0 : Math.min(cash, unpaidPref);
+    unpaidPref -= prefPaidOp;
+    cash -= prefPaidOp;
+    // Operating excess
+    var opExcess = cash;
+
+    // 2) Refi inflow (if this year)
+    var refiInflow = (inp.refiYear === inp.years[i]) ? inp.refiAmount : 0;
+    rows.refiInflow.push(refiInflow);
+
+    var refiToPref = 0, refiToCap = 0, refiExcess = 0;
+    if(refiInflow > 0){
+      if(template === 'straight'){
+        refiExcess = refiInflow;
+      } else {
+        refiToPref = Math.min(refiInflow, unpaidPref);
+        unpaidPref -= refiToPref;
+        var afterPref = refiInflow - refiToPref;
+        refiToCap = Math.min(afterPref, capBalance);
+        capBalance -= refiToCap;
+        refiExcess = afterPref - refiToCap;
+      }
+    }
+    rows.refiToPref.push(refiToPref);
+    rows.refiToCap.push(refiToCap);
+    rows.refiExcess.push(refiExcess);
+
+    // 3) Sale gross (if this year)
+    var isSale = (inp.saleYear === inp.years[i]);
+    var saleGross = isSale ? inp.saleAmount : 0;
+    rows.saleGross.push(saleGross);
+    var saleToPref = 0, saleToCap = 0, saleExcess = 0;
+    if(saleGross > 0){
+      if(template === 'straight'){
+        saleExcess = saleGross;
+      } else {
+        saleToPref = Math.min(saleGross, unpaidPref);
+        unpaidPref -= saleToPref;
+        var afterPrefSale = saleGross - saleToPref;
+        saleToCap = Math.min(afterPrefSale, capBalance);
+        capBalance -= saleToCap;
+        saleExcess = afterPrefSale - saleToCap;
+      }
+    }
+    rows.saleToPref.push(saleToPref);
+    rows.saleToCap.push(saleToCap);
+    rows.saleExcess.push(saleExcess);
+
+    // 4) Split excess buckets
+    var invOp = opExcess * split.inv, gpOp = opExcess * split.gp;
+    var invRefi = refiExcess * split.inv, gpRefi = refiExcess * split.gp;
+    var invSale = saleExcess * split.inv, gpSale = saleExcess * split.gp;
+
+    rows.excessOp.push(opExcess);
+    rows.invFromOp.push(invOp); rows.gpFromOp.push(gpOp);
+    rows.invFromRefi.push(invRefi); rows.gpFromRefi.push(gpRefi);
+    rows.invFromSale.push(invSale); rows.gpFromSale.push(gpSale);
+
+    rows.prefPaid.push(prefPaidOp + refiToPref + saleToPref);
+    rows.accruedUnpaid.push(unpaidPref);
+    rows.endCap.push(capBalance);
+
+    var lpThisYear = prefPaidOp + refiToPref + refiToCap + saleToPref + saleToCap + invOp + invRefi + invSale;
+    var gpThisYear = gpOp + gpRefi + gpSale;
+    var totalInvFlow = contrib + lpThisYear;
+
+    rows.invCF.push(totalInvFlow);
+    rows.gpCF.push(gpThisYear);
+    rows.coc.push(inp.initialEquity ? (lpThisYear / inp.initialEquity) : 0);
+
+    cumLpFlows.push(totalInvFlow);
+  }
+
+  // Summary — distributions = sum(invCF) − sum(contributions)
+  var totalContrib = 0, totalNet = 0;
+  for(var j=0;j<n;j++){ totalContrib += (rows.invContrib[j] || 0); totalNet += (rows.invCF[j] || 0); }
+  var totalLpCash = totalNet - totalContrib; // gross distributions to LP
+  var moic = inp.initialEquity ? (totalLpCash / inp.initialEquity) : 0;
+  var lpIrrFinal = _wfIrr(rows.invCF);
+
+  return { rows: rows, moic: moic, irr: lpIrrFinal, totalLpCash: totalLpCash };
+}
+
+function _wfRenderHead(years, ay){
+  var head = document.getElementById('wfHead'); if(!head) return;
+  var html = '<tr style="background:rgba(74,124,89,0.08);border-bottom:2px solid rgba(74,124,89,0.2)">'
+           + '<th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:280px">Year</th>';
+  years.forEach(function(y, i){
+    var isProj = (y > ay); // years after AY
+    var color = isProj ? 'var(--header)' : 'var(--muted)';
+    var bl = (y === ay + 1) ? 'border-left:2px solid rgba(74,101,133,0.25);' : '';
+    html += '<th style="padding:8px 8px;text-align:right;font-weight:700;color:'+color+';white-space:nowrap;font-size:11px;'+bl+'">'+y+'</th>';
+  });
+  html += '</tr>';
+  head.innerHTML = html;
+}
+
+function _wfRenderRow(label, vals, opts, ay){
+  opts = opts || {};
+  var hasPref = !opts.noPref;
+  var rowBg = '';
+  if(opts.isTotal)    rowBg = 'background:rgba(74,101,133,0.1);border-top:2px solid rgba(74,101,133,0.25);border-bottom:2px solid rgba(74,101,133,0.25);';
+  else if(opts.isLP)  rowBg = 'background:rgba(74,124,89,0.07);';
+  else if(opts.isSub) rowBg = 'background:rgba(0,0,0,0.015);';
+  var labelStyle = 'padding:7px 14px;color:var(--body);';
+  if(opts.isTotal)  labelStyle = 'padding:8px 14px;font-weight:800;color:var(--blue);';
+  if(opts.isLP)     labelStyle = 'padding:7px 14px;font-weight:700;color:var(--green);';
+  if(opts.isItalic) labelStyle += 'padding-left:24px;font-style:italic;';
+  if(opts.indent)   labelStyle += 'padding-left:24px;';
+
+  var cells = vals.map(function(v, i){
+    var isProj = (ay + i - 2) > ay;
+    var bl = (i === 3) ? 'border-left:2px solid rgba(74,101,133,0.25);' : '';
+    var bg = (isProj && !opts.isTotal && !opts.isLP) ? 'background:rgba(74,101,133,0.025);' : '';
+    var color = 'color:var(--body);';
+    if(opts.isTotal) color = 'color:var(--blue);font-weight:800;';
+    if(opts.isLP) color = 'color:var(--green);font-weight:700;';
+    var txt = _wfFmt(v, opts);
+    return '<td style="padding:7px 8px;text-align:right;'+color+bg+bl+'">'+txt+'</td>';
+  }).join('');
+  return '<tr style="'+rowBg+'border-bottom:1px solid var(--border)"><td style="'+labelStyle+'">'+label+'</td>'+cells+'</tr>';
+}
+
+function _wfRenderSection(label){
+  return '<tr style="background:rgba(74,101,133,0.06);border-bottom:1px solid rgba(74,101,133,0.15)">'
+       + '<td colspan="8" style="padding:7px 14px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--blue)">'+label+'</td></tr>';
+}
+
+function _wfRenderSpacer(){
+  return '<tr style="height:6px"><td colspan="8"></td></tr>';
+}
+
+function buildWaterfallTab(){
+  var body = document.getElementById('wfBody');
+  if(!body) return;
+  var s = getWfState();
+  var template = s.template || 'simple';
+  var params = (s.params || {})[template] || {};
+  var inp = _wfGatherInputs();
+  var result = _wfCompute(template, params, inp);
+  var r = result.rows;
+  var hasPref = (template !== 'straight');
+  var ay = inp.ay;
+
+  _wfRenderHead(inp.years, ay);
+
+  var html = '';
+
+  // === Operating Cash Flow ===
+  html += _wfRenderSection('Operating Cash Flow');
+  html += _wfRenderRow('Cash Flow After Debt Service &amp; Capex Reserves', r.operatingCF, {}, ay);
+  html += _wfRenderRow('Asset Management Fee', r.amf.map(function(v){ return v?-v:0; }), {isSub:true}, ay);
+  html += _wfRenderRow('Cash Flow Available for Distribution', r.distributableCF, {isTotal:true}, ay);
+  html += _wfRenderSpacer();
+
+  // === Investor Equity Capital Account (only if pref) ===
+  if(hasPref){
+    html += _wfRenderSection('Investor Equity Capital Account');
+    html += _wfRenderRow('Beginning Investment Amount', r.beginCap, {}, ay);
+    html += _wfRenderRow('Preferred Return Earned on Unpaid Capital <span style="color:var(--amber);font-size:11px;font-weight:700">'+(params.prefRate||0)+'%</span>', r.prefAccrued, {isItalic:true}, ay);
+    html += _wfRenderRow('Preferred Return Paid', r.prefPaid, {isLP:true}, ay);
+    html += _wfRenderRow('Accrued but Unpaid Preferred Return', r.accruedUnpaid, {isSub:true,isItalic:true}, ay);
+    html += _wfRenderRow('Ending Investment Amount', r.endCap, {}, ay);
+    html += _wfRenderSpacer();
+  }
+
+  // === Excess Cash Flow split (Operating) ===
+  var invPctLbl = '';
+  if(template === 'straight' || template === 'simple'){
+    var pct = (params.invSplit != null ? params.invSplit : 80);
+    invPctLbl = ' <span style="color:var(--muted);font-size:11px;font-weight:400">'+pct+'%</span>';
+  } else {
+    invPctLbl = ' <span style="color:var(--muted);font-size:11px;font-weight:400">Tier-based</span>';
+  }
+  html += _wfRenderRow(hasPref ? 'Excess Cash Flow' : 'Distributable Cash Flow', hasPref ? r.excessOp : r.distributableCF, {}, ay);
+  html += _wfRenderRow('Investor Portion of '+(hasPref?'Excess':'Distributable')+' Cash Flow'+invPctLbl, r.invFromOp, {isLP:true}, ay);
+  html += _wfRenderRow('Sponsor', r.gpFromOp, {isSub:true,indent:true}, ay);
+  html += _wfRenderSpacer();
+
+  // === Refinance section (only if refi happens) ===
+  var refiHappens = r.refiInflow.some(function(x){return x>0;});
+  if(refiHappens){
+    html += _wfRenderSection('Refinance Proceeds');
+    html += _wfRenderRow('Cash Flow from Refinance', r.refiInflow, {isTotal:true}, ay);
+    if(hasPref){
+      html += _wfRenderRow('To Preferred Return', r.refiToPref, {isItalic:true}, ay);
+      html += _wfRenderRow('Return of Capital', r.refiToCap, {isItalic:true}, ay);
+    }
+    if(r.refiExcess.some(function(x){return x>0;})){
+      html += _wfRenderRow('Excess after Pref + ROC', r.refiExcess, {isSub:true}, ay);
+      html += _wfRenderRow('Investor Share', r.invFromRefi, {isLP:true}, ay);
+      html += _wfRenderRow('Sponsor', r.gpFromRefi, {isSub:true,indent:true}, ay);
+    }
+    html += _wfRenderSpacer();
+  }
+
+  // === Sale Proceeds ===
+  var saleHappens = r.saleGross.some(function(x){return x>0;});
+  if(saleHappens){
+    var saleYear = inp.saleYear;
+    html += _wfRenderSection('Sale Proceeds (' + saleYear + ' Exit)');
+    html += _wfRenderRow('Cash Flow from Sale', r.saleGross, {isTotal:true}, ay);
+    if(hasPref){
+      html += _wfRenderRow('To Preferred Return', r.saleToPref, {isItalic:true}, ay);
+      html += _wfRenderRow('Return of Remaining Capital', r.saleToCap, {isItalic:true}, ay);
+    }
+    html += _wfRenderRow('Excess after Pref + ROC', r.saleExcess, {isSub:true}, ay);
+    html += _wfRenderRow('Investor Profit from Sale', r.invFromSale, {isLP:true}, ay);
+    html += _wfRenderRow('Sponsor', r.gpFromSale, {isSub:true,indent:true}, ay);
+    html += _wfRenderSpacer();
+  }
+
+  // === Summary ===
+  html += _wfRenderSection('Investor Returns Summary');
+  html += _wfRenderRow('Investor Cash Flow', r.invCF, {isTotal:true, keepZero:false}, ay);
+  html += _wfRenderRow('Sponsor Cash Flow', r.gpCF, {isSub:true}, ay);
+  html += _wfRenderRow('Annual Cash on Cash Return', r.coc, {pct:true,dec:1,keepZero:false}, ay);
+
+  // MOIC & IRR
+  html += '<tr style="background:rgba(74,124,89,0.1);border-top:2px solid rgba(74,124,89,0.25)"><td style="padding:9px 14px;font-weight:800;color:var(--green);font-size:13px">Multiple (MOIC)</td>'
+       + '<td colspan="7" style="padding:9px 8px;text-align:right;font-size:13px;font-weight:800;color:var(--green)">' + (result.moic ? result.moic.toFixed(2)+'×' : '—') + '</td></tr>';
+  html += '<tr style="background:rgba(74,124,89,0.15);border-bottom:3px solid rgba(74,124,89,0.4)"><td style="padding:9px 14px;font-weight:800;color:var(--green);font-size:13px">IRR</td>'
+       + '<td colspan="7" style="padding:9px 8px;text-align:right;font-size:14px;font-weight:800;color:var(--green)">' + (result.irr !== null ? (result.irr*100).toFixed(1)+'%' : '—') + '</td></tr>';
+
+  body.innerHTML = html;
+}
+
+// ── Refinance Event tab: auto-compute % columns ──────────────────────────
+function buildRefinanceEventTab(){
+  function parseMoney(s){ if(!s) return 0; var n=parseFloat(String(s).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+  function pct(num, den){ return den ? (num/den*100).toFixed(2)+'%' : '—'; }
+  function set(id, txt){ var el=document.getElementById(id); if(el) el.textContent = txt; }
+
+  var vop = parseMoney((document.getElementById('refiValueOfProperty')||{}).textContent);
+  var nls = parseMoney((document.getElementById('refiNewLoanSize')||{}).textContent);
+  var cost = parseMoney((document.getElementById('refiCostAmt')||{}).textContent);
+  var loanEnd = parseMoney((document.getElementById('refiLoanEndYear')||{}).textContent);
+  var yld = parseMoney((document.getElementById('refiYieldAmt')||{}).textContent);
+
+  set('refiNewLoanSizePct', pct(nls, vop));
+  set('refiCostPct',        pct(cost, vop));
+  set('refiYieldPct',       pct(yld, loanEnd));
+}
+
+// ── Equity Required tab: auto-compute % columns ──────────────────────────
+function buildEquityRequiredTab(){
+  function parseMoney(s){ if(!s) return 0; var n=parseFloat(String(s).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+  function pct(num, den){ return den ? (num/den*100).toFixed(2)+'%' : '—'; }
+  function set(id, txt){ var el=document.getElementById(id); if(el) el.textContent = txt; }
+
+  var ppEl = document.getElementById('ppAsIsValue');
+  var tcEl = document.getElementById('ppTotalCost');
+  var pp = ppEl ? parseMoney(ppEl.textContent) : 0;
+  var tc = tcEl ? parseMoney(tcEl.textContent) : 0;
+
+  // Regular
+  var regLtc  = parseMoney((document.getElementById('eqRegLtcAmt')||{}).textContent);
+  var regLtpp = parseMoney((document.getElementById('eqRegLtppAmt')||{}).textContent);
+  set('eqRegLtcPct',  pct(regLtc,  tc));
+  set('eqRegEqPct',   tc ? (100 - regLtc/tc*100).toFixed(2)+'%' : '—');
+  set('eqRegLtppPct', pct(regLtpp, pp));
+
+  // Refinance
+  var refLtc  = parseMoney((document.getElementById('eqRefLtcAmt')||{}).textContent);
+  var refLtpp = parseMoney((document.getElementById('eqRefLtppAmt')||{}).textContent);
+  set('eqRefLtcPct',  pct(refLtc,  tc));
+  set('eqRefEqPct',   tc ? (100 - refLtc/tc*100).toFixed(2)+'%' : '—');
+  set('eqRefLtppPct', pct(refLtpp, pp));
+}
+
+// ── Sale Event (Regular): Value of Property source toggle ────────────────
+function initSeRegValueOfProperty(){
+  var sel = document.getElementById('seRegVopSrc'); if(!sel) return;
+  var pid = window._currentProjectId || 'default';
+  var saved = localStorage.getItem('se_reg_vop_src_'+pid);
+  if(saved) sel.value = saved;
+  updateSeRegValueOfProperty();
+}
+function updateSeRegValueOfProperty(){
+  var sel = document.getElementById('seRegVopSrc'); if(!sel) return;
+  var valEl = document.getElementById('seRegVopValue');
+  var badge = document.getElementById('seRegVopBadge');
+  var pid = window._currentProjectId || 'default';
+  localStorage.setItem('se_reg_vop_src_'+pid, sel.value);
+
+  function parseMoney(s){ if(!s) return 0; var n=parseFloat(String(s).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+  function parsePct(s){ if(!s) return 0; var m=String(s).match(/([\d.]+)\s*%/); return m?parseFloat(m[1])/100:0; }
+
+  if(sel.value === 'computed'){
+    var noi = parseMoney(document.getElementById('seRegNOI').textContent);
+    var cap = parsePct(document.getElementById('seRegCapRate').textContent);
+    var v = cap ? Math.round(noi/cap) : 0;
+    if(valEl) valEl.textContent = '$'+v.toLocaleString();
+    if(badge){ badge.textContent='Computed'; badge.style.color='#3a5a7a'; badge.style.background='rgba(90,122,153,0.14)'; }
+  } else {
+    if(valEl) valEl.textContent = '$6,035,162';
+    if(badge){ badge.textContent='HD'; badge.style.color='#1565C0'; badge.style.background='rgba(21,101,192,0.08)'; }
+  }
+}
+
+// ── Sale Event (After Refinance): Value of Property source toggle ────────
+function initSeRefValueOfProperty(){
+  var sel = document.getElementById('seRefVopSrc'); if(!sel) return;
+  var pid = window._currentProjectId || 'default';
+  var saved = localStorage.getItem('se_ref_vop_src_'+pid);
+  if(saved) sel.value = saved;
+  updateSeRefValueOfProperty();
+}
+function updateSeRefValueOfProperty(){
+  var sel = document.getElementById('seRefVopSrc'); if(!sel) return;
+  var valEl = document.getElementById('seRefVopValue');
+  var badge = document.getElementById('seRefVopBadge');
+  var pid = window._currentProjectId || 'default';
+  localStorage.setItem('se_ref_vop_src_'+pid, sel.value);
+
+  function parseMoney(s){ if(!s) return 0; var n=parseFloat(String(s).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+  function parsePct(s){ if(!s) return 0; var m=String(s).match(/([\d.]+)\s*%/); return m?parseFloat(m[1])/100:0; }
+
+  if(sel.value === 'computed'){
+    var noi = parseMoney(document.getElementById('seRefNOI').textContent);
+    var cap = parsePct(document.getElementById('seRefCapRate').textContent);
+    var v = cap ? Math.round(noi/cap) : 0;
+    if(valEl) valEl.textContent = '$'+v.toLocaleString();
+    if(badge){ badge.textContent='Computed'; badge.style.color='#3a5a7a'; badge.style.background='rgba(90,122,153,0.14)'; }
+  } else {
+    if(valEl) valEl.textContent = '$6,490,595';
+    if(badge){ badge.textContent='HD'; badge.style.color='#1565C0'; badge.style.background='rgba(21,101,192,0.08)'; }
+  }
+}
+
+// ── Construction Equity tab: dynamic year labels + Total = Σ + 2,000,000 ──
+function buildConstructionEquityTab(){
+  var tbl = document.getElementById('ceTable'); if(!tbl) return;
+  var asmt = (typeof getProjectAssumptions === 'function' ? getProjectAssumptions() : {});
+  var ay = asmt.acquisitionYear || 2026;
+  var y1L = document.getElementById('ceY1Label'); if(y1L) y1L.textContent = ay;
+  var y5L = document.getElementById('ceY1Y5Label'); if(y5L) y5L.textContent = ay + '–' + (ay + 4);
+
+  function parseMoney(s){ if(!s) return 0; var n=parseFloat(String(s).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+
+  var src = document.getElementById('refiResUnitUpgrades');
+  var upgrades = src ? parseMoney(src.textContent) : 0;
+  var uEl = document.getElementById('ceUnitUpgrades');
+  if(uEl) uEl.textContent = upgrades ? '$'+upgrades.toLocaleString() : '—';
+
+  var sum = parseMoney(document.getElementById('ceAcqReserves').textContent)
+          + parseMoney(document.getElementById('ceY1DistRes').textContent)
+          + parseMoney(document.getElementById('ceRefiReserves').textContent)
+          + upgrades
+          + parseMoney(document.getElementById('ceY1Y5Res').textContent);
+  var total = sum + 2000000;
+  var tEl = document.getElementById('ceTotal'); if(tEl) tEl.textContent = '$'+total.toLocaleString();
 }
 
 
