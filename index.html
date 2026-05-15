@@ -6,7 +6,7 @@
 <title>GL Capital Investments Platform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260514a">
+<link rel="stylesheet" href="styles.css?v=20260515a">
 </head>
 <body>
 <div class="aurora"><div class="aurora-orb"></div><div class="aurora-orb"></div><div class="aurora-orb"></div></div>
@@ -743,84 +743,85 @@ Common reasons for higher ratios: extensive due diligence, sponsor acquisition f
 </div>
 <div id="pfsp-pf-purchase" style="display:none">
 <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue)">Purchase Price</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>PURCHASE PRICE</td><td></td></tr>
-<tr><td>Purchase Price (As-is value)</td><td data-editable>$6,200,000</td></tr>
-<tr><td>Per Unit (Residential/Retail)</td><td data-editable>$221,429</td></tr>
-<tr><td>NOI for Year 1</td><td data-editable>$323,964</td></tr>
-<tr><td>Cap Rate on 2026 Income</td><td data-editable>5.2%</td></tr>
-<tr><td>Closing Cost Percentage</td><td data-editable>7.66%</td></tr>
-<tr><td>Closing Costs</td><td data-editable>$474,720</td></tr>
-<tr><td>Total Acquisition Cost</td><td data-editable>$6,674,720</td></tr>
-<tr class="pf-tot"><td>Total Cost (excludes capex)</td><td data-editable>$6,674,720</td></tr>
+<tr class="pf-sec"><td>Items</td><td class="amount-col">Amount</td><td class="notes-col">Notes</td></tr>
+<tr><td>Purchase Price (As-is value)</td><td id="ppAsIsValue" class="amount-col" data-editable>$6,200,000</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Per Unit (Residential/Retail)</td><td class="amount-col" data-editable>$221,429</td><td class="notes-col" data-editable>Purchase Price ÷ Total Units</td></tr>
+<tr><td>NOI for Year 1</td><td class="amount-col" data-editable>$323,964</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Cap Rate on 2026 Income</td><td class="amount-col" data-editable>5.2%</td><td class="notes-col" data-editable>NOI for Year 1 ÷ Purchase Price (As-is value)</td></tr>
+<tr><td>Closing Cost Percentage</td><td class="amount-col" data-editable>7.66%</td><td class="notes-col" data-editable>Total Closing Costs (from Closing Costs) ÷ Purchase Price (As-is value)</td></tr>
+<tr><td>Closing Costs</td><td class="amount-col" data-editable>$474,720</td><td class="notes-col" data-editable>Total Closing Costs (from Closing Costs)</td></tr>
+<tr><td>Total Acquisition Cost</td><td class="amount-col" data-editable>$6,674,720</td><td class="notes-col" data-editable>Closing Costs + Purchase Price (As-is value)</td></tr>
+<tr class="pf-tot"><td>Total Cost (excludes capex)</td><td id="ppTotalCost" class="amount-col" data-editable>$6,674,720</td><td class="notes-col" data-editable></td></tr>
 </table>
 </div>
 
 </div>
 <div id="pfsp-pf-equity" style="display:none">
-<div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--amber)">Construction Equity</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>Construction Equity</td><td></td></tr>
-<tr class="pf-hi"><td>Acquisition Reserves</td><td data-editable>$150,000</td></tr>
-<tr><td>Total 2026 Distribution Reserves</td><td data-editable>—</td></tr>
-<tr><td>Refinance Reserves</td><td data-editable>$0</td></tr>
-<tr><td>Total 2026–2030 Reserves</td><td data-editable>—</td></tr>
-<tr class="pf-tot"><td>Total Capex Reserves</td><td data-editable>$2,150,000</td></tr>
+<div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--amber)">Construction Equity</span></div><table class="pf-data-table" id="ceTable">
+<tr class="pf-sec"><td>Items</td><td class="amount-col">Amount</td><td class="notes-col">Notes</td></tr>
+<tr class="pf-hi"><td>Acquisition Reserves</td><td id="ceAcqReserves" class="amount-col" data-editable>$150,000</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Total <span id="ceY1Label">Year 1</span> Distribution Reserves</td><td id="ceY1DistRes" class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Refinance Reserves</td><td id="ceRefiReserves" class="amount-col" data-editable>$0</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Reserve for Unit Upgrades</td><td id="ceUnitUpgrades" class="amount-col">—</td><td class="notes-col">From Refinance Event table</td></tr>
+<tr><td>Total <span id="ceY1Y5Label">Year 1 – Year 5</span> Reserves</td><td id="ceY1Y5Res" class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr class="pf-tot"><td>Total Capex Reserves</td><td id="ceTotal" class="amount-col">$2,150,000</td><td class="notes-col"></td></tr>
 </table>
 </div>
 
 </div>
 <div id="pfsp-pf-sale" style="display:none">
 <div style="padding:12px 0 0"><button class="pf-subtab2 pf-subtab-active" id="pfst2-se-reg">Regular Sale</button><button class="pf-subtab2" id="pfst2-se-ref">After Refinance</button></div><div id="pfsp2-se-reg"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)">Sale Event — Regular</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>SALE EVENT (regular)</td><td class="pct-col">%</td><td></td></tr>
-<tr><td>Year of Sale</td><td class="pct-col"></td><td data-editable>2026</td></tr>
-<tr><td>Date</td><td class="pct-col"></td><td data-editable>1-Oct-30</td></tr>
-<tr><td>NOI of that Year</td><td class="pct-col"></td><td data-editable>$331,934</td></tr>
-<tr><td>Cap Rate</td><td class="pct-col"></td><td data-editable>5.50% <span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:#1565C0;background:rgba(21,101,192,0.08);margin-left:4px">HD</span></td></tr>
-<tr><td>Value of Property</td><td class="pct-col"></td><td data-editable>$6,035,162 <span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:#1565C0;background:rgba(21,101,192,0.08);margin-left:4px">HD</span></td></tr>
-<tr><td>Cost of Sale</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$301,758</td></tr>
-<tr><td>Loan of that Year (Beg of Year)</td><td class="pct-col"></td><td data-editable>$3,651,979</td></tr>
-<tr><td>Capital Transaction Fee to Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$15,088</td></tr>
-<tr class="pf-hi"><td>Final Proceeds from Sale</td><td class="pct-col"></td><td data-editable>$2,066,337</td></tr>
-<tr><td>Req return of capital to investors</td><td class="pct-col"></td><td data-editable>$1,750,000</td></tr>
-<tr><td>Excess avail after return of capital</td><td class="pct-col"></td><td data-editable>$316,337</td></tr>
-<tr><td>Investor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$253,070</td></tr>
-<tr><td>Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$63,267</td></tr>
+<tr class="pf-sec"><td>SALE EVENT (regular)</td><td class="pct-col">%</td><td class="amount-col">Amount</td><td class="notes-col">Notes</td></tr>
+<tr><td>Year of Sale</td><td class="pct-col"></td><td class="amount-col" data-editable>2026</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Date</td><td class="pct-col"></td><td class="amount-col" data-editable>1-Oct-30</td><td class="notes-col" data-editable></td></tr>
+<tr><td>NOI of that Year</td><td class="pct-col"></td><td id="seRegNOI" class="amount-col" data-editable>$331,934</td><td class="notes-col" data-editable>From Net Operating Income · matching year</td></tr>
+<tr><td>Cap Rate</td><td class="pct-col"></td><td id="seRegCapRate" class="amount-col" data-editable>5.50% <span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:#1565C0;background:rgba(21,101,192,0.08);margin-left:4px">HD</span></td><td class="notes-col" data-editable>Going-in Cap Rate (from HelloData)</td></tr>
+<tr><td>Value of Property</td><td class="pct-col"></td><td class="amount-col"><select id="seRegVopSrc" class="pct-input" style="width:auto;font-size:10.5px;margin-right:6px;text-align:left" onchange="updateSeRegValueOfProperty()"><option value="hd">HD (HelloData)</option><option value="computed">NOI of that Year ÷ Cap Rate</option></select><span id="seRegVopValue">$6,035,162</span><span id="seRegVopBadge" style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:#1565C0;background:rgba(21,101,192,0.08);margin-left:4px">HD</span></td><td class="notes-col" data-editable></td></tr>
+<tr><td>Cost of Sale</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$301,758</td><td class="notes-col" data-editable>% × Value of Property</td></tr>
+<tr><td>Loan of that Year (Beg of Year)</td><td class="pct-col"></td><td class="amount-col" data-editable>$3,651,979</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Capital Transaction Fee to Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$15,088</td><td class="notes-col" data-editable>% × Value of Property</td></tr>
+<tr class="pf-hi"><td>Final Proceeds from Sale</td><td class="pct-col"></td><td class="amount-col" data-editable>$2,066,337</td><td class="notes-col" data-editable>Value of Property − Cost of Sale − Loan of that Year − Capital Transaction Fee to Sponsor</td></tr>
+<tr><td>Req return of capital to investors</td><td class="pct-col"></td><td class="amount-col" data-editable>$1,750,000</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Excess avail after return of capital</td><td class="pct-col"></td><td class="amount-col" data-editable>$316,337</td><td class="notes-col" data-editable>MAX(Final Proceeds from Sale − Req return of capital to investors, 0)</td></tr>
+<tr><td>Investor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$253,070</td><td class="notes-col" data-editable>Excess avail after return of capital × %</td></tr>
+<tr><td>Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$63,267</td><td class="notes-col" data-editable>Excess avail after return of capital × %</td></tr>
 </table>
 </div>
 </div><div id="pfsp2-se-ref" style="display:none"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue)">Sale Event — After Refinance</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>SALE EVENT After Refinance</td><td class="pct-col">%</td><td></td></tr>
-<tr><td>Year of Sale</td><td class="pct-col"></td><td data-editable>2030</td></tr>
-<tr><td>Date</td><td class="pct-col"></td><td data-editable>1-Oct-30</td></tr>
-<tr><td>NOI of that Year</td><td class="pct-col"></td><td data-editable>$373,209</td></tr>
-<tr><td>Cap Rate</td><td class="pct-col"></td><td data-editable>5.75% <span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:#1565C0;background:rgba(21,101,192,0.08);margin-left:4px">HD</span></td></tr>
-<tr><td>Value of Property</td><td class="pct-col"></td><td data-editable>$6,490,595 <span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:#1565C0;background:rgba(21,101,192,0.08);margin-left:4px">HD</span></td></tr>
-<tr><td>Cost of Sale</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$324,530</td></tr>
-<tr><td>Loan of that Year (Beg of OCT)</td><td class="pct-col"></td><td data-editable>$3,278,315</td></tr>
-<tr><td>Capital Transaction Fee to Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$48,679</td></tr>
-<tr class="pf-hi"><td>Final Proceeds from Sale</td><td class="pct-col"></td><td data-editable>$2,839,071</td></tr>
-<tr><td>Return of Capital</td><td class="pct-col"></td><td data-editable>$1,558,277</td></tr>
-<tr><td>Excess avail after return of capital</td><td class="pct-col"></td><td data-editable>$1,280,794</td></tr>
-<tr><td>Investor Profit</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$1,024,635</td></tr>
-<tr><td>Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$256,159</td></tr>
+<tr class="pf-sec"><td>SALE EVENT After Refinance</td><td class="pct-col">%</td><td class="amount-col">Amount</td><td class="notes-col">Notes</td></tr>
+<tr><td>Year of Sale</td><td class="pct-col"></td><td class="amount-col" data-editable>2030</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Date</td><td class="pct-col"></td><td class="amount-col" data-editable>1-Oct-30</td><td class="notes-col" data-editable></td></tr>
+<tr><td>NOI of that Year</td><td class="pct-col"></td><td id="seRefNOI" class="amount-col" data-editable>$373,209</td><td class="notes-col" data-editable>From Net Operating Income · matching year</td></tr>
+<tr><td>Cap Rate</td><td class="pct-col"></td><td id="seRefCapRate" class="amount-col" data-editable>5.75% <span style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:#1565C0;background:rgba(21,101,192,0.08);margin-left:4px">HD</span></td><td class="notes-col" data-editable>Exit Cap Rate (from HelloData)</td></tr>
+<tr><td>Value of Property</td><td class="pct-col"></td><td class="amount-col"><select id="seRefVopSrc" class="pct-input" style="width:auto;font-size:10.5px;margin-right:6px;text-align:left" onchange="updateSeRefValueOfProperty()"><option value="hd">HD (HelloData)</option><option value="computed">NOI of that Year ÷ Cap Rate</option></select><span id="seRefVopValue">$6,490,595</span><span id="seRefVopBadge" style="font-size:8px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 5px;color:#1565C0;background:rgba(21,101,192,0.08);margin-left:4px">HD</span></td><td class="notes-col" data-editable></td></tr>
+<tr><td>Cost of Sale</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$324,530</td><td class="notes-col" data-editable>% × Value of Property</td></tr>
+<tr><td>Loan of that Year (Beg of OCT)</td><td class="pct-col"></td><td class="amount-col" data-editable>$3,278,315</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Capital Transaction Fee to Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$48,679</td><td class="notes-col" data-editable>% × Value of Property</td></tr>
+<tr class="pf-hi"><td>Final Proceeds from Sale</td><td class="pct-col"></td><td class="amount-col" data-editable>$2,839,071</td><td class="notes-col" data-editable>Value of Property-Cost of sale-Loan of that Year (Beg of Year)-Capital Transaction Fee to Sponsor</td></tr>
+<tr><td>Return of Capital</td><td class="pct-col"></td><td class="amount-col" data-editable>$1,558,277</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Excess avail after return of capital</td><td class="pct-col"></td><td class="amount-col" data-editable>$1,280,794</td><td class="notes-col" data-editable>Final Proceeds from Sale-Return of Capital</td></tr>
+<tr><td>Investor Profit</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$1,024,635</td><td class="notes-col" data-editable>Excess avail after return of capital × %</td></tr>
+<tr><td>Sponsor</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$256,159</td><td class="notes-col" data-editable>Excess avail after return of capital-Investor Profit</td></tr>
 </table>
 </div>
 </div>
 </div>
 <div id="pfsp-pf-eqreq" style="display:none">
 <div style="padding:12px 0 0"><button class="pf-subtab2 pf-subtab-active" id="pfst2-eq-reg">Regular</button><button class="pf-subtab2" id="pfst2-eq-ref">Refinance</button></div><div id="pfsp2-eq-reg"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--green)">Equity Required — Regular</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>EQUITY REQUIRED (regular)</td><td class="pct-col">%</td><td></td></tr>
-<tr><td>Loan to Cost</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$3,962,686</td></tr>
-<tr><td>Equity</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$1,600,000</td></tr>
-<tr class="pf-hi"><td>LTPP</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$3,962,686</td></tr>
-<tr class="pf-tot"><td>Cash to Close</td><td class="pct-col"></td><td data-editable>$2,526,034</td></tr>
+<tr class="pf-sec"><td>EQUITY REQUIRED (regular)</td><td class="pct-col">%</td><td class="amount-col">Amount</td><td class="notes-col">Notes</td></tr>
+<tr><td>Loan to Cost</td><td class="pct-col"><span id="eqRegLtcPct" style="font-size:12px;color:var(--body);font-weight:600">—</span></td><td id="eqRegLtcAmt" class="amount-col" data-editable>$3,962,686</td><td class="notes-col" data-editable>Amount = New Loan Size (from Refinance Event) · % = Amount ÷ Total Cost (excludes capex)</td></tr>
+<tr><td>Equity</td><td class="pct-col"><span id="eqRegEqPct" style="font-size:12px;color:var(--body);font-weight:600">—</span></td><td id="eqRegEqAmt" class="amount-col" data-editable>$1,600,000</td><td class="notes-col" data-editable>Amount = manual input · % = 1 − Loan to Cost %</td></tr>
+<tr class="pf-hi"><td>LTPP</td><td class="pct-col"><span id="eqRegLtppPct" style="font-size:12px;color:var(--body);font-weight:600">—</span></td><td id="eqRegLtppAmt" class="amount-col" data-editable>$3,962,686</td><td class="notes-col" data-editable>Amount = Loan to Cost · % = LTPP ÷ Purchase Price (As-is value)</td></tr>
+<tr class="pf-tot"><td>Cash to Close</td><td class="pct-col"></td><td class="amount-col" data-editable>$2,526,034</td><td class="notes-col" data-editable>Total Acquisition Cost − Loan to Cost − Acquisition Fee (from Closing Costs)</td></tr>
 </table>
 </div>
 </div><div id="pfsp2-eq-ref" style="display:none"><div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue)">Equity Required — Refinance</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>EQUITY REQUIRED (refin)</td><td class="pct-col">%</td><td></td></tr>
-<tr><td>I/O Payment</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$317,015</td></tr>
-<tr class="pf-hi"><td>Loan to Cost %</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$3,962,686</td></tr>
-<tr><td>Equity</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$2,712,034</td></tr>
-<tr><td>LTPP</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td data-editable>$3,962,686</td></tr>
-<tr class="pf-tot"><td>Cash to Close</td><td class="pct-col"></td><td data-editable>$2,562,034</td></tr>
+<tr class="pf-sec"><td>EQUITY REQUIRED (refin)</td><td class="pct-col">%</td><td class="amount-col">Amount</td><td class="notes-col">Notes</td></tr>
+<tr><td>I/O Payment</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$317,015</td><td class="notes-col" data-editable>Amount = Loan to Cost × %</td></tr>
+<tr class="pf-hi"><td>Loan to Cost %</td><td class="pct-col"><span id="eqRefLtcPct" style="font-size:12px;color:var(--body);font-weight:600">—</span></td><td id="eqRefLtcAmt" class="amount-col" data-editable>$3,962,686</td><td class="notes-col" data-editable>Amount = LTPP · % = Loan to Cost ÷ Total Cost (excludes capex)</td></tr>
+<tr><td>Equity</td><td class="pct-col"><span id="eqRefEqPct" style="font-size:12px;color:var(--body);font-weight:600">—</span></td><td id="eqRefEqAmt" class="amount-col" data-editable>$2,712,034</td><td class="notes-col" data-editable>Amount = % × Total Cost (excludes capex) · % = 1 − Loan to Cost %</td></tr>
+<tr><td>LTPP</td><td class="pct-col"><span id="eqRefLtppPct" style="font-size:12px;color:var(--body);font-weight:600">—</span></td><td id="eqRefLtppAmt" class="amount-col" data-editable>$3,962,686</td><td class="notes-col" data-editable>Amount = LTPP (from Equity Required — Regular) · % = Loan to Cost ÷ Purchase Price (As-is value)</td></tr>
+<tr class="pf-tot"><td>Cash to Close</td><td class="pct-col"></td><td class="amount-col" data-editable>$2,562,034</td><td class="notes-col" data-editable>Total Cost (excludes capex) − Loan to Cost − Acquisition Reserves (from Construction Equity)</td></tr>
 </table>
 </div>
 </div>
@@ -830,16 +831,16 @@ Common reasons for higher ratios: extensive due diligence, sponsor acquisition f
 <tr class="pf-sec"><td>Refinance EVENT</td><td class="pct-col">%</td><td class="amount-col">AMOUNT</td><td class="notes-col">NOTES</td></tr>
 <tr><td>Year of Refinance</td><td class="pct-col"></td><td class="amount-col" data-editable>2027</td><td class="notes-col" data-editable></td></tr>
 <tr><td>Date</td><td class="pct-col"></td><td class="amount-col" data-editable>1-Jan-27</td><td class="notes-col" data-editable></td></tr>
-<tr><td>NOI of that Year</td><td class="pct-col"></td><td class="amount-col" data-editable>$339,659</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Cap Rate</td><td class="pct-col"></td><td class="amount-col" data-editable>6.00%</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Value of Property</td><td class="pct-col"></td><td class="amount-col" data-editable>$5,660,981</td><td class="notes-col" data-editable></td></tr>
-<tr><td>New Loan Size</td><td class="pct-col"><input class="pct-input" value="70.0%" placeholder="—"></td><td id="refiNewLoanSize" class="amount-col" data-editable oninput="recalcOriginationFee()">$3,962,686</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Cost of Refinance</td><td class="pct-col"><input class="pct-input" value="2.25%" placeholder="—"></td><td class="amount-col" data-editable>$127,372</td><td class="notes-col" data-editable>incl. .25% Fee</td></tr>
-<tr><td>Loan of that Year (End of Year)</td><td class="pct-col"></td><td class="amount-col" data-editable>$3,643,591</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Yield Maintenance/Prepay</td><td class="pct-col"><input class="pct-input" value="0.0%" placeholder="—"></td><td class="amount-col" data-editable>$0</td><td class="notes-col" data-editable></td></tr>
-<tr class="pf-hi"><td>Final Proceeds from Refinance</td><td class="pct-col"></td><td class="amount-col" data-editable>$191,723</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Reserve for Unit Upgrades</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
-<tr class="pf-tot"><td>Total Distribution</td><td class="pct-col"></td><td class="amount-col" data-editable>$191,723</td><td class="notes-col"></td></tr>
+<tr><td>NOI of that Year</td><td class="pct-col"></td><td id="refiNOI" class="amount-col" data-editable>$339,659</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Cap Rate</td><td class="pct-col"></td><td id="refiCapRate" class="amount-col" data-editable>6.00%</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Value of Property</td><td class="pct-col"></td><td id="refiValueOfProperty" class="amount-col" data-editable>$5,660,981</td><td class="notes-col" data-editable>NOI of that Year ÷ Cap Rate</td></tr>
+<tr><td>New Loan Size</td><td class="pct-col"><span id="refiNewLoanSizePct" style="font-size:12px;color:var(--body);font-weight:600">—</span></td><td id="refiNewLoanSize" class="amount-col" data-editable oninput="recalcOriginationFee()">$3,962,686</td><td class="notes-col" data-editable>% × Value of Property</td></tr>
+<tr><td>Cost of Refinance</td><td class="pct-col"><span id="refiCostPct" style="font-size:12px;color:var(--body);font-weight:600">—</span></td><td id="refiCostAmt" class="amount-col" data-editable>$127,372</td><td class="notes-col" data-editable>% × Value of Property</td></tr>
+<tr><td>Loan of that Year (End of Year)</td><td class="pct-col"></td><td id="refiLoanEndYear" class="amount-col" data-editable>$3,643,591</td><td class="notes-col" data-editable></td></tr>
+<tr><td>Yield Maintenance/Prepay</td><td class="pct-col"><span id="refiYieldPct" style="font-size:12px;color:var(--body);font-weight:600">—</span></td><td id="refiYieldAmt" class="amount-col" data-editable>$0</td><td class="notes-col" data-editable>% × Loan of that Year (End of Year)</td></tr>
+<tr class="pf-hi"><td>Final Proceeds from Refinance</td><td class="pct-col"></td><td class="amount-col" data-editable>$191,723</td><td class="notes-col" data-editable>New Loan Size − Cost of Refinance − Loan of that Year (End of Year) − Yield Maintenance/Prepay</td></tr>
+<tr><td>Reserve for Unit Upgrades</td><td class="pct-col"></td><td id="refiResUnitUpgrades" class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr class="pf-tot"><td>Total Distribution</td><td class="pct-col"></td><td class="amount-col" data-editable>$191,723</td><td class="notes-col">Final Proceeds from Refinance − Reserve for Unit Upgrades</td></tr>
 </table>
 </div>
 </div>
@@ -920,275 +921,32 @@ Common reasons for higher ratios: extensive due diligence, sponsor acquisition f
 </div>
 
 <div id="pfsp-pf-waterfall" style="display:none">
+  <!-- Waterfall Template Picker card -->
+  <div class="card" style="margin-bottom:var(--gap);padding:14px 18px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+      <label for="wfTemplate" style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Waterfall Template</label>
+      <select id="wfTemplate" class="pct-input" style="width:auto;min-width:240px;font-size:12px;text-align:left" onchange="renderWfTemplate()">
+        <option value="straight">1. Straight Split (no pref)</option>
+        <option value="simple" selected>2. Simple Pref + Promote</option>
+        <option value="two-tier">3. Two-Tier IRR Hurdle</option>
+        <option value="three-tier">4. Three-Tier IRR Hurdle</option>
+      </select>
+      <span id="wfTemplateDesc" style="font-size:11px;color:var(--muted);font-style:italic;flex:1"></span>
+    </div>
+    <div id="wfParams" style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;padding-top:6px;border-top:1px solid var(--border)"></div>
+  </div>
+
   <!-- Waterfall Distributions card -->
   <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)">
     <div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(74,101,133,0.07)">
       <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:2px">Refinance – 9 year sale</div>
       <span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--blue)">Waterfall Distributions — Investors</span>
+      <span id="wfActiveTemplateBadge" style="margin-left:10px;font-size:9px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:2px 7px;color:#3a5a7a;background:rgba(90,122,153,0.14);vertical-align:middle">Template: Simple Pref + Promote</span>
     </div>
     <div style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px">
-      <thead>
-        <tr style="background:rgba(74,124,89,0.08);border-bottom:2px solid rgba(74,124,89,0.2)">
-          <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:280px">Year</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">2024</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">2025</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">2026</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px;border-left:2px solid rgba(74,101,133,0.25)">2027</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">2028</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">2029</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">2030</th>
-        </tr>
-      </thead>
-      <tbody id="wfBody">
-
-        <!-- ── OPERATING CASH FLOW ── -->
-        <tr style="background:rgba(74,101,133,0.06);border-bottom:1px solid rgba(74,101,133,0.15)">
-          <td colspan="8" style="padding:7px 14px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--blue)">Operating Cash Flow</td>
-        </tr>
-
-        <!-- Cash Flow After Debt Service & Capex Reserves -->
-        <tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body)">Cash Flow After Debt Service &amp; Capex Reserves</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body);font-weight:600;border-left:2px solid rgba(74,101,133,0.25)">$106,016</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body);font-weight:600">$121,711</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body);font-weight:600">$138,116</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body);font-weight:600">$155,261</td>
-        </tr>
-        <!-- Asset Management Fee -->
-        <tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body)">Asset Management Fee <span style="color:var(--muted);font-size:11px">($5,000)</span></td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body);border-left:2px solid rgba(74,101,133,0.25)">$5,000</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$5,000</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$5,000</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$5,000</td>
-        </tr>
-        <!-- Cash Flow Available for Distribution — TOTAL -->
-        <tr style="background:rgba(74,101,133,0.1);border-top:2px solid rgba(74,101,133,0.25);border-bottom:2px solid rgba(74,101,133,0.25)">
-          <td style="padding:8px 14px;font-weight:800;color:var(--blue)">Cash Flow Available for Distribution</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--blue);border-left:2px solid rgba(74,101,133,0.25)">$101,016</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--blue)">$116,711</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--blue)">$133,116</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--blue)">$150,261</td>
-        </tr>
-
-        <tr style="height:6px"><td colspan="8"></td></tr>
-
-        <!-- ── INVESTOR EQUITY CAPITAL ── -->
-        <tr style="background:rgba(74,101,133,0.06);border-bottom:1px solid rgba(74,101,133,0.15)">
-          <td colspan="8" style="padding:7px 14px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--blue)">Investor Equity Capital Account</td>
-        </tr>
-        <!-- Beginning Investment Amount -->
-        <tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body)">Beginning Investment Amount <span style="color:var(--muted);font-size:11px">(1,750,000)</span></td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body);border-left:2px solid rgba(74,101,133,0.25)"><span style="color:#c0392b">($1,750,000)</span></td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$1,750,000</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$1,558,277</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$1,558,277</td>
-        </tr>
-        <!-- Annual preferred return -->
-        <tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body)">Annual Preferred Return <span style="color:var(--amber);font-size:11px;font-weight:700">6%</span></td>
-          <td colspan="7" style="padding:7px 8px;color:var(--muted);text-align:center;font-style:italic;font-size:11px">Preferred return on unpaid capital</td>
-        </tr>
-        <!-- Preferred return earned on unpaid capital -->
-        <tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body);padding-left:24px;font-style:italic">Preferred return earned on unpaid capital</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted);border-left:2px solid rgba(74,101,133,0.25)">$0</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$93,497</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$93,497</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$93,497</td>
-        </tr>
-        <!-- Preferred return paid — subtotal -->
-        <tr style="background:rgba(74,124,89,0.07);border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;font-weight:700;color:var(--green)">Preferred Return Paid</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--muted);border-left:2px solid rgba(74,101,133,0.25)">$0</td>
-          <td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--green)">$93,497</td>
-          <td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--green)">$93,497</td>
-          <td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--green)">$93,497</td>
-        </tr>
-        <!-- Accrued but unpaid -->
-        <tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body);padding-left:24px;font-style:italic">Accrued but unpaid preferred return</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted);border-left:2px solid rgba(74,101,133,0.25)">$0</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">$0</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">$0</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">$0</td>
-        </tr>
-        <!-- Ending Investment Amount -->
-        <tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body)">Ending Investment Amount <span style="color:var(--muted);font-size:11px">(1,750,000)</span></td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body);border-left:2px solid rgba(74,101,133,0.25)">$1,750,000</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$1,558,277</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$1,558,277</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$1,558,277</td>
-        </tr>
-
-        <tr style="height:6px"><td colspan="8"></td></tr>
-
-        <!-- Excess Cash Flow -->
-        <tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body)">Excess Cash Flow</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted);border-left:2px solid rgba(74,101,133,0.25)">$0</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$23,214</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$39,619</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$56,765</td>
-        </tr>
-        <!-- Investor Portion — 80% -->
-        <tr style="background:rgba(74,124,89,0.07);border-bottom:1px solid rgba(74,124,89,0.2)">
-          <td style="padding:7px 14px;font-weight:700;color:var(--green)">Investor Portion of Excess Cash Flow <span style="color:var(--muted);font-size:11px;font-weight:400">80%</span></td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--muted);border-left:2px solid rgba(74,101,133,0.25)">$0</td>
-          <td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--green)">$18,572</td>
-          <td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--green)">$31,695</td>
-          <td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--green)">$45,412</td>
-        </tr>
-        <!-- Sponsor — 20% -->
-        <tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body);padding-left:24px">Sponsor <span style="color:var(--amber);font-size:11px;font-weight:700">20%</span></td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted);border-left:2px solid rgba(74,101,133,0.25)">$0</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$4,643</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$7,924</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$11,353</td>
-        </tr>
-
-        <tr style="height:8px;background:rgba(0,0,0,0.01)"><td colspan="8"></td></tr>
-
-        <!-- ── REFINANCE ── -->
-        <tr style="background:rgba(74,101,133,0.06);border-bottom:1px solid rgba(74,101,133,0.15)">
-          <td colspan="8" style="padding:7px 14px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--blue)">Refinance Proceeds</td>
-        </tr>
-        <tr style="border-bottom:2px solid rgba(74,101,133,0.25)">
-          <td style="padding:8px 14px;font-weight:700;color:var(--blue)">Cash Flow from Refinance</td>
-          <td style="padding:8px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:700;color:var(--blue);border-left:2px solid rgba(74,101,133,0.25)">$191,723</td>
-          <td style="padding:8px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;color:var(--muted)">—</td>
-        </tr>
-
-        <tr style="height:8px;background:rgba(0,0,0,0.01)"><td colspan="8"></td></tr>
-
-        <!-- ── SALE PROCEEDS ── -->
-        <tr style="background:rgba(74,101,133,0.06);border-bottom:1px solid rgba(74,101,133,0.15)">
-          <td colspan="8" style="padding:7px 14px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--blue)">Sale Proceeds (2030 Exit)</td>
-        </tr>
-        <tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body)">Cash Flow from Sale Proceeds</td>
-          <td colspan="6" style="text-align:center;color:var(--muted);font-style:italic;font-size:11px">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-        </tr>
-        <tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body)">Sale Proceeds after Closing Costs</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted);border-left:2px solid rgba(74,101,133,0.25)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;font-weight:600;color:var(--body)">$1,280,794</td>
-        </tr>
-        <tr style="background:rgba(74,101,133,0.1);border-bottom:1px solid rgba(74,101,133,0.2)">
-          <td style="padding:8px 14px;font-weight:800;color:var(--blue)">Return of Investor Remaining Capital</td>
-          <td colspan="6" style="text-align:right;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--blue)">$1,558,277</td>
-        </tr>
-        <tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body)">Excess</td>
-          <td colspan="6" style="text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$1,280,794</td>
-        </tr>
-
-        <tr style="height:6px"><td colspan="8"></td></tr>
-
-        <!-- Investor Profit from Sale -->
-        <tr style="background:rgba(74,124,89,0.1);border-top:2px solid rgba(74,124,89,0.25);border-bottom:1px solid rgba(74,124,89,0.2)">
-          <td style="padding:8px 14px;font-weight:800;color:var(--green)">Investor Profit from Sale <span style="font-weight:400;font-size:11px;color:var(--muted)">80%</span></td>
-          <td colspan="6" style="text-align:right;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--green)">$1,024,635</td>
-        </tr>
-        <tr style="background:rgba(0,0,0,0.015);border-bottom:2px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body);padding-left:24px">Sponsor <span style="color:var(--amber);font-size:11px;font-weight:700">20%</span></td>
-          <td colspan="6" style="text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">$256,159</td>
-        </tr>
-
-        <tr style="height:8px;background:rgba(0,0,0,0.01)"><td colspan="8"></td></tr>
-
-        <!-- ── SUMMARY ── -->
-        <tr style="background:rgba(74,101,133,0.06);border-bottom:1px solid rgba(74,101,133,0.15)">
-          <td colspan="8" style="padding:7px 14px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--blue)">Investor Returns Summary</td>
-        </tr>
-        <!-- Investor Cash Flow -->
-        <tr style="background:rgba(74,101,133,0.08);border-bottom:1px solid rgba(74,101,133,0.2)">
-          <td style="padding:8px 14px;font-weight:800;color:var(--blue)">Investor Cash Flow</td>
-          <td style="padding:8px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--blue);border-left:2px solid rgba(74,101,133,0.25)"><span style="color:#c0392b">($1,750,000)</span></td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--blue)">$191,723</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--blue)">$112,068</td>
-          <td style="padding:8px 8px;text-align:right;font-weight:800;color:var(--blue)">$2,721,820</td>
-        </tr>
-        <!-- Annual Cash on Cash Return -->
-        <tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:7px 14px;color:var(--body)">Annual Cash on Cash Return</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--muted)">—</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body);border-left:2px solid rgba(74,101,133,0.25)">11.0%</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">7.2%</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">8.0%</td>
-          <td style="padding:7px 8px;text-align:right;color:var(--body)">174.7%</td>
-        </tr>
-        <!-- Multiple -->
-        <tr style="background:rgba(74,124,89,0.1);border-top:2px solid rgba(74,124,89,0.25)">
-          <td style="padding:9px 14px;font-weight:800;color:var(--green);font-size:13px">Multiple</td>
-          <td colspan="3" style="padding:9px 8px;text-align:right;font-size:13px;font-weight:800;color:var(--green)">1.8×</td>
-          <td colspan="4" style="padding:9px 8px;border-left:2px solid rgba(74,101,133,0.25)"></td>
-        </tr>
-        <!-- IRR -->
-        <tr style="background:rgba(74,124,89,0.15);border-bottom:3px solid rgba(74,124,89,0.4)">
-          <td style="padding:9px 14px;font-weight:800;color:var(--green);font-size:13px">IRR</td>
-          <td colspan="3" style="padding:9px 8px;text-align:right;font-size:14px;font-weight:800;color:var(--green)">17.5%</td>
-          <td colspan="4" style="padding:9px 8px;border-left:2px solid rgba(74,101,133,0.25)"></td>
-        </tr>
-
-      </tbody>
+      <thead id="wfHead"></thead>
+      <tbody id="wfBody"></tbody>
     </table>
     </div>
   </div>
@@ -1431,7 +1189,7 @@ Common reasons for higher ratios: extensive due diligence, sponsor acquisition f
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=20260514r"></script>
+<script src="app.js?v=20260515j"></script>
 
 <!-- ─── REJECT MODAL ─────────────────────────────────────────────────────── -->
 <div id="rejectModal" style="display:none;position:fixed;inset:0;z-index:3000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(4px)">
