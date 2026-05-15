@@ -6,7 +6,7 @@
 <title>GL Capital Investments Platform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20260514a">
 </head>
 <body>
 <div class="aurora"><div class="aurora-orb"></div><div class="aurora-orb"></div><div class="aurora-orb"></div></div>
@@ -389,7 +389,8 @@
               <tbody id="summCustomFields"></tbody>
             </tbody>
           </table>
-          <div style="padding:8px 18px 10px;border-top:1px solid var(--border);background:rgba(139,115,85,0.02)">
+          <!-- "+ Add Field" hidden in MVP — purpose unclear to users. summAddField() preserved for future. -->
+          <div style="display:none;padding:8px 18px 10px;border-top:1px solid var(--border);background:rgba(139,115,85,0.02)">
             <button onclick="summAddField()" style="background:none;border:1px dashed var(--border2);color:var(--accent);font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px">
               <span style="font-size:16px;line-height:1">+</span> Add Field
             </button>
@@ -435,36 +436,36 @@
                 <tr id="pfRevColHdrRow" style="background:rgba(74,124,89,0.10);border-bottom:2px solid rgba(74,124,89,0.25)">
                   <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:180px">Line Item</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--header);white-space:nowrap;min-width:90px">Per Unit</th>
-                  <th style="padding:8px 8px;text-align:center;font-weight:600;color:var(--header);white-space:nowrap;min-width:80px">Source</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--header);white-space:nowrap;min-width:60px">Units</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2023</th>
+                  <th style="display:none">Source</th>
+                  <th style="padding:8px 8px;text-align:center;font-weight:600;color:var(--header);white-space:nowrap;min-width:60px">Units</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2024</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2025</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">2026</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2027</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2026</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">2027</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2028</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2029</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2030</th>
                 </tr>
               </thead>
               <!-- Upper table: Per-Unit Income -->
               <tbody id="pfRevUpperBody"><tr><td style="padding:7px 14px;font-size:12px;color:var(--muted)">Loading...</td></tr></tbody>
-              <!-- Subtotal Per-Unit -->
-              <tbody id="pfRevUpperSubtotal"></tbody>
-              <!-- Section divider: Other Income -->
-              <tbody>
+              <!-- Subtotal Per-Unit (legacy, hidden — replaced by L1 tree rendering) -->
+              <tbody id="pfRevUpperSubtotal" style="display:none"></tbody>
+              <!-- Section divider: Other Income (legacy, hidden) -->
+              <tbody style="display:none">
                 <tr style="background:rgba(74,124,89,0.10);border-top:2px solid rgba(74,124,89,0.18)">
                   <td colspan="4" style="padding:6px 14px;font-size:11px;font-weight:700;color:var(--green);letter-spacing:.03em">OTHER INCOME</td>
                   <td colspan="7"></td>
                 </tr>
               </tbody>
-              <!-- Lower table: Other Income -->
-              <tbody id="pfRevLowerBody"></tbody>
-              <!-- Subtotal Other Income -->
-              <tbody id="pfRevLowerSubtotal"></tbody>
-              <!-- Total Revenue -->
-              <tbody id="pfRevTotalBody"></tbody>
-              <!-- Add Field button -->
-              <tbody>
+              <!-- Lower table: Other Income (legacy, hidden) -->
+              <tbody id="pfRevLowerBody" style="display:none"></tbody>
+              <!-- Subtotal Other Income (legacy, hidden) -->
+              <tbody id="pfRevLowerSubtotal" style="display:none"></tbody>
+              <!-- Total Revenue (legacy, hidden) -->
+              <tbody id="pfRevTotalBody" style="display:none"></tbody>
+              <!-- Legacy global Add Field button (hidden — each L1 has its own + Add Field) -->
+              <tbody style="display:none">
                 <tr>
                   <td colspan="11" style="padding:8px 14px">
                     <button id="btnAddIncomeField" onclick="openAddFieldModal('income')" style="border:1px dashed rgba(74,124,89,0.4);background:none;color:var(--green);padding:4px 16px;font-size:11px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.02em">
@@ -525,29 +526,29 @@
                 <tr id="pfExpColHdrRow" style="background:rgba(74,124,89,0.10);border-bottom:2px solid rgba(74,124,89,0.25)">
                   <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:180px">Line Item</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--header);white-space:nowrap;min-width:90px">Per Unit</th>
-                  <th style="padding:8px 8px;text-align:center;font-weight:600;color:var(--header);white-space:nowrap;min-width:80px">Source</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--header);white-space:nowrap;min-width:60px">Units</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2023</th>
+                  <th style="display:none">Source</th>
+                  <th style="padding:8px 8px;text-align:center;font-weight:600;color:var(--header);white-space:nowrap;min-width:60px">Units</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2024</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2025</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">2026</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2027</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2026</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">2027</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2028</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2029</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2030</th>
                 </tr>
               </thead>
               <tbody id="pfExpUpperBody"><tr><td style="padding:7px 14px;font-size:12px;color:var(--muted)">Loading...</td></tr></tbody>
-              <tbody id="pfExpUpperSubtotal"></tbody>
-              <tbody>
+              <tbody id="pfExpUpperSubtotal" style="display:none"></tbody>
+              <tbody style="display:none">
                 <tr style="background:rgba(74,124,89,0.10);border-top:2px solid rgba(74,124,89,0.18)">
                   <td colspan="4" style="padding:6px 14px;font-size:11px;font-weight:700;color:var(--green);letter-spacing:.03em">FLAT EXPENSES</td>
                   <td colspan="7"></td>
                 </tr>
               </tbody>
-              <tbody id="pfExpLowerBody"></tbody>
-              <tbody id="pfExpLowerSubtotal"></tbody>
-              <tbody id="pfExpTotalBody"></tbody>
-              <tbody>
+              <tbody id="pfExpLowerBody" style="display:none"></tbody>
+              <tbody id="pfExpLowerSubtotal" style="display:none"></tbody>
+              <tbody id="pfExpTotalBody" style="display:none"></tbody>
+              <tbody style="display:none">
                 <tr>
                   <td colspan="11" style="padding:8px 14px">
                     <button id="btnAddExpField" onclick="openExpAddFieldModal()" style="border:1px dashed rgba(74,124,89,0.4);background:none;color:var(--green);padding:4px 16px;font-size:11px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.02em">
@@ -597,13 +598,13 @@
                 <tr style="background:rgba(74,124,89,0.10);border-bottom:2px solid rgba(74,124,89,0.25)">
                   <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:200px"></th>
                   <th style="padding:8px 8px;text-align:right;font-weight:600;color:var(--muted)"></th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2023</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2024</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2025</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">2026</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2027</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2026</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)">2027</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2028</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2029</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2030</th>
                 </tr>
               </thead>
               <tbody id="pfNoiBody"><tr style="background:rgba(74,124,89,0.14);border-bottom:2px solid rgba(74,124,89,0.35)"><td style="padding:10px 14px;font-size:12px;font-weight:800;color:var(--green)">Net Operating Income</td><td style="padding:10px 8px"></td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);">190,910</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);">294,460</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);">331,934</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);background:rgba(74,124,89,0.08);border-left:2px solid rgba(74,124,89,0.25);">323,964</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);background:rgba(74,124,89,0.08);">339,659</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);background:rgba(74,124,89,0.08);">356,064</td><td style="padding:10px 10px;text-align:right;font-size:12px;font-weight:700;color:var(--green);background:rgba(74,124,89,0.14);background:rgba(74,124,89,0.08);">366,746</td></tr></tbody>
@@ -621,13 +622,13 @@
                 </tr>
                 <tr style="background:rgba(74,101,133,0.07);border-bottom:2px solid rgba(74,101,133,0.2)">
                   <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:200px">Line Item</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2023</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2024</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2025</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,101,133,0.25)">2026</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2027</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2026</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,101,133,0.25)">2027</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2028</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2029</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2030</th>
                 </tr>
               </thead>
               <tbody id="pfCfBody"><tr style="background:rgba(0,0,0,0.015);border-bottom:1px solid var(--border)"><td style="padding:7px 14px;font-size:12px;color:var(--muted);font-style:italic;background:rgba(0,0,0,0.015);padding-left:24px;">Adjustment</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);"><span style="color:#c0392b">(17,783)</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">2,530</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);">2,606</td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);border-left:2px solid rgba(74,101,133,0.22);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td><td style="padding:7px 8px;text-align:right;font-size:12px;color:var(--body);background:rgba(74,101,133,0.025);"><span style="color:var(--muted)">—</span></td></tr>
@@ -653,13 +654,13 @@
                 </tr>
                 <tr style="background:rgba(74,124,89,0.07);border-bottom:2px solid rgba(74,124,89,0.2)">
                   <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:200px">Line Item</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2023</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2024</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2025</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.25)">2026</th>
-                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2027</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2026</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.25)">2027</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2028</th>
                   <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2029</th>
+                  <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap">2030</th>
                 </tr>
               </thead>
               <tbody id="pfDscrBody"></tbody>
@@ -681,34 +682,61 @@
 </div>
 <div id="pfsp-pf-closing" style="display:none">
 <div class="card" style="padding:0;overflow:hidden;margin-bottom:var(--gap)"><div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.02)"><span style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)">Closing Costs</span></div><table class="pf-data-table">
-<tr class="pf-sec"><td>CLOSING COSTS</td><td class="pct-col">%</td><td class="amount-col">AMOUNT</td><td class="notes-col">NOTES</td></tr>
-<tr><td>Due Diligence</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Other</td><td class="pct-col"></td><td class="amount-col" data-editable>$10,000</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Appraisal</td><td class="pct-col"></td><td class="amount-col" data-editable>$540</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Legal</td><td class="pct-col"></td><td class="amount-col" data-editable>$5,000</td><td class="notes-col" data-editable>Lender extra $27,900</td></tr>
-<tr><td>Credit Reports Lender Charges</td><td class="pct-col"></td><td class="amount-col" data-editable>$500</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Origination Fee &amp; Lender Fees</td><td class="pct-col"><input class="pct-input" value="1%" placeholder="—"></td><td class="amount-col" data-editable>$39,627</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Environmental &amp; PCA</td><td class="pct-col"></td><td class="amount-col" data-editable>$500</td><td class="notes-col" data-editable>Asbestos and Radon Extra</td></tr>
-<tr><td>Insurance Review</td><td class="pct-col"></td><td class="amount-col" data-editable>$0</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Abstract and Title Charges besides Insurance</td><td class="pct-col"></td><td class="amount-col" data-editable>$6,054</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Commitment Fee</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Title Insurance</td><td class="pct-col"></td><td class="amount-col" data-editable>$3,000</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Survey Fee</td><td class="pct-col"></td><td class="amount-col" data-editable>$1,000</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Prepaid Tax</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Immediate Repairs</td><td class="pct-col"></td><td class="amount-col" data-editable>$5,000</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Tax Reserve</td><td class="pct-col"></td><td class="amount-col" data-editable>$15,000</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Insurance Reserve</td><td class="pct-col"></td><td class="amount-col" data-editable>$5,000</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Transfer of Membership Transaction (Yes = 0, No = 1)</td><td class="pct-col"></td><td class="amount-col"><select class="pct-input" style="width:60px"><option value="0">Yes</option><option value="1" selected>No</option></select></td><td class="notes-col" data-editable></td></tr>
-<tr><td>County/State Transfer Tax</td><td class="pct-col"><input class="pct-input" value="0.8%" placeholder="—"></td><td class="amount-col" data-editable>$46,500</td><td class="notes-col" data-editable>50/50 split</td></tr>
-<tr><td>Recordation Tax</td><td class="pct-col"><input class="pct-input" value="0.5%" placeholder="—"></td><td class="amount-col" data-editable>$31,000</td><td class="notes-col" data-editable>50/50 split</td></tr>
-<tr><td>Acquisition Fee</td><td class="pct-col"><input class="pct-input" value="3.0%" placeholder="—"></td><td class="amount-col" data-editable>$186,000</td><td class="notes-col" data-editable>% of Asset Value</td></tr>
-<tr><td>Closing</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
-<tr><td>LLC Transfer-Related Fees</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Property Insurance</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
-<tr><td>Interest Reserve</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
-<tr class="pf-hi"><td>Cash Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$120,000</td><td class="notes-col" data-editable></td></tr>
+<tr class="pf-sec"><td>Category</td><td class="pct-col">%</td><td class="amount-col">AMOUNT</td><td class="notes-col">NOTES</td></tr>
+
+<!-- ── 1. Due Diligence (Sage Green) ──────────────────────────────── -->
+<tr class="pf-grp"><td colspan="4" style="padding:8px 14px;background:rgba(106,142,107,0.12);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#4a7c4b;border-top:1px solid rgba(106,142,107,0.25);text-align:left">Due Diligence</td></tr>
+<tr class="grp-dd"><td>Due Diligence</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-dd"><td>Appraisal</td><td class="pct-col"></td><td class="amount-col" data-editable>$540</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-dd"><td>Environmental &amp; PCA</td><td class="pct-col"></td><td class="amount-col" data-editable>$500</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-dd"><td>Survey Fee</td><td class="pct-col"></td><td class="amount-col" data-editable>$1,000</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-dd"><td>Insurance Review</td><td class="pct-col"></td><td class="amount-col" data-editable>$0</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-dd"><td>Abstract and Title Charges besides Insurance</td><td class="pct-col"></td><td class="amount-col" data-editable>$6,054</td><td class="notes-col" data-editable></td></tr>
+
+<!-- ── 2. Lender Costs (Slate Blue) ───────────────────────────────── -->
+<tr class="pf-grp"><td colspan="4" style="padding:8px 14px;background:rgba(90,122,153,0.12);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#3a5a7a;border-top:1px solid rgba(90,122,153,0.25);text-align:left">Lender Costs</td></tr>
+<tr class="grp-lender"><td>Origination Fee &amp; Lender Fees</td><td class="pct-col"><input id="ccOrigFeePct" class="pct-input" value="1%" placeholder="—" onchange="recalcOriginationFee()"></td><td id="ccOrigFeeAmt" class="amount-col" data-editable>$39,627</td><td class="notes-col" data-editable>% × New Loan Size (from Refinance Event)</td></tr>
+<tr class="grp-lender"><td>Credit Reports Lender Charges</td><td class="pct-col"></td><td class="amount-col" data-editable>$500</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-lender"><td>Legal</td><td class="pct-col"></td><td class="amount-col" data-editable>$5,000</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-lender"><td>Commitment Fee</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-lender"><td>Title Insurance</td><td class="pct-col"></td><td class="amount-col" data-editable>$3,000</td><td class="notes-col" data-editable></td></tr>
+
+<!-- ── 3. Transfer & Recording Taxes (Dusty Purple) ──────────────── -->
+<tr class="pf-grp"><td colspan="4" style="padding:8px 14px;background:rgba(122,98,145,0.12);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#5a4a73;border-top:1px solid rgba(122,98,145,0.25);text-align:left">Transfer &amp; Recording Taxes</td></tr>
+<tr class="grp-transfer"><td>Transfer of Membership Transaction</td><td class="pct-col"></td><td class="amount-col"><select class="pct-input" style="width:60px"><option value="0">Yes</option><option value="1" selected>No</option></select></td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-transfer"><td>County/State Transfer Tax</td><td class="pct-col"><input class="pct-input" value="0.8%" placeholder="—"></td><td class="amount-col" data-editable>$46,500</td><td class="notes-col" data-editable>% × Purchase Price</td></tr>
+<tr class="grp-transfer"><td>Recordation Tax</td><td class="pct-col"><input class="pct-input" value="0.5%" placeholder="—"></td><td class="amount-col" data-editable>$31,000</td><td class="notes-col" data-editable>% × Purchase Price</td></tr>
+<tr class="grp-transfer"><td>LLC Transfer-Related Fees</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+
+<!-- ── 4. Acquisition Fees (Warm Amber) ──────────────────────────── -->
+<tr class="pf-grp"><td colspan="4" style="padding:8px 14px;background:rgba(160,120,74,0.12);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#7a5a30;border-top:1px solid rgba(160,120,74,0.25);text-align:left">Acquisition Fees</td></tr>
+<tr class="grp-acq"><td>Acquisition Fee</td><td class="pct-col"><input class="pct-input" value="3.0%" placeholder="—"></td><td class="amount-col" data-editable>$186,000</td><td class="notes-col" data-editable>% × Purchase Price</td></tr>
+<tr class="grp-acq"><td>Closing</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+
+<!-- ── 5. Reserves & Prepayments (Teal) ──────────────────────────── -->
+<tr class="pf-grp"><td colspan="4" style="padding:8px 14px;background:rgba(90,138,138,0.12);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#3a6a6a;border-top:1px solid rgba(90,138,138,0.25);text-align:left">Reserves &amp; Prepayments</td></tr>
+<tr class="grp-reserve"><td>Immediate Repairs</td><td class="pct-col"></td><td class="amount-col" data-editable>$5,000</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-reserve"><td>Tax Reserve</td><td class="pct-col"></td><td class="amount-col" data-editable>$15,000</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-reserve"><td>Insurance Reserve</td><td class="pct-col"></td><td class="amount-col" data-editable>$5,000</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-reserve"><td>Prepaid Tax</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-reserve"><td>Property Insurance</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr class="grp-reserve"><td>Interest Reserve</td><td class="pct-col"></td><td class="amount-col" data-editable>—</td><td class="notes-col" data-editable></td></tr>
+<tr class="pf-hi grp-reserve"><td>Cash Reserve</td><td class="pct-col"><input class="pct-input" placeholder="—"></td><td class="amount-col" data-editable>$120,000</td><td class="notes-col" data-editable></td></tr>
+
+<!-- ── 6. Other (Neutral Gray) ───────────────────────────────────── -->
+<tr class="pf-grp"><td colspan="4" style="padding:8px 14px;background:rgba(122,122,122,0.10);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#666;border-top:1px solid rgba(122,122,122,0.20);text-align:left">Other</td></tr>
+<tr class="grp-other"><td>Other</td><td class="pct-col"></td><td class="amount-col" data-editable>$10,000</td><td class="notes-col" data-editable></td></tr>
+
+<!-- ── Totals ────────────────────────────────────────────────────── -->
 <tr class="pf-tot"><td>Total Closing Costs</td><td class="pct-col"></td><td class="amount-col">$474,720</td><td class="notes-col"></td></tr>
-<tr><td style="font-size:11px;color:var(--muted);font-style:italic;font-weight:600">Closing Cost Ratio</td><td class="pct-col"></td><td class="amount-col" style="font-size:11px;color:var(--muted);font-style:italic">7.66%</td><td class="notes-col"></td></tr>
+<tr style="background:rgba(139,111,71,0.06);border-top:1px solid rgba(139,111,71,0.25);border-bottom:1px solid rgba(139,111,71,0.25)"><td style="padding:8px 14px;font-size:11.5px;font-weight:700;color:#6B5435;letter-spacing:.04em;text-transform:uppercase" title="Closing Cost Ratio = Total Closing Costs / Purchase Price">Closing Cost Ratio</td><td class="pct-col"></td><td class="amount-col" style="font-size:11.5px;font-weight:700;color:#6B5435">7.66%</td><td class="notes-col" style="font-size:10px;color:var(--muted);font-style:italic"></td></tr>
+<tr style="background:rgba(21,101,192,0.06);border-bottom:1px solid rgba(139,111,71,0.25)"><td colspan="4" style="padding:8px 14px 10px 14px;font-size:11px;line-height:1.5;color:var(--body)">
+<span style="color:#1565C0;font-weight:700">ⓘ</span>
+<span style="font-weight:600">Closing Cost Ratio = Total Closing Costs ÷ Purchase Price (As-is).</span>
+HelloData's market default for Closing Costs is <span style="font-weight:700;color:#1565C0">3.00%</span> of Purchase Price.
+Your computed ratio is <span style="font-weight:700;color:#6B5435">7.66%</span> — <span style="font-weight:700;color:#6B5435">+4.66pt</span> above HD market.
+Common reasons for higher ratios: extensive due diligence, sponsor acquisition fee, large reserves, or LLC transfer / lender fee structure.
+</td></tr>
 </table>
 </div>
 
@@ -805,7 +833,7 @@
 <tr><td>NOI of that Year</td><td class="pct-col"></td><td class="amount-col" data-editable>$339,659</td><td class="notes-col" data-editable></td></tr>
 <tr><td>Cap Rate</td><td class="pct-col"></td><td class="amount-col" data-editable>6.00%</td><td class="notes-col" data-editable></td></tr>
 <tr><td>Value of Property</td><td class="pct-col"></td><td class="amount-col" data-editable>$5,660,981</td><td class="notes-col" data-editable></td></tr>
-<tr><td>New Loan Size</td><td class="pct-col"><input class="pct-input" value="70.0%" placeholder="—"></td><td class="amount-col" data-editable>$3,962,686</td><td class="notes-col" data-editable></td></tr>
+<tr><td>New Loan Size</td><td class="pct-col"><input class="pct-input" value="70.0%" placeholder="—"></td><td id="refiNewLoanSize" class="amount-col" data-editable oninput="recalcOriginationFee()">$3,962,686</td><td class="notes-col" data-editable></td></tr>
 <tr><td>Cost of Refinance</td><td class="pct-col"><input class="pct-input" value="2.25%" placeholder="—"></td><td class="amount-col" data-editable>$127,372</td><td class="notes-col" data-editable>incl. .25% Fee</td></tr>
 <tr><td>Loan of that Year (End of Year)</td><td class="pct-col"></td><td class="amount-col" data-editable>$3,643,591</td><td class="notes-col" data-editable></td></tr>
 <tr><td>Yield Maintenance/Prepay</td><td class="pct-col"><input class="pct-input" value="0.0%" placeholder="—"></td><td class="amount-col" data-editable>$0</td><td class="notes-col" data-editable></td></tr>
@@ -903,13 +931,13 @@
       <thead>
         <tr style="background:rgba(74,124,89,0.08);border-bottom:2px solid rgba(74,124,89,0.2)">
           <th style="padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:280px">Year</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">2023</th>
           <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">2024</th>
           <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">2025</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px;border-left:2px solid rgba(74,101,133,0.25)">2026</th>
-          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">2027</th>
+          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--muted);white-space:nowrap;font-size:11px">2026</th>
+          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px;border-left:2px solid rgba(74,101,133,0.25)">2027</th>
           <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">2028</th>
           <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">2029</th>
+          <th style="padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;font-size:11px">2030</th>
         </tr>
       </thead>
       <tbody id="wfBody">
@@ -1234,8 +1262,12 @@
             <input type="file" id="hdFileInput" accept=".xlsx" style="display:none" onchange="handleHDUpload(event)">
           </div>
         </div>
+        <!-- Period hint based on Acquisition Year -->
+        <div id="hdPeriodHint" style="margin-top:12px;font-size:11px;color:#1565C0;padding:6px 10px;background:rgba(21,101,192,0.06);border-left:2px solid rgba(21,101,192,0.4);border-radius:0 4px 4px 0">
+          <strong>Expected period:</strong> Current snapshot from AY−1 (year before acquisition). HD reports market benchmarks as-of the export date.
+        </div>
         <!-- Drop zone -->
-        <div id="hdDropZone" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s"
+        <div id="hdDropZone" style="margin-top:12px;border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s"
           ondragover="event.preventDefault();this.style.borderColor='#a67c52'"
           ondragleave="this.style.borderColor='var(--border)'"
           ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleHDDrop(event)">
@@ -1399,7 +1431,7 @@
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=20260414j"></script>
+<script src="app.js?v=20260514r"></script>
 
 <!-- ─── REJECT MODAL ─────────────────────────────────────────────────────── -->
 <div id="rejectModal" style="display:none;position:fixed;inset:0;z-index:3000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(4px)">
@@ -1486,6 +1518,21 @@
 
     <!-- Body -->
     <div style="padding:20px 24px;display:flex;flex-direction:column;gap:20px">
+
+      <!-- DEAL TIMING section -->
+      <div>
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#1565C0;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(21,101,192,0.18)">Deal Timing</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(0,0,0,0.025);border-radius:8px;border:1px solid var(--border)">
+          <div>
+            <label style="font-size:13px;color:var(--body)" for="asmtAcquisitionYear">Acquisition Year</label>
+            <div style="font-size:10.5px;color:var(--muted);margin-top:2px">Year of closing. Drives the time axis (AY−2, AY−1, AY [Stab], AY+1 … AY+4) and Stab year marker.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0;border:1.5px solid rgba(21,101,192,0.4);border-radius:7px;overflow:hidden;background:rgba(21,101,192,0.06)">
+            <input id="asmtAcquisitionYear" type="number" step="1" min="2000" max="2050" value="2026"
+              style="width:84px;border:none;outline:none;background:transparent;padding:6px 10px;font-size:13px;font-weight:700;color:var(--header);text-align:right">
+          </div>
+        </div>
+      </div>
 
       <!-- INCOME section -->
       <div>
