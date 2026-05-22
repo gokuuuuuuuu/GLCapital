@@ -4097,13 +4097,120 @@ function _buildFilePreviewCard(fileObj, opts) {
     previewBtnId +
     '" style="display:flex;align-items:center;gap:6px">' +
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' +
-    (zh ? "预览原文档" : "Preview Original") +
+    (zh ? "预览原文件" : "Preview Original") +
     "</button>" +
     "</div>" +
     "</div>"
   );
 }
 window._buildFilePreviewCard = _buildFilePreviewCard;
+
+// ─── PREVIEW FILE IN NEW TAB (renders xlsx as HTML tables) ──────────────────
+function _previewFileInNewTab(dataUrl, fileName) {
+  if (!dataUrl) {
+    var zh = currentLang === "zh";
+    toast(zh ? "文件不可用" : "File not available", "info");
+    return;
+  }
+  try {
+    var base64 = dataUrl.split(",")[1];
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    var wb = XLSX.read(bytes.buffer, { type: "array" });
+
+    var sheetNames = wb.SheetNames;
+    // Build tab buttons + sheet HTML
+    var tabBtns = sheetNames
+      .map(function (name, idx) {
+        return (
+          '<button onclick="switchSheet(' +
+          idx +
+          ')" data-idx="' +
+          idx +
+          '" style="' +
+          "padding:8px 20px;border:none;cursor:pointer;font-size:13px;font-weight:600;" +
+          "border-bottom:2px solid " +
+          (idx === 0 ? "#4a7c59" : "transparent") +
+          ";" +
+          "background:" +
+          (idx === 0 ? "rgba(74,124,89,0.08)" : "transparent") +
+          ";" +
+          "color:" +
+          (idx === 0 ? "#4a7c59" : "#666") +
+          '">' +
+          name +
+          "</button>"
+        );
+      })
+      .join("");
+
+    var sheetPanels = sheetNames
+      .map(function (name, idx) {
+        var ws = wb.Sheets[name];
+        var html = XLSX.utils.sheet_to_html(ws, { editable: false });
+        html = html.replace(
+          /<table/,
+          '<table style="width:100%;border-collapse:collapse;font-size:13px"',
+        );
+        return (
+          '<div data-sheet="' +
+          idx +
+          '" style="' +
+          (idx === 0 ? "" : "display:none;") +
+          'overflow:auto;padding:16px">' +
+          html +
+          "</div>"
+        );
+      })
+      .join("");
+
+    var pageHtml =
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' +
+      (fileName || "Preview") +
+      "</title>" +
+      "<style>" +
+      'body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f5f5}' +
+      ".header{background:#fff;border-bottom:1px solid #e0e0e0;padding:12px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}" +
+      ".header h1{font-size:16px;font-weight:700;color:#333;margin:0}" +
+      ".tabs{display:flex;gap:0;background:#fff;border-bottom:1px solid #e0e0e0;padding:0 24px;position:sticky;top:49px;z-index:9}" +
+      ".content{background:#fff;margin:16px 24px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}" +
+      "table{border-collapse:collapse;width:100%}" +
+      "td,th{border:1px solid #e8e8e8;padding:6px 10px;text-align:left;white-space:nowrap;font-size:12px}" +
+      "th{background:#f8f9fa;font-weight:600;position:sticky;top:0}" +
+      "tr:nth-child(even){background:#fafafa}" +
+      "tr:hover{background:#f0f7f2}" +
+      "</style></head><body>" +
+      '<div class="header"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a7c59" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><h1>' +
+      (fileName || "Preview") +
+      "</h1></div>" +
+      '<div class="tabs">' +
+      tabBtns +
+      "</div>" +
+      '<div class="content">' +
+      sheetPanels +
+      "</div>" +
+      '<script>function switchSheet(idx){document.querySelectorAll("[data-sheet]").forEach(function(el){el.style.display=parseInt(el.getAttribute("data-sheet"))===idx?"":"none"});document.querySelectorAll("[data-idx]").forEach(function(btn){var active=parseInt(btn.getAttribute("data-idx"))===idx;btn.style.borderBottom="2px solid "+(active?"#4a7c59":"transparent");btn.style.background=active?"rgba(74,124,89,0.08)":"transparent";btn.style.color=active?"#4a7c59":"#666"})}<\/script>' +
+      "</body></html>";
+
+    var newTab = window.open("", "_blank");
+    if (newTab) {
+      newTab.document.write(pageHtml);
+      newTab.document.close();
+    } else {
+      toast(
+        currentLang === "zh" ? "请允许弹出窗口" : "Please allow popups",
+        "info",
+      );
+    }
+  } catch (err) {
+    toast(
+      (currentLang === "zh" ? "预览失败: " : "Preview failed: ") + err.message,
+      "error",
+    );
+  }
+}
+window._previewFileInNewTab = _previewFileInNewTab;
 
 // ─── ENHANCED EXCEL PREVIEW IN MODAL ─────────────────────────────────────────
 function _previewExcelFromDataUrl(dataUrl, fileName) {
@@ -4187,14 +4294,14 @@ window._switchPreviewSheet = function (idx) {
   });
 };
 
-// Preview HD file from localStorage
+// Preview HD file — download the original xlsx so user can open it natively
 function _previewHDFile() {
   var pid = currentProjectId;
   var dataUrl = localStorage.getItem("hd_file_" + pid);
   var meta = getHDMeta(pid);
   var fileName = (meta && meta.fileName) || "HelloData.xlsx";
   if (dataUrl) {
-    _previewExcelFromDataUrl(dataUrl, fileName);
+    _previewFileInNewTab(dataUrl, fileName);
   } else {
     toast(
       currentLang === "zh" ? "预览文件不可用" : "Preview file not available",
@@ -4217,15 +4324,15 @@ function previewUploadedFile(fileId) {
   } else if (f.dataUrl && ["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
     previewHtml = `<img src="${f.dataUrl}" style="max-width:100%;border-radius:8px;display:block;margin:0 auto">`;
   } else if (["xlsx", "xls", "csv"].includes(ext) && f.dataUrl) {
-    // Use enhanced Excel preview with sheet tabs
-    _previewExcelFromDataUrl(f.dataUrl, f.name);
+    // Download original file so user can open it natively
+    _previewFileInNewTab(f.dataUrl, f.name);
     return;
   } else if (["xlsx", "xls", "csv"].includes(ext) && !f.dataUrl) {
-    // Try to fetch from /data/ for seeded projects
+    // Try to fetch from /data/ for seeded projects, then download
     var _proj = proj;
     var _dataFile = _proj.dataFile || _proj.hdFile;
     if (_dataFile) {
-      toast(zh ? "正在加载预览..." : "Loading preview...", "info");
+      toast(zh ? "正在加载文件..." : "Loading file...", "info");
       fetch("/data/" + _dataFile)
         .then(function (r) {
           return r.arrayBuffer();
@@ -4251,17 +4358,16 @@ function previewUploadedFile(fileId) {
                 );
               }
             }
-            _previewExcelFromDataUrl(e.target.result, f.name);
+            _previewFileInNewTab(e.target.result, f.name);
           };
           reader.readAsDataURL(blob);
         })
         .catch(function () {
-          toast(zh ? "预览文件不可用" : "Preview not available", "error");
+          toast(zh ? "文件不可用" : "File not available", "error");
         });
       return;
     }
-    // Fallback: show field summary
-    _previewExcelFromDataUrl(null, f.name);
+    toast(zh ? "文件不可用" : "File not available", "info");
     return;
   } else if (["xlsx", "xls", "csv"].includes(ext)) {
     // Fallback: show parsed field summary if no dataUrl
@@ -7399,6 +7505,48 @@ var HD_L1_AGGREGATE_PER_UNIT_MONTHLY = {};
 // RC demo data — rent estimates (RentCast typically only provides Rent Income)
 var RC_PER_UNIT_MONTHLY = {};
 
+// Populate HD_L1_AGGREGATE_PER_UNIT_MONTHLY from parsed HD Financial Analysis data.
+// Maps HD row labels → L1 IDs with per-unit monthly values (median tier).
+// Must be called before buildIncomeTable / buildExpenseTable so hd-default children resolve.
+var _HD_LABEL_TO_L1 = {
+  "Gross Potential Rent": "gpr",
+  "Vacancy Loss": "vc",
+  "Parking Income": "parking",
+  "Other Income": "other",
+  "Effective Gross Income": "egi",
+  "Real Estate Taxes": "tax",
+  "Property Insurance": "ins",
+  Utilities: "util",
+  "Repair & Maintenance": "rm",
+  "Management Fees": "mgmt",
+  Marketing: "mktg",
+  "Professional Fees": "prof",
+  "Payroll & Benefits": "payroll",
+  "General and Administrative": "ga",
+  "Other Expenses": "other_exp",
+  "Total Operating Expenses": "total_opex",
+  "Net Operating Income": "noi",
+};
+
+function _populateHDL1Aggregates(hdData) {
+  // Reset
+  HD_L1_AGGREGATE_PER_UNIT_MONTHLY = {};
+  HD_PER_UNIT_MONTHLY = {};
+  if (!hdData) return;
+  // Direct label matches
+  Object.keys(_HD_LABEL_TO_L1).forEach(function (hdLabel) {
+    var val = _hdVal(hdData, hdLabel);
+    if (val != null) {
+      HD_L1_AGGREGATE_PER_UNIT_MONTHLY[_HD_LABEL_TO_L1[hdLabel]] = val;
+    }
+  });
+  // Also populate HD_PER_UNIT_MONTHLY for individual line item lookups
+  Object.keys(hdData).forEach(function (label) {
+    var val = hdData[label] && hdData[label][_hdTier];
+    if (val != null) HD_PER_UNIT_MONTHLY[label] = val;
+  });
+}
+
 function buildIncomeTable() {
   var upperBody = document.getElementById("pfRevUpperBody");
   var upperSub = document.getElementById("pfRevUpperSubtotal");
@@ -7406,6 +7554,32 @@ function buildIncomeTable() {
   var lowerSub = document.getElementById("pfRevLowerSubtotal");
   var totalBody = document.getElementById("pfRevTotalBody");
   if (!upperBody) return;
+
+  // Ensure HD aggregates are populated (may be called standalone, not only via buildPFTable)
+  var _hdForPopulate = getHDData(currentProjectId);
+  if (_hdForPopulate && !HD_L1_AGGREGATE_PER_UNIT_MONTHLY.gpr) {
+    _populateHDL1Aggregates(_hdForPopulate);
+  }
+
+  // If no HD data uploaded, show empty state — keep headers, show placeholder in body
+  var _hdMeta = getHDMeta(currentProjectId);
+  var _colHdrRow = document.getElementById("pfRevColHdrRow");
+  if (_colHdrRow) _colHdrRow.style.display = "";
+  if (!_hdMeta) {
+    var zh = currentLang === "zh";
+    upperBody.innerHTML =
+      '<tr><td colspan="11" style="padding:40px 14px;text-align:center;color:var(--muted);font-size:13px">' +
+      (zh
+        ? "请先上传 HelloData 文件以填充收入数据"
+        : "Upload a HelloData file to populate income data") +
+      "</td></tr>";
+    if (upperSub) upperSub.innerHTML = "";
+    if (lowerBody) lowerBody.innerHTML = "";
+    if (lowerSub) lowerSub.innerHTML = "";
+    if (totalBody) totalBody.innerHTML = "";
+    window._pfEgiCache = new Array(7).fill(0);
+    return;
+  }
 
   var pf = _pfLoaded
     ? _getProjectPFData(currentProjectId) || PF_DATA
@@ -8321,6 +8495,28 @@ function buildIncomeTable() {
 function buildExpenseTable() {
   var upperBody = document.getElementById("pfExpUpperBody");
   if (!upperBody) return;
+
+  // Ensure HD aggregates are populated
+  var _hdForExpPopulate = getHDData(currentProjectId);
+  if (_hdForExpPopulate && !HD_L1_AGGREGATE_PER_UNIT_MONTHLY.tax) {
+    _populateHDL1Aggregates(_hdForExpPopulate);
+  }
+
+  // If no HD data uploaded, show empty state — keep headers, show placeholder in body
+  var _hdMetaExp = getHDMeta(currentProjectId);
+  var _expColHdrRow = document.getElementById("pfExpColHdrRow");
+  if (_expColHdrRow) _expColHdrRow.style.display = "";
+  if (!_hdMetaExp) {
+    var zh = currentLang === "zh";
+    upperBody.innerHTML =
+      '<tr><td colspan="11" style="padding:40px 14px;text-align:center;color:var(--muted);font-size:13px">' +
+      (zh
+        ? "请先上传 HelloData 文件以填充费用数据"
+        : "Upload a HelloData file to populate expense data") +
+      "</td></tr>";
+    window._expenseTotals = new Array(7).fill(0);
+    return;
+  }
 
   var pf = _pfLoaded
     ? _getProjectPFData(currentProjectId) || PF_DATA
@@ -9467,10 +9663,13 @@ function buildPFTable() {
   _refreshHDUploadUI();
   var hdData = getHDData(currentProjectId);
   var hasHD = !!hdData;
+  _populateHDL1Aggregates(hdData);
   var modSrc = getModuleSrc(currentProjectId) || {};
   var revSrc = modSrc.rev === "hd" && hasHD ? "hd" : "t12";
   // ── MODULE SOURCE BADGES on section headers ────────────────────
-  _renderModuleSrcBadge("pfRevLabel", "REVENUE", "rev", revSrc, hasHD);
+  // Revenue header — no T12/HD toggle (Revenue always uses HD L1 structure)
+  var _pfRevLabelEl = document.getElementById("pfRevLabel");
+  if (_pfRevLabelEl) _pfRevLabelEl.innerHTML = "INCOME";
 
   // ── REVENUE (new Income layout) ──────────────────────────────────
   buildIncomeTable();
