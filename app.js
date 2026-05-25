@@ -130,17 +130,7 @@ function _parseT12FromXlsx(buf, pid) {
   var y2End = 24; // next 12 months
   var totalCol = Math.min(nDataCols, hdr.length - 1); // last column is Total
 
-  // Helper: sum columns for a row
-  function sumRange(row, startCol, endCol) {
-    var s = 0;
-    for (var c = startCol; c <= endCol && c < row.length; c++) {
-      var v = parseFloat(row[c]);
-      if (!isNaN(v)) s += v;
-    }
-    return Math.round(s * 100) / 100;
-  }
-
-  // Extract monthly arrays
+  // Extract monthly arrays (each value rounded to cents)
   function getMonths(row, startCol, count) {
     var arr = [];
     for (var c = startCol; c < startCol + count && c < row.length; c++) {
@@ -149,6 +139,13 @@ function _parseT12FromXlsx(buf, pid) {
     }
     while (arr.length < count) arr.push(0);
     return arr;
+  }
+
+  // Sum from already-rounded monthly values (consistent with display)
+  function sumMonths(months) {
+    var s = 0;
+    for (var i = 0; i < months.length; i++) s += months[i];
+    return Math.round(s * 100) / 100;
   }
 
   // Build result by scanning rows
@@ -172,8 +169,8 @@ function _parseT12FromXlsx(buf, pid) {
 
     var y1Months = getMonths(row, 1, 12);
     var y2Months = getMonths(row, 13, 12);
-    var y1Total = sumRange(row, 1, 12);
-    var y2Total = sumRange(row, 13, 24);
+    var y1Total = sumMonths(y1Months);
+    var y2Total = sumMonths(y2Months);
     var grandTotal =
       row[totalCol] != null ? parseFloat(row[totalCol]) : y1Total + y2Total;
     if (isNaN(grandTotal)) grandTotal = y1Total + y2Total;
@@ -551,6 +548,49 @@ function _t12ToPFData(pid) {
   var opexRate = 1 + (asmt.opexGrowth || 3) / 100;
   var taxRate = 1 + (asmt.taxGrowth || 3) / 100;
 
+  // Known T12 section categories (upper-cased for matching)
+  var KNOWN_REV_SECTIONS = ["RENTS", "MANAGEMENT INCOME", "FEES"];
+  var KNOWN_EXP_SECTIONS = [
+    "CLEANING AND JANITORIAL EXPENSE",
+    "CLEANING & JANITORIAL EXPENSE",
+    "CLEANING AND JANITORIAL",
+    "CLEANING & JANITORIAL",
+    "INSURANCE",
+    "LEGAL AND OTHER PROFESSIONAL FEES",
+    "LEGAL & OTHER PROFESSIONAL FEES",
+    "LEGAL AND PROFESSIONAL",
+    "LEGAL & PROFESSIONAL",
+    "MANAGEMENT FEES EXPENSE",
+    "MANAGEMENT FEES",
+    "MANAGEMENT",
+    "MORTGAGE",
+    "REPAIRS AND MAINTENANCE",
+    "REPAIRS & MAINTENANCE",
+    "TAXES",
+    "UTILITIES",
+    "ADMINISTRATIVE EXPENSES",
+    "ADMINISTRATIVE",
+    "MARKETING EXPENSES",
+    "MARKETING",
+    "BUILDING EXPENSES",
+    "BUILDING",
+    "PREFERRED RETURNS",
+    "PREFERRED PAYMENTS",
+  ];
+
+  function _isKnownRevSection(label) {
+    var up = label.toUpperCase().trim();
+    return KNOWN_REV_SECTIONS.some(function (s) {
+      return up === s;
+    });
+  }
+  function _isKnownExpSection(label) {
+    var up = label.toUpperCase().trim();
+    return KNOWN_EXP_SECTIONS.some(function (s) {
+      return up === s;
+    });
+  }
+
   // Map T12 rows to PF sections
   var revRows = [];
   var expRows = [];
@@ -564,6 +604,12 @@ function _t12ToPFData(pid) {
   var adjustmentY1 = 0,
     adjustmentY2 = 0;
 
+  // Collect items for "Others" sections (items not in known categories)
+  var revOthersItems = [];
+  var expOthersItems = [];
+  var inUnknownRevSection = false;
+  var inUnknownExpSection = false;
+
   t12.rows.forEach(function (r) {
     var up = r.label.toUpperCase();
 
@@ -571,11 +617,13 @@ function _t12ToPFData(pid) {
     if (up === "INCOME" || up === "REVENUE") {
       revenuePhase = true;
       expensePhase = false;
+      inUnknownRevSection = false;
       return;
     }
     if (up === "EXPENSES") {
       revenuePhase = false;
       expensePhase = true;
+      inUnknownExpSection = false;
       return;
     }
     if (up === "NET INCOME") {
@@ -599,11 +647,16 @@ function _t12ToPFData(pid) {
     if (revenuePhase) {
       if (r.isSection) {
         currentPFSection = r.label;
-        revRows.push({
-          isSectionHdr: true,
-          label: r.label,
-          secId: "rev-" + r.label.toLowerCase().replace(/\s+/g, "-"),
-        });
+        if (_isKnownRevSection(r.label)) {
+          inUnknownRevSection = false;
+          revRows.push({
+            isSectionHdr: true,
+            label: r.label,
+            secId: "rev-" + r.label.toLowerCase().replace(/\s+/g, "-"),
+          });
+        } else {
+          inUnknownRevSection = true;
+        }
       } else if (r.isTotal && up.indexOf("TOTAL REVENUE") !== -1) {
         totalRevY1 = r.y1Total;
         totalRevY2 = r.y2Total;
@@ -613,27 +666,43 @@ function _t12ToPFData(pid) {
           vals: _projectRow([r.y1Total, r.y2Total], 7, rentRate),
         });
       } else if (r.isTotal) {
-        revRows.push({
-          label: r.label,
-          isSubtotal: true,
-          vals: _projectRow([r.y1Total, r.y2Total], 7, rentRate),
-        });
+        if (!inUnknownRevSection) {
+          revRows.push({
+            label: r.label,
+            isSubtotal: true,
+            vals: _projectRow([r.y1Total, r.y2Total], 7, rentRate),
+          });
+        }
+        // Reset unknown flag after subtotal
+        inUnknownRevSection = false;
       } else if (!r.isSection) {
-        revRows.push({
-          label: r.label,
-          vals: _projectRow([r.y1Total, r.y2Total], 7, rentRate),
-        });
+        if (inUnknownRevSection) {
+          revOthersItems.push({
+            label: r.label,
+            vals: _projectRow([r.y1Total, r.y2Total], 7, rentRate),
+          });
+        } else {
+          revRows.push({
+            label: r.label,
+            vals: _projectRow([r.y1Total, r.y2Total], 7, rentRate),
+          });
+        }
       }
     }
 
     if (expensePhase) {
       if (r.isSection) {
         currentPFSection = r.label;
-        expRows.push({
-          isSectionHdr: true,
-          label: r.label,
-          secId: "exp-" + r.label.toLowerCase().replace(/\s+/g, "-"),
-        });
+        if (_isKnownExpSection(r.label)) {
+          inUnknownExpSection = false;
+          expRows.push({
+            isSectionHdr: true,
+            label: r.label,
+            secId: "exp-" + r.label.toLowerCase().replace(/\s+/g, "-"),
+          });
+        } else {
+          inUnknownExpSection = true;
+        }
       } else if (r.isTotal && up.indexOf("TOTAL EXPENSES") !== -1) {
         totalExpY1 = r.y1Total;
         totalExpY2 = r.y2Total;
@@ -655,28 +724,109 @@ function _t12ToPFData(pid) {
           vals: pctVals,
         });
       } else if (r.isTotal) {
-        var rate =
-          currentPFSection &&
-          currentPFSection.toUpperCase().indexOf("TAX") !== -1
-            ? taxRate
-            : opexRate;
-        expRows.push({
-          label: r.label,
-          isSubtotal: true,
-          vals: _projectRow([r.y1Total, r.y2Total], 7, rate),
-        });
+        if (!inUnknownExpSection) {
+          var rate =
+            currentPFSection &&
+            currentPFSection.toUpperCase().indexOf("TAX") !== -1
+              ? taxRate
+              : opexRate;
+          expRows.push({
+            label: r.label,
+            isSubtotal: true,
+            vals: _projectRow([r.y1Total, r.y2Total], 7, rate),
+          });
+        }
+        // Reset unknown flag after subtotal
+        inUnknownExpSection = false;
       } else if (!r.isSection) {
-        var rate =
-          r.label.toLowerCase().indexOf("property tax") !== -1
-            ? taxRate
-            : opexRate;
-        expRows.push({
-          label: r.label,
-          vals: _projectRow([r.y1Total, r.y2Total], 7, rate),
-        });
+        if (inUnknownExpSection) {
+          expOthersItems.push({
+            label: r.label,
+            vals: _projectRow([r.y1Total, r.y2Total], 7, opexRate),
+          });
+        } else {
+          var rate =
+            r.label.toLowerCase().indexOf("property tax") !== -1
+              ? taxRate
+              : opexRate;
+          expRows.push({
+            label: r.label,
+            vals: _projectRow([r.y1Total, r.y2Total], 7, rate),
+          });
+        }
       }
     }
   });
+
+  // Insert "Others" section for revenue items not in known categories
+  if (revOthersItems.length > 0) {
+    // Insert before the Total Revenue row
+    var revTotalIdx = -1;
+    for (var ri = revRows.length - 1; ri >= 0; ri--) {
+      if (revRows[ri].isTotal && revRows[ri].label === "Total Revenue (EGI)") {
+        revTotalIdx = ri;
+        break;
+      }
+    }
+    var othersRevBlock = [
+      { isSectionHdr: true, label: "OTHERS", secId: "rev-others" },
+    ];
+    var othersRevSubY1 = 0,
+      othersRevSubY2 = 0;
+    revOthersItems.forEach(function (item) {
+      othersRevBlock.push(item);
+    });
+    // Compute subtotal from the vals arrays
+    var othersRevSubVals = new Array(7).fill(0);
+    revOthersItems.forEach(function (item) {
+      item.vals.forEach(function (v, i) {
+        if (typeof v === "number") othersRevSubVals[i] += v;
+      });
+    });
+    othersRevBlock.push({
+      label: "TOTAL OTHERS",
+      isSubtotal: true,
+      vals: othersRevSubVals,
+    });
+    if (revTotalIdx >= 0) {
+      revRows.splice.apply(revRows, [revTotalIdx, 0].concat(othersRevBlock));
+    } else {
+      revRows = revRows.concat(othersRevBlock);
+    }
+  }
+
+  // Insert "Others" section for expense items not in known categories
+  if (expOthersItems.length > 0) {
+    var expTotalIdx = -1;
+    for (var ei = expRows.length - 1; ei >= 0; ei--) {
+      if (expRows[ei].isTotal && expRows[ei].label === "Total Expenses") {
+        expTotalIdx = ei;
+        break;
+      }
+    }
+    var othersExpBlock = [
+      { isSectionHdr: true, label: "OTHERS", secId: "exp-others" },
+    ];
+    expOthersItems.forEach(function (item) {
+      othersExpBlock.push(item);
+    });
+    var othersExpSubVals = new Array(7).fill(0);
+    expOthersItems.forEach(function (item) {
+      item.vals.forEach(function (v, i) {
+        if (typeof v === "number") othersExpSubVals[i] += v;
+      });
+    });
+    othersExpBlock.push({
+      label: "TOTAL OTHERS",
+      isSubtotal: true,
+      vals: othersExpSubVals,
+    });
+    if (expTotalIdx >= 0) {
+      expRows.splice.apply(expRows, [expTotalIdx, 0].concat(othersExpBlock));
+    } else {
+      expRows = expRows.concat(othersExpBlock);
+    }
+  }
 
   // Compute NOI, Debt, CF, DSCR
   var revTotal = _projectRow([totalRevY1, totalRevY2], 7, rentRate);
@@ -5361,6 +5511,54 @@ function _parseHelloDataUnitMix(arrayBuffer, fileName) {
   return dataRows;
 }
 
+// ── HelloData Rent Comps Parser — extract subject property units ──────────
+function _parseHelloDataRentComps(arrayBuffer) {
+  if (typeof XLSX === "undefined") return null;
+  var wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
+  var ws = wb.Sheets["Rent Comps"];
+  if (!ws) return null;
+  var rows = XLSX.utils.sheet_to_json(ws, {
+    header: 1,
+    defval: null,
+    raw: true,
+  });
+  // Header row has "# Units" at column index 6 (row index 2)
+  var headerIdx = -1;
+  var unitsCol = -1;
+  for (var h = 0; h < Math.min(rows.length, 10); h++) {
+    var row = rows[h];
+    if (!row) continue;
+    for (var c = 0; c < row.length; c++) {
+      if (row[c] && typeof row[c] === "string" && /# *units/i.test(row[c])) {
+        headerIdx = h;
+        unitsCol = c;
+        break;
+      }
+    }
+    if (headerIdx >= 0) break;
+  }
+  if (headerIdx < 0 || unitsCol < 0) return null;
+  // Subject property is the first data row (row after header)
+  var subjectRow = rows[headerIdx + 1];
+  if (!subjectRow) return null;
+  var units = parseInt(subjectRow[unitsCol], 10);
+  return isNaN(units) || units <= 0
+    ? null
+    : { units: units, propertyName: subjectRow[0] || "" };
+}
+function getHDRentComps(pid) {
+  try {
+    return JSON.parse(
+      localStorage.getItem("hd_rc_" + (pid || currentProjectId)) || "null",
+    );
+  } catch (e) {
+    return null;
+  }
+}
+function _saveHDRentComps(pid, d) {
+  localStorage.setItem("hd_rc_" + (pid || currentProjectId), JSON.stringify(d));
+}
+
 // Find HD value by partial label match → returns number or null
 function _hdVal(data, searchLabel) {
   if (!data || !searchLabel) return null;
@@ -5425,6 +5623,7 @@ function handleHDUpload(evt) {
     try {
       var parsed = _parseHelloDataFA(e.target.result);
       var umix = _parseHelloDataUnitMix(e.target.result, file.name);
+      var rc = _parseHelloDataRentComps(e.target.result);
       if (!parsed && !umix) {
         toast("No Financial Analysis or Unit Mix sheet found", "error");
         return;
@@ -5437,12 +5636,14 @@ function handleHDUpload(evt) {
         _saveHDUnitMix(pid, umix);
         setHDUmixHidden(pid, false); // reset hidden on new upload
       }
+      if (rc) _saveHDRentComps(pid, rc);
       _saveHDMeta(pid, {
         fileName: file.name,
         date: new Date().toISOString().slice(0, 10),
         reportDate: reportDate,
         rows: parsed ? Object.keys(parsed).length : 0,
         umixRows: umix ? umix.length : 0,
+        units: rc ? rc.units : null,
       });
       _refreshHDUploadUI();
       _renderHDParsedContent();
@@ -5473,6 +5674,7 @@ function clearHDData() {
   localStorage.removeItem("hd_umix_" + pid);
   localStorage.removeItem("hd_umix_hidden_" + pid);
   localStorage.removeItem("hd_file_" + pid);
+  localStorage.removeItem("hd_rc_" + pid);
   _refreshHDUploadUI();
   _renderHDParsedContent();
   buildPFTable();
@@ -5933,9 +6135,54 @@ function recalcOriginationFee() {
 window.recalcOriginationFee = recalcOriginationFee;
 
 // Project-level units override (used by all rows in Revenue & Expenses tables)
+// Units source for Revenue & Expenses: 'hd' | 'rr-total' | 'rr-occupied' | 'manual'
+function _getUnitsSrc(pid) {
+  return (
+    localStorage.getItem("pf_units_src_" + (pid || currentProjectId)) || "auto"
+  );
+}
+function setUnitsSrc(src) {
+  localStorage.setItem("pf_units_src_" + currentProjectId, src);
+  if (typeof buildPFTable === "function") buildPFTable();
+}
+window.setUnitsSrc = setUnitsSrc;
+
+function _getRROccupiedUnits(pid) {
+  var rows = _getRRData(pid || currentProjectId);
+  if (!rows || !rows.length) return 0;
+  return rows.filter(function (r) {
+    return r.status === "Occupied";
+  }).length;
+}
+
+function _getRRTotalUnits(pid) {
+  var rows = _getRRData(pid || currentProjectId);
+  return rows ? rows.length : 0;
+}
+
+function _resolveUnits(pid) {
+  var src = _getUnitsSrc(pid);
+  if (src === "rr-occupied") return _getRROccupiedUnits(pid) || 1;
+  if (src === "rr-total") return _getRRTotalUnits(pid) || 1;
+  if (src === "hd") return _getHDUnits(pid) || 1;
+  // 'auto': HD > RR total > project override > 27
+  var projs = JSON.parse(localStorage.getItem("glcapital_projects") || "[]");
+  var proj = projs.find(function (p) {
+    return p.id === (pid || currentProjectId);
+  });
+  var manual = proj && proj.assumptions && proj.assumptions.units;
+  if (manual) return manual;
+  var hd = _getHDUnits(pid);
+  if (hd) return hd;
+  var rr = _getRRTotalUnits(pid);
+  if (rr) return rr;
+  return 27;
+}
+
 function changeProjUnits(val) {
   var n = parseInt(val, 10);
   if (isNaN(n) || n < 1) return;
+  localStorage.setItem("pf_units_src_" + currentProjectId, "manual");
   var projs = getProjects();
   var idx = projs.findIndex(function (p) {
     return p.id === currentProjectId;
@@ -5992,12 +6239,14 @@ function _parseT12Sections(arr) {
   });
   return sections;
 }
-// Cached T12 section indices (rebuilt when PF_DATA changes; for demo it's constant)
+// T12 section lookups — read from project-specific localStorage, fallback to global PF_DATA
 function _t12RevSections() {
-  return _parseT12Sections((PF_DATA || {}).revenue);
+  var pf = _getProjectPFData(currentProjectId) || PF_DATA || {};
+  return _parseT12Sections(pf.revenue);
 }
 function _t12ExpSections() {
-  return _parseT12Sections((PF_DATA || {}).expenses);
+  var pf = _getProjectPFData(currentProjectId) || PF_DATA || {};
+  return _parseT12Sections(pf.expenses);
 }
 // Find which section a T12 leaf label belongs to (returns section name or null)
 function _t12SectionOfLeaf(label, group) {
@@ -6165,6 +6414,16 @@ function autoMapL1Children(group) {
         m[l1def.id].push({ kind: "leaf", t12label: c.label });
       });
     });
+    // Auto-map OTHERS section items to other (revenue) or other_exp (expenses)
+    var othersTarget = g === "revenue" ? "other" : "other_exp";
+    var secs = g === "revenue" ? _t12RevSections() : _t12ExpSections();
+    if (secs["OTHERS"]) {
+      (secs["OTHERS"].leaves || []).forEach(function (leaf) {
+        if (_findL1ForLabel(leaf.label, m, g)) return;
+        if (!m[othersTarget]) m[othersTarget] = [];
+        m[othersTarget].push({ kind: "leaf", t12label: leaf.label });
+      });
+    }
   });
   _setL1Children(pid, m);
   if (typeof buildPFTable === "function") buildPFTable();
@@ -6179,8 +6438,8 @@ function _resolveL1Children(l1id, group, ctx) {
   var map = _getL1Children();
   var linked = map[l1id] || [];
   var t12Lookup = {};
-  var arr =
-    group === "opex" ? (PF_DATA || {}).expenses : (PF_DATA || {}).revenue;
+  var pf = _getProjectPFData(currentProjectId) || PF_DATA || {};
+  var arr = group === "opex" ? pf.expenses : pf.revenue;
   (arr || []).forEach(function (it) {
     if (it.isSectionHdr || it.isTotal || it.isPct) return;
     t12Lookup[it.label] = it;
@@ -6218,11 +6477,11 @@ function _resolveL1Children(l1id, group, ctx) {
         };
       }
       if (c.kind === "hd-default") {
-        var perUnit = HD_L1_AGGREGATE_PER_UNIT_MONTHLY[l1id];
-        if (perUnit == null) return null;
-        var stab = perUnit * 12 * units;
-        // Y1, Y2 historical: HD has no historical — show flat at stab value
-        var vals = [stab, stab, stab];
+        var annual = HD_L1_ANNUAL[l1id];
+        if (annual == null) return null;
+        // Y1, Y2: HD has no historical data — leave as null
+        // FA median = annual total for 2026 (Stab year, column index 2)
+        var vals = [null, null, annual];
         // Pick growth rate: tax → taxGrowth, other OpEx → opexGrowth, Revenue → rentGrowth
         var growthRate = (ctx && ctx.rentRate) || 1.04;
         if (group === "opex") {
@@ -6233,6 +6492,8 @@ function _resolveL1Children(l1id, group, ctx) {
         }
         for (var i = 3; i < nCols; i++)
           vals.push(Math.round(vals[i - 1] * growthRate * 100) / 100);
+        var hdUnits = _getHDUnits() || units;
+        var perUnit = Math.round((annual / hdUnits / 12) * 100) / 100;
         var displayName = (PF_L1_LABEL[l1id] || l1id) + " (HD)";
         return {
           kind: "hd-default",
@@ -6254,7 +6515,8 @@ var _addFieldL1Context = null; // The L1 id we're adding fields to
 function openL1AddFieldModal(l1id) {
   _addFieldL1Context = l1id;
   var pid = currentProjectId;
-  var pf = typeof PF_DATA !== "undefined" ? PF_DATA : null;
+  var pf =
+    _getProjectPFData(pid) || (typeof PF_DATA !== "undefined" ? PF_DATA : null);
   if (!pf) return;
   var currentMap = _getL1Children(pid);
   var l1Label = PF_L1_LABEL[l1id] || l1id;
@@ -7497,11 +7759,12 @@ function onIncomeFieldEdit(rowLabel, field, value) {
 
 // HD demo data — Per Unit monthly values (mocked from HD Expense Benchmarks / Property fees)
 var HD_PER_UNIT_MONTHLY = {};
-// HD-reported aggregate values per L1 (per unit, monthly).
-// These are HD's published values for each L1 category — each L1 starts with an HD-default L2 row
-// carrying this value. User can remove it via × if they want a pure T12 / manual model.
-// Note: HD aggregates may differ from formula sums due to HD's statistical co-variance adjustments.
+// HD Financial Analysis annual totals per L1 (median tier).
+// FA median column = total annual value for stabilized year (2026).
+// Per-unit-monthly = annual / units / 12 (units from Rent Comps sheet).
 var HD_L1_AGGREGATE_PER_UNIT_MONTHLY = {};
+// HD annual totals (raw FA median values) — used for 2026 Stab column
+var HD_L1_ANNUAL = {};
 // RC demo data — rent estimates (RentCast typically only provides Rent Income)
 var RC_PER_UNIT_MONTHLY = {};
 
@@ -7528,16 +7791,29 @@ var _HD_LABEL_TO_L1 = {
   "Net Operating Income": "noi",
 };
 
+function _getHDUnits(pid) {
+  var rc = getHDRentComps(pid || currentProjectId);
+  if (rc && rc.units > 0) return rc.units;
+  var meta = getHDMeta(pid || currentProjectId);
+  if (meta && meta.units > 0) return meta.units;
+  return 0;
+}
+
 function _populateHDL1Aggregates(hdData) {
   // Reset
   HD_L1_AGGREGATE_PER_UNIT_MONTHLY = {};
+  HD_L1_ANNUAL = {};
   HD_PER_UNIT_MONTHLY = {};
   if (!hdData) return;
-  // Direct label matches
+  var units = _getHDUnits() || 1; // fallback 1 to avoid division by zero
+  // FA median = annual total. Per-unit-monthly = annual / units / 12.
   Object.keys(_HD_LABEL_TO_L1).forEach(function (hdLabel) {
-    var val = _hdVal(hdData, hdLabel);
-    if (val != null) {
-      HD_L1_AGGREGATE_PER_UNIT_MONTHLY[_HD_LABEL_TO_L1[hdLabel]] = val;
+    var annual = _hdVal(hdData, hdLabel);
+    if (annual != null) {
+      var l1 = _HD_LABEL_TO_L1[hdLabel];
+      HD_L1_ANNUAL[l1] = annual;
+      HD_L1_AGGREGATE_PER_UNIT_MONTHLY[l1] =
+        Math.round((annual / units / 12) * 100) / 100;
     }
   });
   // Also populate HD_PER_UNIT_MONTHLY for individual line item lookups
@@ -7590,12 +7866,7 @@ function buildIncomeTable() {
   var _proj = getProjects().find(function (p) {
     return p.id === currentProjectId;
   });
-  var _unitsOverride = _proj && _proj.assumptions && _proj.assumptions.units;
-  var units =
-    _unitsOverride ||
-    (pf.unitMix && pf.unitMix.length > 0
-      ? pf.unitMix[pf.unitMix.length - 1].units
-      : 27);
+  var units = _resolveUnits(currentProjectId);
   var pid = window._currentProjectId || "default";
   var rowSources = _getRowSources(pid);
   var isEditMode =
@@ -8238,8 +8509,7 @@ function buildIncomeTable() {
 
     var egi, displaySrc;
     if (egiSrc === "hd" && hasHDEgi) {
-      var hdPU = HD_L1_AGGREGATE_PER_UNIT_MONTHLY.egi;
-      var hdStab = hdPU * 12 * units;
+      var hdStab = HD_L1_ANNUAL.egi || 0;
       egi = [computedEgi[0] || 0, computedEgi[1] || 0, hdStab];
       for (var k = 3; k < nCols; k++)
         egi.push(Math.round(egi[k - 1] * rentRate * 100) / 100);
@@ -8529,12 +8799,7 @@ function buildExpenseTable() {
   var _projExp = getProjects().find(function (p) {
     return p.id === currentProjectId;
   });
-  var _unitsOv = _projExp && _projExp.assumptions && _projExp.assumptions.units;
-  var units =
-    _unitsOv ||
-    (pf.unitMix && pf.unitMix.length > 0
-      ? pf.unitMix[pf.unitMix.length - 1].units
-      : 27);
+  var units = _resolveUnits(currentProjectId);
 
   var _cellPad = "padding:7px 8px;";
   var _cellRight = "text-align:right;";
@@ -9054,12 +9319,7 @@ function buildNoiTabTable() {
   var _proj = getProjects().find(function (p) {
     return p.id === currentProjectId;
   });
-  var _unitsOv = _proj && _proj.assumptions && _proj.assumptions.units;
-  var units =
-    _unitsOv ||
-    (pf.unitMix && pf.unitMix.length > 0
-      ? pf.unitMix[pf.unitMix.length - 1].units
-      : 27);
+  var units = _resolveUnits(currentProjectId);
 
   var noiSrc = _getNoiSrc(currentProjectId);
   var hasHDNoi = HD_L1_AGGREGATE_PER_UNIT_MONTHLY.noi != null;
@@ -9073,8 +9333,7 @@ function buildNoiTabTable() {
 
   var noi, displaySrc;
   if (noiSrc === "hd" && hasHDNoi) {
-    var hdPU = HD_L1_AGGREGATE_PER_UNIT_MONTHLY.noi;
-    var hdStab = hdPU * 12 * units;
+    var hdStab = HD_L1_ANNUAL.noi || 0;
     // Y1, Y2: use computed (T12 historical via EGI - OpEx); Stab onward: HD
     noi = [computedNoi[0] || 0, computedNoi[1] || 0, hdStab];
     var noiGrowth = (rentRate + opexRate) / 2; // blended growth
@@ -9165,7 +9424,9 @@ function buildNoiTabTable() {
     '<td style="padding:11px 14px;font-size:13px;font-weight:800;color:var(--header);letter-spacing:.04em">Σ NET OPERATING INCOME (NOI) <span style="margin-left:10px;vertical-align:middle">' +
     srcSel +
     "</span></td>" +
-    '<td style="display:none"></td>' +
+    '<td style="padding:11px 8px;text-align:right">' +
+    puCell +
+    "</td>" +
     yearHtml +
     "</tr>";
 
@@ -9304,6 +9565,9 @@ function changeExpRowSource(label, newSrc) {
 }
 
 function buildPFTable() {
+  // Sync units source select
+  var _usSel = document.getElementById("pfUnitsSrcSelect");
+  if (_usSel) _usSel.value = _getUnitsSrc(currentProjectId);
   // Sync calendar year column headers to the project's Acquisition Year
   if (typeof _refreshYearHeaders === "function") _refreshYearHeaders();
   var pfEmpty = document.getElementById("pfEmptyState");
@@ -13631,6 +13895,7 @@ function switchProjTab(tab, btn) {
 
 // ─── GL Capital: Open project analysis (new detail page) ────────────────────
 function openProjectAnalysis(pid) {
+  currentProjectId = pid;
   window.currentProjectId = pid;
   window._currentProjectId = pid;
   _loadPfManualVals();
@@ -13693,15 +13958,23 @@ function openProjectAnalysis(pid) {
 function handleT12Upload(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
-  const proj = getProjects().find((p) => p.id === currentProjectId);
+  // Read/write projects directly via localStorage (avoids ES-module closure issues)
+  var pid = currentProjectId;
+  var projs = JSON.parse(localStorage.getItem("glcapital_projects") || "[]");
+  var proj = projs.find(function (p) {
+    return p.id === pid;
+  });
   if (!proj) return;
   if (!proj.files) proj.files = [];
-  // Remove any existing T12/Selling Model
-  proj.files = (proj.files || []).filter(
-    (f) => !["T12", "Selling Model"].includes(f.parsedAs || f.type),
-  );
-  const fileId = "f" + Date.now();
-  const ext = (file.name.split(".").pop() || "").toUpperCase();
+  proj.files = proj.files.filter(function (f) {
+    return (
+      f.type !== "T12" &&
+      f.type !== "Selling Model" &&
+      f.parsedAs !== "T12" &&
+      f.parsedAs !== "Selling Model"
+    );
+  });
+  var fileId = "f" + Date.now();
   proj.files.push({
     id: fileId,
     name: file.name,
@@ -13711,37 +13984,54 @@ function handleT12Upload(event) {
     date: new Date().toLocaleDateString(),
     status: "parsed",
   });
-  saveProjects(getProjects().map((p) => (p.id === proj.id ? proj : p)));
+  localStorage.setItem("glcapital_projects", JSON.stringify(projs));
 
   // Store original file as dataUrl for preview
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const p2 = getProjects().find((p) => p.id === currentProjectId);
-    if (p2) {
-      const fObj = (p2.files || []).find((x) => x.id === fileId);
-      if (fObj) {
-        fObj.dataUrl = e.target.result;
-        fObj.mimeType = file.type || "application/octet-stream";
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      var projs2 = JSON.parse(
+        localStorage.getItem("glcapital_projects") || "[]",
+      );
+      var p2 = projs2.find(function (p) {
+        return p.id === pid;
+      });
+      if (p2) {
+        var fObj = (p2.files || []).find(function (x) {
+          return x.id === fileId;
+        });
+        if (fObj) {
+          fObj.dataUrl = e.target.result;
+          fObj.mimeType = file.type || "application/octet-stream";
+        }
+        localStorage.setItem("glcapital_projects", JSON.stringify(projs2));
+        renderT12Tab(p2);
       }
-      saveProjects(getProjects().map((p) => (p.id === p2.id ? p2 : p)));
-      // Re-render after dataUrl is available
-      renderT12Tab(p2);
+    } catch (err) {
+      /* ignore preview save errors */
     }
   };
   reader.readAsDataURL(file);
 
   // Parse xlsx for T12 data (also handles RR + Debt sheets if present)
-  const parseReader = new FileReader();
-  parseReader.onload = (e) => {
+  var parseReader = new FileReader();
+  parseReader.onload = function (e) {
     try {
-      var parsed = _parseUnderwritingXlsx(e.target.result, currentProjectId);
+      var parsed = _parseUnderwritingXlsx(e.target.result, pid);
       _pfLoaded = true;
+      if (parsed.rr) renderRentRoll();
+      buildPFUnitMix();
       buildPFTable();
-      if (parsed.debt) buildDebtAnalysis();
-      if (parsed.rr) {
-        renderRentRoll();
-        buildPFUnitMix();
-      }
+      if (parsed.debt && typeof buildDebtAnalysis === "function")
+        buildDebtAnalysis();
+      // Refresh Summary tab: dual-source cells + KPI strip
+      var _p2 = JSON.parse(
+        localStorage.getItem("glcapital_projects") || "[]",
+      ).find(function (x) {
+        return x.id === pid;
+      });
+      if (typeof renderPFDualSource === "function") renderPFDualSource(_p2);
+      if (typeof updateSummKpis === "function") updateSummKpis();
       toast(
         currentLang === "zh"
           ? "T12文件已上传并解析" +
@@ -13759,7 +14049,7 @@ function handleT12Upload(event) {
   parseReader.readAsArrayBuffer(file);
 
   // Update UI
-  renderT12Tab(proj);
+  _updateT12UI(proj);
   // Reset input
   event.target.value = "";
   updateTabDots();
@@ -15486,15 +15776,23 @@ function applyT12ToProForma() {
 }
 
 function handleRRUpload(event) {
-  const file = event.target.files && event.target.files[0];
+  var file = event.target.files && event.target.files[0];
   if (!file) return;
-  const proj = getProjects().find((p) => p.id === currentProjectId);
-  if (!proj) return;
+  // Read/write projects directly via localStorage (avoids ES-module closure issues)
+  var pid = currentProjectId;
+  var projs = JSON.parse(localStorage.getItem("glcapital_projects") || "[]");
+  var proj = projs.find(function (p) {
+    return p.id === pid;
+  });
+  if (!proj) {
+    return;
+  }
+  console.log("[RR Upload] project found:", proj.name);
   if (!proj.files) proj.files = [];
-  proj.files = (proj.files || []).filter(
-    (f) => !["Rent Roll"].includes(f.parsedAs || f.type),
-  );
-  const fileId = "f" + Date.now();
+  proj.files = proj.files.filter(function (f) {
+    return f.type !== "Rent Roll" && f.parsedAs !== "Rent Roll";
+  });
+  var fileId = "f" + Date.now();
   proj.files.push({
     id: fileId,
     name: file.name,
@@ -15504,44 +15802,70 @@ function handleRRUpload(event) {
     date: new Date().toLocaleDateString(),
     status: "parsed",
   });
-  saveProjects(getProjects().map((p) => (p.id === proj.id ? proj : p)));
+  localStorage.setItem("glcapital_projects", JSON.stringify(projs));
 
   // Store original file as dataUrl for preview
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const p2 = getProjects().find((p) => p.id === currentProjectId);
-    if (p2) {
-      const fObj = (p2.files || []).find((x) => x.id === fileId);
-      if (fObj) {
-        fObj.dataUrl = e.target.result;
-        fObj.mimeType = file.type || "application/octet-stream";
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      var projs2 = JSON.parse(
+        localStorage.getItem("glcapital_projects") || "[]",
+      );
+      var p2 = projs2.find(function (p) {
+        return p.id === pid;
+      });
+      if (p2) {
+        var fObj = (p2.files || []).find(function (x) {
+          return x.id === fileId;
+        });
+        if (fObj) {
+          fObj.dataUrl = e.target.result;
+          fObj.mimeType = file.type || "application/octet-stream";
+        }
+        localStorage.setItem("glcapital_projects", JSON.stringify(projs2));
+        renderRRTab(p2);
       }
-      saveProjects(getProjects().map((p) => (p.id === p2.id ? p2 : p)));
-      renderRRTab(p2);
+    } catch (err) {
+      /* ignore preview save errors */
     }
   };
   reader.readAsDataURL(file);
 
-  // Parse xlsx for Rent Roll data
-  const parseReader = new FileReader();
-  parseReader.onload = (e) => {
+  // Parse xlsx — detect all sheets (T12, RR, Debt) and parse accordingly
+  var parseReader = new FileReader();
+  parseReader.onload = function (e) {
     try {
-      _parseRRFromXlsx(e.target.result, currentProjectId);
+      var parsed = _parseUnderwritingXlsx(e.target.result, pid);
+      if (parsed.t12) _pfLoaded = true;
       renderRentRoll();
       buildPFUnitMix();
-      toast(
+      buildPFTable();
+      if (parsed.debt && typeof buildDebtAnalysis === "function")
+        buildDebtAnalysis();
+      // Refresh Summary tab: dual-source cells + KPI strip
+      var _p = JSON.parse(
+        localStorage.getItem("glcapital_projects") || "[]",
+      ).find(function (x) {
+        return x.id === pid;
+      });
+      if (typeof renderPFDualSource === "function") renderPFDualSource(_p);
+      if (typeof updateSummKpis === "function") updateSummKpis();
+      var msg =
         currentLang === "zh"
-          ? "租户清单已上传并解析"
-          : "Rent Roll uploaded and parsed",
-        "success",
-      );
+          ? "租户清单已上传并解析" +
+            (parsed.t12 ? " (含T12)" : "") +
+            (parsed.debt ? " (含Debt)" : "")
+          : "Rent Roll uploaded & parsed" +
+            (parsed.t12 ? " + T12" : "") +
+            (parsed.debt ? " + Debt" : "");
+      toast(msg, "success");
     } catch (err) {
       toast("Parse error: " + err.message, "error");
     }
   };
   parseReader.readAsArrayBuffer(file);
 
-  renderRRTab(proj);
+  _updateRRUI(proj);
   event.target.value = "";
   updateTabDots();
 }
@@ -18450,16 +18774,28 @@ _domReady(function setupListeners2() {
     saveAssumptions();
   });
 
-  // Dropzone click-to-upload
-  var t12Drop = document.querySelector(".t12-dropzone");
+  // Dropzone click-to-upload (use ID selectors matching JSX)
+  var t12Drop = document.getElementById("t12DropZone");
   if (t12Drop)
     t12Drop.addEventListener("click", function () {
       document.getElementById("t12Input").click();
     });
-  var rrDrop = document.querySelector(".rr-dropzone");
+  var rrDrop = document.getElementById("rrDropZone");
   if (rrDrop)
     rrDrop.addEventListener("click", function () {
       document.getElementById("rrInput").click();
+    });
+
+  // Native change listeners on file inputs (backup for React onChange)
+  var rrInput = document.getElementById("rrInput");
+  if (rrInput)
+    rrInput.addEventListener("change", function (e) {
+      handleRRUpload(e);
+    });
+  var t12Input = document.getElementById("t12Input");
+  if (t12Input)
+    t12Input.addEventListener("change", function (e) {
+      handleT12Upload(e);
     });
 });
 

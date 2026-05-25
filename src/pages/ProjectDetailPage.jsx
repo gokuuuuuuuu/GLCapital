@@ -956,10 +956,32 @@ export default function ProjectDetailPage() {
                         <th style={s("display:none")}>Source</th>
                         <th
                           style={s(
-                            "padding:8px 8px;text-align:center;font-weight:600;color:var(--header);white-space:nowrap;min-width:60px",
+                            "padding:4px 8px;text-align:center;font-weight:600;color:var(--header);white-space:nowrap;min-width:60px",
                           )}
                         >
-                          Units
+                          <div>Units</div>
+                          <select
+                            id="pfUnitsSrcSelect"
+                            style={{
+                              fontSize: "8px",
+                              padding: "1px 12px 1px 4px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "8px",
+                              background: "transparent",
+                              color: "var(--muted)",
+                              cursor: "pointer",
+                              outline: "none",
+                            }}
+                            onChange={(e) =>
+                              window.setUnitsSrc &&
+                              window.setUnitsSrc(e.target.value)
+                            }
+                          >
+                            <option value="auto">Auto</option>
+                            <option value="hd">HD</option>
+                            <option value="rr-total">RR Total</option>
+                            <option value="rr-occupied">RR Occupied</option>
+                          </select>
                         </th>
                         <th
                           style={s(
@@ -2478,12 +2500,12 @@ export default function ProjectDetailPage() {
                       <td className="pct-col"></td>
                       <td className="amount-col">
                         <select
-                          className="pct-input"
+                          className="pct-input cc-yes-no-select"
                           style={s("width:60px")}
-                          defaultValue="1"
+                          defaultValue="No"
                         >
-                          <option value="0">Yes</option>
-                          <option value="1">No</option>
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
                         </select>
                       </td>
                       <td className="notes-col" data-editable></td>
