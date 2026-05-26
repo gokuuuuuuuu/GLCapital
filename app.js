@@ -212,6 +212,27 @@ function _parseRRFromXlsx(buf, pid) {
   if (!ws) return null;
   var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
+  // Extract report date from header area (e.g. "As Of = 11/12/2025" or "Month = 11/2025")
+  var rrReportYear = null;
+  for (var ri = 0; ri < Math.min(rows.length, 8); ri++) {
+    var rr = rows[ri];
+    if (!rr) continue;
+    for (var ci2 = 0; ci2 < rr.length; ci2++) {
+      var cv = String(rr[ci2] || "");
+      var dateMatch = cv.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (dateMatch) {
+        rrReportYear = parseInt(dateMatch[3], 10);
+        break;
+      }
+      var monthMatch = cv.match(/(\d{1,2})\/(\d{4})/);
+      if (monthMatch) {
+        rrReportYear = parseInt(monthMatch[2], 10);
+        break;
+      }
+    }
+    if (rrReportYear) break;
+  }
+
   // Find header row: look for "Unit" and "Sqft" or "Rent"
   var headerIdx = -1;
   for (var i = 0; i < Math.min(rows.length, 10); i++) {
@@ -274,6 +295,7 @@ function _parseRRFromXlsx(buf, pid) {
   var colUnit = findCol(["unit"]);
   var colSqft = findCol(["sqft", "sq ft", "square"]);
   var colTenant = findCol(["tenant"]);
+  var colBeds = findCol(["bed", "bedroom", "br"]);
   var colRent = findCol(["actual rent", "contract rent", "rent"]);
   var colRentPsf = findCol(["rent per", "per sqft", "$/sf", "rent psf"]);
   var colTenantDep = findCol([
@@ -287,15 +309,78 @@ function _parseRRFromXlsx(buf, pid) {
   var colMoveOut = findCol(["move out", "move-out"]);
   var colBalance = findCol(["balance"]);
 
+  // Pre-scan: detect "% Unit Occupancy" in RR summary section
+  // Format: multi-row header with "% Unit" in one row and "Occupancy" below,
+  // then data rows like "Current/Notice/Vacant Tenants" with value in that column
+  var rrMeta = {};
+  for (var sr = startRow; sr < rows.length; sr++) {
+    var srow = rows[sr];
+    if (!srow) continue;
+    // Look for a row containing "% Unit" or "% unit occupancy" in any cell
+    var occCol = -1;
+    for (var sc = 0; sc < srow.length; sc++) {
+      var sv = String(srow[sc] || "")
+        .trim()
+        .toLowerCase();
+      if (sv === "% unit" || sv === "% unit occupancy" || sv === "occupancy") {
+        occCol = sc;
+      }
+    }
+    if (occCol < 0) continue;
+    // Check if next row also has "Occupancy" in the same or adjacent column (multi-row header)
+    var nextRow = rows[sr + 1];
+    if (nextRow) {
+      var nv = String(nextRow[occCol] || "")
+        .trim()
+        .toLowerCase();
+      if (nv === "occupancy" || nv === "occupied") {
+        // This is a two-row header; data starts at sr + 2
+        for (var dr = sr + 2; dr < Math.min(sr + 6, rows.length); dr++) {
+          var drow = rows[dr];
+          if (!drow) continue;
+          var fc = String(drow[0] || "").toLowerCase();
+          if (
+            fc.indexOf("current") !== -1 ||
+            fc.indexOf("occupied unit") !== -1
+          ) {
+            var ov = parseFloat(drow[occCol]);
+            if (!isNaN(ov) && ov > 0) {
+              rrMeta.unitOccupancy = ov <= 1 ? ov * 100 : ov;
+              break;
+            }
+          }
+        }
+        break;
+      }
+    }
+    // Single-row header: data follows immediately
+    for (var dr2 = sr + 1; dr2 < Math.min(sr + 5, rows.length); dr2++) {
+      var drow2 = rows[dr2];
+      if (!drow2) continue;
+      var ov2 = parseFloat(drow2[occCol]);
+      if (!isNaN(ov2) && ov2 > 0) {
+        rrMeta.unitOccupancy = ov2 <= 1 ? ov2 * 100 : ov2;
+        break;
+      }
+    }
+    break;
+  }
+
   var units = [];
   for (var r = startRow; r < rows.length; r++) {
     var row = rows[r];
     if (!row) continue;
     var unitVal = row[colUnit];
     if (unitVal == null || String(unitVal).trim() === "") continue;
+    var unitLower = String(unitVal).toLowerCase();
     // Skip summary/total rows
-    if (String(unitVal).toLowerCase().indexOf("total") !== -1) continue;
-    if (String(unitVal).toLowerCase().indexOf("occupied") !== -1) continue;
+    if (unitLower.indexOf("total") !== -1) continue;
+    if (unitLower.indexOf("occupied") !== -1) continue;
+    if (unitLower.indexOf("summary") !== -1) continue;
+    if (unitLower.indexOf("current/notice") !== -1) continue;
+    if (unitLower.indexOf("future tenant") !== -1) continue;
+    if (unitLower.indexOf("vacant unit") !== -1) continue;
+    if (unitLower.indexOf("non rev") !== -1) continue;
 
     var rent = colRent >= 0 ? parseFloat(row[colRent]) || 0 : 0;
     var sqft = colSqft >= 0 ? parseFloat(row[colSqft]) || 0 : 0;
@@ -324,6 +409,7 @@ function _parseRRFromXlsx(buf, pid) {
     units.push({
       unit: String(unitVal).trim(),
       sqft: sqft,
+      beds: colBeds >= 0 ? parseInt(row[colBeds], 10) || null : null,
       tenant: String(tenant).trim(),
       actual_rent: rent,
       rent_psf:
@@ -343,7 +429,14 @@ function _parseRRFromXlsx(buf, pid) {
     });
   }
 
-  if (pid) _saveRRData(pid, units);
+  if (pid) {
+    _saveRRData(pid, units);
+    // Save RR metadata (occupancy, report year, etc.)
+    if (rrReportYear) rrMeta.reportYear = rrReportYear;
+    if (Object.keys(rrMeta).length > 0) {
+      localStorage.setItem("rr_meta_" + pid, JSON.stringify(rrMeta));
+    }
+  }
   return units;
 }
 
@@ -5511,7 +5604,7 @@ function _parseHelloDataUnitMix(arrayBuffer, fileName) {
   return dataRows;
 }
 
-// ── HelloData Rent Comps Parser — extract subject property units ──────────
+// ── HelloData Rent Comps Parser — extract subject property data ──────────
 function _parseHelloDataRentComps(arrayBuffer) {
   if (typeof XLSX === "undefined") return null;
   var wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
@@ -5522,29 +5615,67 @@ function _parseHelloDataRentComps(arrayBuffer) {
     defval: null,
     raw: true,
   });
-  // Header row has "# Units" at column index 6 (row index 2)
+  // Find header row — look for "# Units" column
   var headerIdx = -1;
-  var unitsCol = -1;
+  var colMap = {};
   for (var h = 0; h < Math.min(rows.length, 10); h++) {
     var row = rows[h];
     if (!row) continue;
     for (var c = 0; c < row.length; c++) {
       if (row[c] && typeof row[c] === "string" && /# *units/i.test(row[c])) {
         headerIdx = h;
-        unitsCol = c;
         break;
       }
     }
     if (headerIdx >= 0) break;
   }
-  if (headerIdx < 0 || unitsCol < 0) return null;
+  if (headerIdx < 0) return null;
+  // Map all header columns
+  var hdr = rows[headerIdx];
+  for (var ci = 0; ci < hdr.length; ci++) {
+    if (!hdr[ci] || typeof hdr[ci] !== "string") continue;
+    var norm = hdr[ci].trim().toLowerCase();
+    if (/^property$/i.test(norm) || /property *name/i.test(norm))
+      colMap.property = ci;
+    if (/^address$/i.test(norm)) colMap.address = ci;
+    if (/# *units/i.test(norm)) colMap.units = ci;
+    if (/yr *built/i.test(norm) || /year *built/i.test(norm))
+      colMap.yrBuilt = ci;
+    if (
+      /leased *%/i.test(norm) ||
+      /^leased$/i.test(norm) ||
+      /occupancy/i.test(norm)
+    )
+      colMap.leasedPct = ci;
+  }
+  if (colMap.units === undefined) return null;
   // Subject property is the first data row (row after header)
   var subjectRow = rows[headerIdx + 1];
   if (!subjectRow) return null;
-  var units = parseInt(subjectRow[unitsCol], 10);
-  return isNaN(units) || units <= 0
-    ? null
-    : { units: units, propertyName: subjectRow[0] || "" };
+  var units = parseInt(subjectRow[colMap.units], 10);
+  if (isNaN(units) || units <= 0) return null;
+  var result = {
+    units: units,
+    propertyName:
+      colMap.property !== undefined
+        ? subjectRow[colMap.property] || ""
+        : subjectRow[0] || "",
+  };
+  if (colMap.address !== undefined && subjectRow[colMap.address]) {
+    result.address = String(subjectRow[colMap.address]).trim();
+  }
+  if (colMap.yrBuilt !== undefined && subjectRow[colMap.yrBuilt]) {
+    var yb = parseInt(subjectRow[colMap.yrBuilt], 10);
+    if (!isNaN(yb) && yb > 1800) result.yrBuilt = yb;
+  }
+  if (colMap.leasedPct !== undefined && subjectRow[colMap.leasedPct] != null) {
+    var lp = parseFloat(subjectRow[colMap.leasedPct]);
+    if (!isNaN(lp)) {
+      // If value > 1, treat as percentage already; else multiply by 100
+      result.leasedPct = lp > 1 ? lp : lp * 100;
+    }
+  }
+  return result;
 }
 function getHDRentComps(pid) {
   try {
@@ -5557,6 +5688,57 @@ function getHDRentComps(pid) {
 }
 function _saveHDRentComps(pid, d) {
   localStorage.setItem("hd_rc_" + (pid || currentProjectId), JSON.stringify(d));
+}
+
+// ── HelloData Pro Forma Model: Deal Assumptions parser ──────────
+function _parseHelloDataDealAssumptions(arrayBuffer) {
+  if (typeof XLSX === "undefined") return null;
+  var wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
+  var ws = wb.Sheets["Pro Forma Model"];
+  if (!ws) return null;
+  var rows = XLSX.utils.sheet_to_json(ws, {
+    header: 1,
+    defval: null,
+    raw: true,
+  });
+  var result = {};
+  var inDealSection = false;
+  for (var i = 0; i < Math.min(rows.length, 30); i++) {
+    var r = rows[i];
+    if (!r) continue;
+    var label = String(r[0] || "").trim();
+    if (/deal.assumption/i.test(label)) {
+      inDealSection = true;
+      continue;
+    }
+    if (/capital.improvement/i.test(label)) break; // end of Deal Assumptions
+    if (!inDealSection || !label) continue;
+    // Value is in col 1-4 (Deal Assumptions area, before Financing at col 5+)
+    var val = null;
+    for (var c = 1; c <= 4 && c < r.length; c++) {
+      if (r[c] != null && typeof r[c] === "number") {
+        val = r[c];
+        break;
+      }
+    }
+    if (val != null) result[label] = val;
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+function getHDDealAssumptions(pid) {
+  try {
+    return JSON.parse(
+      localStorage.getItem("hd_deal_" + (pid || currentProjectId)) || "null",
+    );
+  } catch (e) {
+    return null;
+  }
+}
+function _saveHDDealAssumptions(pid, d) {
+  localStorage.setItem(
+    "hd_deal_" + (pid || currentProjectId),
+    JSON.stringify(d),
+  );
 }
 
 // Find HD value by partial label match → returns number or null
@@ -5624,6 +5806,7 @@ function handleHDUpload(evt) {
       var parsed = _parseHelloDataFA(e.target.result);
       var umix = _parseHelloDataUnitMix(e.target.result, file.name);
       var rc = _parseHelloDataRentComps(e.target.result);
+      var deal = _parseHelloDataDealAssumptions(e.target.result);
       if (!parsed && !umix) {
         toast("No Financial Analysis or Unit Mix sheet found", "error");
         return;
@@ -5637,6 +5820,7 @@ function handleHDUpload(evt) {
         setHDUmixHidden(pid, false); // reset hidden on new upload
       }
       if (rc) _saveHDRentComps(pid, rc);
+      if (deal) _saveHDDealAssumptions(pid, deal);
       _saveHDMeta(pid, {
         fileName: file.name,
         date: new Date().toISOString().slice(0, 10),
@@ -5649,6 +5833,7 @@ function handleHDUpload(evt) {
       _renderHDParsedContent();
       buildPFTable();
       buildPFUnitMix();
+      if (typeof populateSummary === "function") populateSummary();
       var parts = [];
       if (parsed) parts.push(Object.keys(parsed).length + " FA rows");
       if (umix) parts.push(umix.length + " unit types");
@@ -5675,10 +5860,13 @@ function clearHDData() {
   localStorage.removeItem("hd_umix_hidden_" + pid);
   localStorage.removeItem("hd_file_" + pid);
   localStorage.removeItem("hd_rc_" + pid);
+  localStorage.removeItem("hd_deal_" + pid);
   _refreshHDUploadUI();
   _renderHDParsedContent();
   buildPFTable();
   buildPFUnitMix();
+  _helloDataMock = {};
+  if (typeof populateSummary === "function") populateSummary();
   toast(currentLang === "zh" ? "HelloData 数据已移除" : "HelloData removed");
 }
 window.clearHDData = clearHDData;
@@ -6118,21 +6306,183 @@ function toggleL2Fold(secName) {
 window.toggleL2Fold = toggleL2Fold;
 
 // Origination Fee = % × New Loan Size (from Refinance Event tab)
-function recalcOriginationFee() {
-  var pctEl = document.getElementById("ccOrigFeePct");
-  var amtEl = document.getElementById("ccOrigFeeAmt");
-  var loanEl = document.getElementById("refiNewLoanSize");
-  if (!pctEl || !amtEl || !loanEl) return;
-  var pctRaw = (pctEl.value || "").trim().replace("%", "").replace(/,/g, "");
+// ─── Closing Costs: row & total recalculation ────────────────────────────
+function _ccGetPurchasePrice() {
+  var proj = getProjects().find(function (p) {
+    return p.id === currentProjectId;
+  });
+  return (proj && proj.offerPrice) || 0;
+}
+function _ccGetNewLoanSize() {
+  var el = document.getElementById("refiNewLoanSize");
+  if (!el) return 0;
+  return parseFloat((el.textContent || "").replace(/[\$,\s\u00a0]/g, "")) || 0;
+}
+
+function recalcClosingCostRow(inputEl) {
+  if (!inputEl) return;
+  var ccType = inputEl.getAttribute("data-cc-type");
+  var ccId = inputEl.getAttribute("data-cc-id");
+  if (!ccId) return;
+  var pctRaw = (inputEl.value || "").trim().replace("%", "").replace(/,/g, "");
   var pct = parseFloat(pctRaw);
   if (isNaN(pct)) return;
-  var loanRaw = (loanEl.textContent || "").trim().replace(/[\$,\s]/g, "");
-  var loan = parseFloat(loanRaw);
-  if (isNaN(loan) || loan <= 0) return;
-  var fee = (pct / 100) * loan;
-  amtEl.textContent = "$" + Math.round(fee).toLocaleString();
+  var base =
+    ccType === "pct-loan" ? _ccGetNewLoanSize() : _ccGetPurchasePrice();
+  var amtEl = document.getElementById(ccId + "Amt");
+  if (!amtEl || base <= 0) return;
+  var amt = (pct / 100) * base;
+  amtEl.textContent = "$\u00a0" + Math.round(amt).toLocaleString();
+  recalcClosingCostTotals();
+}
+window.recalcClosingCostRow = recalcClosingCostRow;
+
+// Legacy alias
+function recalcOriginationFee() {
+  var el = document.getElementById("ccOrigFeePct");
+  if (el) recalcClosingCostRow(el);
 }
 window.recalcOriginationFee = recalcOriginationFee;
+
+function recalcClosingCostTotals() {
+  // Re-compute all pct rows with current Purchase Price / Loan Size
+  document
+    .querySelectorAll("#pfsp-pf-closing .cc-pct-input")
+    .forEach(function (inp) {
+      var val = (inp.value || "").trim();
+      if (val) recalcClosingCostRow(inp);
+    });
+  var total = 0;
+  document
+    .querySelectorAll("#pfsp-pf-closing .cc-row .amount-col")
+    .forEach(function (td) {
+      var txt = (td.textContent || "").replace(/[\$,\s\u00a0]/g, "");
+      var v = parseFloat(txt);
+      if (!isNaN(v)) total += v;
+    });
+  var totalEl = document.getElementById("ccTotalAmt");
+  var pctEl = document.getElementById("ccTotalPct");
+  if (totalEl)
+    totalEl.textContent =
+      total > 0 ? "$\u00a0" + Math.round(total).toLocaleString() : "—";
+  var purchase = _ccGetPurchasePrice();
+  if (pctEl) {
+    // Computed: Total / Purchase Price
+    var computedPct = total > 0 && purchase > 0 ? (total / purchase) * 100 : 0;
+    // HD source: Pro Forma Model → Deal Assumptions → Closing Costs
+    var deal = getHDDealAssumptions(currentProjectId);
+    var hdPct =
+      deal && deal["Closing Costs"] != null ? deal["Closing Costs"] : null;
+    if (hdPct != null) hdPct = hdPct <= 1 ? hdPct * 100 : hdPct; // normalize to %
+
+    if (computedPct > 0) {
+      pctEl.textContent = computedPct.toFixed(2) + "%";
+      // Show HD comparison if available and different
+      if (hdPct != null && Math.abs(hdPct - computedPct) > 0.01) {
+        pctEl.title =
+          "Computed: " +
+          computedPct.toFixed(2) +
+          "% · HD Deal Assumptions: " +
+          hdPct.toFixed(2) +
+          "%";
+      }
+    } else if (hdPct != null && hdPct > 0) {
+      pctEl.textContent = hdPct.toFixed(2) + "%";
+      pctEl.title = "From HD Pro Forma Model: Deal Assumptions";
+    } else {
+      pctEl.textContent = "—";
+    }
+  }
+}
+window.recalcClosingCostTotals = recalcClosingCostTotals;
+
+// ─── Purchase Price: auto-populate computed fields ───────────────────────
+function buildPurchasePrice() {
+  var pid = window._currentProjectId || currentProjectId || "default";
+  var proj = getProjects().find(function (p) {
+    return p.id === pid;
+  });
+  var deal = getHDDealAssumptions(pid);
+
+  function _set(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+  function fmtM(v) {
+    return v ? "$\u00a0" + Math.round(v).toLocaleString() : "—";
+  }
+
+  // 1. Purchase Price (As-is value): from project offerPrice or HD Deal Assumptions
+  var ppEl = document.getElementById("ppAsIsValue");
+  var pp = 0;
+  if (ppEl) {
+    var existing = parseFloat(
+      (ppEl.textContent || "").replace(/[\$,\s\u00a0—]/g, ""),
+    );
+    if (!isNaN(existing) && existing > 0) {
+      pp = existing;
+    } else if (proj && proj.offerPrice) {
+      pp = proj.offerPrice;
+      ppEl.textContent = fmtM(pp);
+    } else if (
+      deal &&
+      deal["Purchase Price"] &&
+      deal["Purchase Price"] > 1000
+    ) {
+      pp = deal["Purchase Price"];
+      ppEl.textContent = fmtM(pp);
+    }
+  }
+
+  // 2. Per Unit: Purchase Price ÷ units
+  var units = 0;
+  var rrRows = _getRRData(pid) || RR_DATA || [];
+  units = rrRows.length;
+  if (!units) {
+    var rc = getHDRentComps(pid);
+    if (rc && rc.units) units = rc.units;
+  }
+  _set("ppPerUnit", pp && units ? fmtM(pp / units) : "—");
+
+  // 3. NOI for Year 1: from acquisition year's NOI
+  var asmt =
+    typeof getProjectAssumptions === "function" ? getProjectAssumptions() : {};
+  var ay = asmt.acquisitionYear || 2026;
+  var rrMeta = typeof _getRRMeta === "function" ? _getRRMeta(pid) : null;
+  var y1 = rrMeta && rrMeta.reportYear ? rrMeta.reportYear : ay - 1;
+  var noiY1 = 0;
+  // Try from NOI cache
+  if (window._noiTotals && window._noiTotals.length > 0) {
+    noiY1 = window._noiTotals[0] || 0;
+  }
+  _set("ppNOIY1", noiY1 ? fmtM(noiY1) : "—");
+
+  // 4. Cap Rate: NOI ÷ Purchase Price
+  _set("ppCapRateYearLabel", "Year 1");
+  _set("ppCapRate", noiY1 && pp ? ((noiY1 / pp) * 100).toFixed(2) + "%" : "—");
+
+  // 5. Closing Cost Percentage: Total Closing Costs ÷ Purchase Price
+  var ccTotalEl = document.getElementById("ccTotalAmt");
+  var ccTotal = ccTotalEl
+    ? parseFloat((ccTotalEl.textContent || "").replace(/[\$,\s\u00a0—]/g, ""))
+    : 0;
+  if (isNaN(ccTotal)) ccTotal = 0;
+  _set(
+    "ppClosingPct",
+    ccTotal && pp ? ((ccTotal / pp) * 100).toFixed(2) + "%" : "—",
+  );
+
+  // 6. Closing Costs: from Closing Costs tab total
+  _set("ppClosingCosts", ccTotal ? fmtM(ccTotal) : "—");
+
+  // 7. Total Acquisition Cost: Closing Costs + Purchase Price
+  var totalAcq = pp + ccTotal;
+  _set("ppTotalAcqCost", totalAcq > 0 ? fmtM(totalAcq) : "—");
+
+  // 8. Total Cost (excludes capex): same as Total Acquisition Cost
+  _set("ppTotalCost", totalAcq > 0 ? fmtM(totalAcq) : "—");
+}
+window.buildPurchasePrice = buildPurchasePrice;
 
 // Project-level units override (used by all rows in Revenue & Expenses tables)
 // Units source for Revenue & Expenses: 'hd' | 'rr-total' | 'rr-occupied' | 'manual'
@@ -7230,7 +7580,7 @@ function saveAssumptions() {
   if (typeof _refreshYearHeaders === "function") _refreshYearHeaders();
   if (typeof buildPFUnitMix === "function") buildPFUnitMix(); // refresh Rent Roll year-labeled columns
   buildPFTable();
-  if (typeof updateSummKpis === "function") updateSummKpis();
+  if (typeof populateSummary === "function") populateSummary();
   toast("Assumptions saved — projections updated");
 }
 
@@ -7837,17 +8187,17 @@ function buildIncomeTable() {
     _populateHDL1Aggregates(_hdForPopulate);
   }
 
-  // If no HD data uploaded, show empty state — keep headers, show placeholder in body
+  // If no data uploaded at all (no HD and no T12), show empty state
   var _hdMeta = getHDMeta(currentProjectId);
   var _colHdrRow = document.getElementById("pfRevColHdrRow");
   if (_colHdrRow) _colHdrRow.style.display = "";
-  if (!_hdMeta) {
+  if (!_hdMeta && !_pfLoaded) {
     var zh = currentLang === "zh";
     upperBody.innerHTML =
       '<tr><td colspan="11" style="padding:40px 14px;text-align:center;color:var(--muted);font-size:13px">' +
       (zh
-        ? "请先上传 HelloData 文件以填充收入数据"
-        : "Upload a HelloData file to populate income data") +
+        ? "请先上传 T12 或 HelloData 文件以填充收入数据"
+        : "Upload a T12 or HelloData file to populate income data") +
       "</td></tr>";
     if (upperSub) upperSub.innerHTML = "";
     if (lowerBody) lowerBody.innerHTML = "";
@@ -8772,17 +9122,17 @@ function buildExpenseTable() {
     _populateHDL1Aggregates(_hdForExpPopulate);
   }
 
-  // If no HD data uploaded, show empty state — keep headers, show placeholder in body
+  // If no data uploaded at all (no HD and no T12), show empty state
   var _hdMetaExp = getHDMeta(currentProjectId);
   var _expColHdrRow = document.getElementById("pfExpColHdrRow");
   if (_expColHdrRow) _expColHdrRow.style.display = "";
-  if (!_hdMetaExp) {
+  if (!_hdMetaExp && !_pfLoaded) {
     var zh = currentLang === "zh";
     upperBody.innerHTML =
       '<tr><td colspan="11" style="padding:40px 14px;text-align:center;color:var(--muted);font-size:13px">' +
       (zh
-        ? "请先上传 HelloData 文件以填充费用数据"
-        : "Upload a HelloData file to populate expense data") +
+        ? "请先上传 T12 或 HelloData 文件以填充费用数据"
+        : "Upload a T12 or HelloData file to populate expense data") +
       "</td></tr>";
     window._expenseTotals = new Array(7).fill(0);
     return;
@@ -11445,19 +11795,140 @@ function buildPFUnitMix() {
   var headEl = document.getElementById("pfUnitMixHead");
   var bodyEl = document.getElementById("pfUnitMixBody");
   if (!headEl || !bodyEl) return;
+  var pid = window._currentProjectId || currentProjectId || "default";
+  var hdUmix = getHDUnitMix(pid);
+  var hasRRData = (_getRRData(pid) || RR_DATA || []).length > 0;
+  var hasHDUmix = hdUmix && hdUmix.length > 0;
   // Show empty table when no data uploaded
-  if (!_pfLoaded) {
+  if (!_pfLoaded && !hasRRData && !hasHDUmix) {
     headEl.innerHTML =
       "<tr><th>Unit Types</th><th># Units</th><th>Bedroom</th><th>SQF</th></tr>";
     bodyEl.innerHTML =
       '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">—</td></tr>';
     return;
   }
-
-  var pid = window._currentProjectId || currentProjectId || "default";
-  var hdUmix = getHDUnitMix(pid);
   var hdMeta = getHDMeta(pid);
   var showHD = hdUmix && hdUmix.length > 0 && !isHDUmixHidden(pid);
+
+  // ── Build PF_DATA.unitMix from RR + HD data ──
+  var rrRows = _getRRData(pid) || RR_DATA || [];
+  if (rrRows.length > 0 || showHD) {
+    // Group RR units by sqft
+    var sqftGroups = {};
+    rrRows.forEach(function (r) {
+      var sqft = r.sqft || 0;
+      if (!sqftGroups[sqft]) sqftGroups[sqft] = [];
+      sqftGroups[sqft].push(r);
+    });
+    var sortedSqfts = Object.keys(sqftGroups)
+      .map(Number)
+      .sort(function (a, b) {
+        return a - b;
+      });
+
+    // Build unit mix rows
+    var mixRows = [];
+    if (sortedSqfts.length > 0) {
+      // Track beds-to-sqft mapping for naming with suffix
+      var bedsSqftMap = {}; // beds → [sqft1, sqft2, ...]
+      sortedSqfts.forEach(function (sqft) {
+        var hdMatch = sqft ? _findHDBySqft(hdUmix, sqft) : null;
+        var beds = hdMatch ? hdMatch.beds : null;
+        // Try to get beds from RR data if RR has it
+        var rrGroup = sqftGroups[sqft];
+        if (beds == null && rrGroup.length > 0 && rrGroup[0].beds != null) {
+          beds = rrGroup[0].beds;
+        }
+        if (beds != null) {
+          if (!bedsSqftMap[beds]) bedsSqftMap[beds] = [];
+          bedsSqftMap[beds].push(sqft);
+        }
+      });
+
+      sortedSqfts.forEach(function (sqft) {
+        var group = sqftGroups[sqft];
+        var hdMatch = sqft ? _findHDBySqft(hdUmix, sqft) : null;
+
+        // Unit Types: HD Floorplan Name if available, else sqft
+        var typeName;
+        if (hdMatch && hdMatch.floorplan) {
+          typeName = hdMatch.floorplan;
+          // If same beds has multiple sqft groups, add suffix
+          var beds = hdMatch.beds;
+          if (
+            beds != null &&
+            bedsSqftMap[beds] &&
+            bedsSqftMap[beds].length > 1
+          ) {
+            typeName = typeName + " (" + sqft + ")";
+          }
+        } else {
+          typeName = sqft + "";
+        }
+
+        // # Units: count of all units in group (including vacant)
+        var unitCount = group.length;
+
+        // Bedroom: from HD match or RR data
+        var beds = null;
+        if (hdMatch) beds = hdMatch.beds;
+        if (beds == null) {
+          // Try from RR data if it has beds field
+          for (var ri = 0; ri < group.length; ri++) {
+            if (group[ri].beds != null) {
+              beds = group[ri].beds;
+              break;
+            }
+          }
+        }
+
+        // As-is Rent: average of actual_rent > 0 (exclude vacant/zero rent)
+        var rentsAboveZero = group.filter(function (r) {
+          return r.actual_rent > 0;
+        });
+        var asIsRent =
+          rentsAboveZero.length > 0
+            ? rentsAboveZero.reduce(function (s, r) {
+                return s + r.actual_rent;
+              }, 0) / rentsAboveZero.length
+            : 0;
+
+        mixRows.push({
+          type: typeName,
+          units: unitCount,
+          beds: beds,
+          sqft: sqft,
+          asIsRent: Math.round(asIsRent),
+          growthRent: null, // user manual input
+        });
+      });
+    } else if (showHD) {
+      // No RR data, use HD Unit Mix only
+      hdUmix.forEach(function (hd) {
+        mixRows.push({
+          type: hd.floorplan || hd.beds + "BR",
+          units: hd.units || 0,
+          beds: hd.beds,
+          sqft: hd.sqft || 0,
+          asIsRent: Math.round(hd.leasedRent || 0),
+          growthRent: null,
+        });
+      });
+    }
+
+    // Preserve user-entered growthRent from existing PF_DATA.unitMix
+    var oldMix = PF_DATA.unitMix || [];
+    mixRows.forEach(function (row, idx) {
+      if (oldMix[idx] && oldMix[idx].growthRent != null) {
+        row.growthRent = oldMix[idx].growthRent;
+      }
+    });
+
+    // Add Total row
+    mixRows.push({ type: "Total", isTotal: true });
+    PF_DATA.unitMix = mixRows;
+  }
+
   var isEdit = window._globalEditMode || false;
   var metricKey = _getHDMetricKey(pid);
   var metricInfo =
@@ -11542,11 +12013,15 @@ function buildPFUnitMix() {
       "</option>";
   });
   headerSelHtml += "</select>";
-  var _rrAY =
-    (typeof getProjectAssumptions === "function"
-      ? getProjectAssumptions().acquisitionYear
-      : 2026) || 2026;
-  var _rrAsIsYr = _rrAY - 1;
+  // Year labels: prefer RR report year, fallback to acquisitionYear - 1
+  var _rrMeta = _getRRMeta(pid);
+  var _rrAsIsYr =
+    _rrMeta && _rrMeta.reportYear
+      ? _rrMeta.reportYear
+      : ((typeof getProjectAssumptions === "function"
+          ? getProjectAssumptions().acquisitionYear
+          : 2026) || 2026) - 1;
+  var _rrAY = _rrAsIsYr + 1;
   theadHtml +=
     '<th style="' +
     thB +
@@ -13088,13 +13563,6 @@ function savePF() {
   if (hdr) hdr.innerHTML = renderAIScoreBadge(currentProjectId, "md");
   toast(currentLang === "zh" ? "分析已保存" : "Pro forma saved", "success");
 }
-function fetchAllAPIs() {
-  toast("Fetching RentCast · ATTOM · HelloData…");
-  setTimeout(
-    () => toast("15 fields auto-filled from 3 sources", "success"),
-    1800,
-  );
-}
 function exportPDF() {
   toast("Generating PDF export…");
   setTimeout(() => toast("PDF ready — check Downloads", "success"), 1600);
@@ -13878,18 +14346,16 @@ function switchProjTab(tab, btn) {
     if (proj) {
       _updateT12UI(proj);
       renderT12Parsed(proj);
-    }
-  }
-  if (tab === "rentroll") {
-    if (proj) {
       _updateRRUI(proj);
       renderRRParsed(proj);
-      renderRentRoll();
     }
-  }
-  if (tab === "hellodata") {
     _refreshHDUploadUI();
     _renderHDParsedContent();
+  }
+  // Legacy aliases — redirect to files tab
+  if (tab === "rentroll" || tab === "hellodata" || tab === "debt") {
+    switchProjTab("files", document.getElementById("ptab-files"));
+    return;
   }
 }
 
@@ -13899,6 +14365,26 @@ function openProjectAnalysis(pid) {
   window.currentProjectId = pid;
   window._currentProjectId = pid;
   _loadPfManualVals();
+  // Reset edit mode on project open
+  if (_globalEditMode) {
+    _globalEditMode = false;
+    _t12EditMode = false;
+    _rrEditMode = false;
+    _debtEditMode = false;
+    _pfEditMode = false;
+    pfEditMode = false;
+    var editBtn = document.getElementById("globalEditToggleBtn");
+    var editLbl = document.getElementById("globalEditToggleLabel");
+    if (editBtn) {
+      editBtn.style.background = "";
+      editBtn.style.borderColor = "";
+      editBtn.style.color = "";
+    }
+    if (editLbl)
+      editLbl.textContent = currentLang === "zh" ? "编辑模式" : "Edit Mode";
+    var detailPage = document.getElementById("page-project-detail");
+    if (detailPage) detailPage.classList.remove("edit-mode");
+  }
   const proj = getProjects().find((p) => p.id === pid);
   if (!proj) return;
   // Update detail page header
@@ -13935,7 +14421,7 @@ function openProjectAnalysis(pid) {
   setTimeout(function () {
     _checkPFEmptyState(proj);
     if (typeof renderRentRoll === "function") renderRentRoll();
-    if (typeof updateSummKpis === "function") updateSummKpis();
+    if (typeof populateSummary === "function") populateSummary();
   }, 0);
   // Update dropdown names
   ["pf", "rr", "debt"].forEach((id) => {
@@ -14030,8 +14516,7 @@ function handleT12Upload(event) {
       ).find(function (x) {
         return x.id === pid;
       });
-      if (typeof renderPFDualSource === "function") renderPFDualSource(_p2);
-      if (typeof updateSummKpis === "function") updateSummKpis();
+      if (typeof populateSummary === "function") populateSummary();
       toast(
         currentLang === "zh"
           ? "T12文件已上传并解析" +
@@ -15848,8 +16333,7 @@ function handleRRUpload(event) {
       ).find(function (x) {
         return x.id === pid;
       });
-      if (typeof renderPFDualSource === "function") renderPFDualSource(_p);
-      if (typeof updateSummKpis === "function") updateSummKpis();
+      if (typeof populateSummary === "function") populateSummary();
       var msg =
         currentLang === "zh"
           ? "租户清单已上传并解析" +
@@ -16767,17 +17251,32 @@ function togglePFSec(secId) {
   if (hdr) hdr.classList.toggle("open", !isOpen);
 }
 
+function _getRRMeta(pid) {
+  try {
+    return JSON.parse(
+      localStorage.getItem("rr_meta_" + (pid || currentProjectId)) || "null",
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
 function renderPFDualSource(proj) {
-  var rows = _getRRData(currentProjectId) || RR_DATA || [];
-  // Compute RR-derived values — occupied = has real tenant AND valid lease (filter out "OCCUPIED" placeholders)
+  var pid = window._currentProjectId || currentProjectId || "default";
+  var rows = _getRRData(pid) || RR_DATA || [];
+  var rrMeta = _getRRMeta(pid);
+  // RR occupancy: prefer %Unit Occupancy from RR file summary, else compute from unit data
   var rrUnits = rows.length;
-  var rrOccupied = rows.filter(function (r) {
-    var t = (r.tenant || "").trim();
-    return t && t !== "OCCUPIED" && !!r.lease_exp;
-  }).length;
-  var rrOcc = rrUnits
-    ? parseFloat(((rrOccupied / rrUnits) * 100).toFixed(1))
-    : 0;
+  var rrOcc;
+  if (rrMeta && rrMeta.unitOccupancy != null) {
+    rrOcc = parseFloat(rrMeta.unitOccupancy.toFixed(1));
+  } else {
+    var rrOccupied = rows.filter(function (r) {
+      var t = (r.tenant || "").trim().toUpperCase();
+      return t && t !== "VACANT" && t !== "OCCUPIED";
+    }).length;
+    rrOcc = rrUnits ? parseFloat(((rrOccupied / rrUnits) * 100).toFixed(1)) : 0;
+  }
 
   var apiOcc = _helloDataMock.occupancy;
   var apiUnits = _helloDataMock.units;
@@ -16786,19 +17285,25 @@ function renderPFDualSource(proj) {
   var unitsCell = document.getElementById("pfSummUnitsCell");
   if (!occCell || !unitsCell) return;
 
+  // Only show dual-source when both sources have data; otherwise show single source
+  var rrOccStr = rrUnits ? rrOcc + "%" : "—";
+  var hdOccStr = apiOcc != null ? apiOcc + "%" : "—";
+  var rrUnitsStr = rrUnits ? rrUnits + "" : "—";
+  var hdUnitsStr = apiUnits != null ? apiUnits + "" : "—";
+
   occCell.innerHTML = _dualSrcHtml(
     "occ",
     _pfSourceSel.occ,
-    rrOcc + "%",
-    apiOcc + "%",
+    rrOccStr,
+    hdOccStr,
     "RR",
     "HelloData",
   );
   unitsCell.innerHTML = _dualSrcHtml(
     "units",
     _pfSourceSel.units,
-    rrUnits + "",
-    apiUnits + "",
+    rrUnitsStr,
+    hdUnitsStr,
     "RR",
     "HelloData",
   );
@@ -16822,8 +17327,8 @@ function _dualSrcHtml(field, sel, rrVal, apiVal, rrLabel, apiLabel) {
     activeVal = rrVal;
     activeColor = rrC;
   }
-  // Build dropdown options — only show Manual when applicable (always offered)
-  var opts = [
+  // Build dropdown options — only include sources that have data
+  var allOpts = [
     { val: "rr", label: rrLabel, display: rrVal, color: rrC },
     { val: "api", label: apiLabel, display: apiVal, color: hdC },
     {
@@ -16833,6 +17338,60 @@ function _dualSrcHtml(field, sel, rrVal, apiVal, rrLabel, apiLabel) {
       color: mnC,
     },
   ];
+  // Filter: hide RR/HD option if its value is "—" (no data); always keep Manual in edit mode
+  var opts = allOpts.filter(function (o) {
+    if (o.val === "manual") return isEdit;
+    return o.display !== "—";
+  });
+  // If selected source was filtered out, fall back to first available
+  var hasSel = opts.some(function (o) {
+    return o.val === sel;
+  });
+  if (!hasSel && opts.length > 0) {
+    sel = opts[0].val;
+    _pfSourceSel[field] = sel;
+    // Recalculate active value
+    if (sel === "manual") {
+      activeVal = manualVal !== undefined && manualVal !== "" ? manualVal : "—";
+      activeColor = mnC;
+    } else if (sel === "api") {
+      activeVal = apiVal;
+      activeColor = hdC;
+    } else {
+      activeVal = rrVal;
+      activeColor = rrC;
+    }
+  }
+  // Hide switcher when not needed:
+  // - Only one data source has data, OR
+  // - Multiple sources have data but values are identical
+  var dataSources = opts.filter(function (o) {
+    return o.val !== "manual";
+  });
+  var allSame =
+    dataSources.length >= 2 &&
+    dataSources.every(function (o) {
+      return o.display === dataSources[0].display;
+    });
+  if ((dataSources.length <= 1 || allSame) && !isEdit) {
+    var showVal = dataSources.length >= 1 ? dataSources[0].display : "—";
+    var showColor = dataSources.length >= 1 ? dataSources[0].color : rrC;
+    // When values match, show value with a tooltip listing all sources
+    var tip = dataSources
+      .map(function (o) {
+        return o.label + ": " + o.display;
+      })
+      .join(" · ");
+    return (
+      '<span style="font-size:13px;font-weight:700;color:' +
+      showColor.tag +
+      ';font-variant-numeric:tabular-nums" title="' +
+      tip +
+      '">' +
+      showVal +
+      "</span>"
+    );
+  }
   var selOpts = opts
     .map(function (o) {
       return (
@@ -16916,6 +17475,81 @@ function selectPFSource(field, src) {
   toast("Source: " + (srcNames[src] || src) + " · " + field.toUpperCase());
 }
 window.selectPFSource = selectPFSource;
+
+// ─── POPULATE SUMMARY FIELDS ─────────────────────────────────────────────────
+// Fills all Summary section cells from available data: project info, HD Rent Comps, RR data
+function populateSummary() {
+  var pid = window._currentProjectId || currentProjectId || "default";
+  var projs = getProjects();
+  var proj = projs.find(function (p) {
+    return p.id === pid;
+  });
+  var rc = getHDRentComps(pid);
+  var rrRows = _getRRData(pid) || RR_DATA || [];
+  var hdUmix = getHDUnitMix(pid);
+
+  // Helper: set cell text if element exists and value is truthy
+  function _setCell(id, val) {
+    var el = document.getElementById(id);
+    if (el && val != null && val !== "" && val !== 0) {
+      el.textContent = val;
+    }
+  }
+
+  // ── Name: project name or HD Rent Comps property name ──
+  var name = proj && proj.name ? proj.name : null;
+  if (!name && rc && rc.propertyName) name = rc.propertyName;
+  _setCell("pfSummNameCell", name);
+
+  // ── Address: project address or HD Rent Comps address ──
+  var addr = proj && proj.address ? proj.address : null;
+  if (!addr && rc && rc.address) addr = rc.address;
+  _setCell("pfSummAddrCell", addr);
+
+  // ── Year Built: HD Rent Comps yr built ──
+  if (rc && rc.yrBuilt) {
+    _setCell("pfSummYearBuiltCell", rc.yrBuilt);
+  }
+
+  // ── Occupancy Rate: multiple sources ──
+  // 1) HD Rent Comps leased %
+  // 2) RR: occupied / total
+  // (Already handled by renderPFDualSource for the dual-source cell)
+  // Enhance _helloDataMock with real HD data if available
+  if (rc) {
+    if (rc.leasedPct != null)
+      _helloDataMock.occupancy = rc.leasedPct.toFixed(1);
+    if (rc.units) _helloDataMock.units = rc.units;
+  }
+
+  // ── Ask Price / Offer Price: from project data (manual entry) ──
+  if (proj && proj.askPrice) {
+    _setCell(
+      "pfSummAskPriceCell",
+      "$\u00a0" + Number(proj.askPrice).toLocaleString(),
+    );
+  }
+  if (proj && proj.offerPrice) {
+    _setCell(
+      "pfSummOfferPriceCell",
+      "$\u00a0" + Number(proj.offerPrice).toLocaleString(),
+    );
+  }
+
+  // ── Total Apartment Units: from HD Rent Comps or RR count ──
+  // (Already handled by renderPFDualSource dual-source cell)
+
+  // ── Total Parking Spaces: from project data if available ──
+  if (proj && proj.prkgSpaces) {
+    _setCell("pfSummParkingCell", proj.prkgSpaces);
+  }
+
+  // Refresh dual-source cells (Occupancy + Units) with updated _helloDataMock
+  renderPFDualSource(proj);
+  // Refresh KPI strip
+  if (typeof updateSummKpis === "function") updateSummKpis();
+}
+window.populateSummary = populateSummary;
 
 // ─── PRO FORMA EMPTY STATE ────────────────────────────────────────────────────
 function _checkPFEmptyState(proj) {
@@ -18382,10 +19016,17 @@ function switchPFSubTab(prefix, tid) {
   if (tid === "summary") {
     buildNoiStrip && buildNoiStrip();
     if (typeof renderRentRoll === "function") renderRentRoll();
-    if (typeof updateSummKpis === "function") updateSummKpis();
+    if (typeof populateSummary === "function") populateSummary();
   }
   if (tid === "revexp") {
     buildPFTable && buildPFTable();
+  }
+  if (tid === "closing") {
+    if (typeof recalcClosingCostTotals === "function")
+      recalcClosingCostTotals();
+  }
+  if (tid === "purchase") {
+    if (typeof buildPurchasePrice === "function") buildPurchasePrice();
   }
   if (tid === "tax") {
     renderTaxTable && renderTaxTable();
@@ -18567,9 +19208,6 @@ _domReady(function setupListeners2() {
   on("#backToProjectsBtn", "click", function () {
     navTo("projects", document.getElementById("nav-projects"));
   });
-  on("#fetchApisBtn", "click", function () {
-    fetchAllAPIs();
-  });
   on("#savePFBtn", "click", function () {
     savePF();
   });
@@ -18595,7 +19233,7 @@ _domReady(function setupListeners2() {
     inp.type = "text";
     inp.value = oldText === "—" || oldText === "" ? "" : oldText;
     inp.style.cssText =
-      "width:100%;min-width:60px;border:none;background:transparent;font-size:inherit;font-family:inherit;font-weight:inherit;color:inherit;outline:2px solid var(--accent);border-radius:3px;padding:1px 4px;box-sizing:border-box;text-align:inherit;";
+      "width:auto;max-width:120px;min-width:40px;border:none;background:transparent;font-size:inherit;font-family:inherit;font-weight:inherit;color:inherit;outline:2px solid var(--accent);border-radius:3px;padding:1px 4px;box-sizing:border-box;text-align:inherit;";
     el.innerHTML = "";
     el.appendChild(inp);
     inp.focus();
@@ -18659,10 +19297,95 @@ _domReady(function setupListeners2() {
       return;
     }
 
-    // 4. Any cell tagged data-editable (static HTML sub-tabs & Closing Costs)
+    // 4a. Yes/No select cells (Transfer of Membership)
+    var yesnoCel = target.closest("td[data-cc-yesno]");
+    if (yesnoCel && !yesnoCel.querySelector("select")) {
+      var oldYN = yesnoCel.textContent.trim();
+      var sel = document.createElement("select");
+      sel.className = "pct-input cc-yes-no-select";
+      sel.style.cssText =
+        "width:60px;outline:2px solid var(--accent);border-radius:3px;";
+      ["Yes", "No"].forEach(function (v) {
+        var opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        if (v === oldYN) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      yesnoCel.innerHTML = "";
+      yesnoCel.appendChild(sel);
+      sel.focus();
+      function commitYN() {
+        var v = sel.value;
+        yesnoCel.textContent = v || "—";
+      }
+      sel.addEventListener("blur", commitYN);
+      sel.addEventListener("change", function () {
+        sel.blur();
+      });
+      return;
+    }
+
+    // 4b. Any cell tagged data-editable (static HTML sub-tabs & Closing Costs)
     var staticTd = target.closest("td[data-editable]");
     if (staticTd) {
-      _inlineEditCell(staticTd, null);
+      var cellId = staticTd.id;
+      var commitFn = null;
+      // Ask Price / Offer Price: persist to project and update KPIs
+      if (
+        cellId === "pfSummAskPriceCell" ||
+        cellId === "pfSummOfferPriceCell"
+      ) {
+        commitFn = function (newVal) {
+          var pid = window._currentProjectId || currentProjectId;
+          var projs = getProjects();
+          var idx = projs.findIndex(function (p) {
+            return p.id === pid;
+          });
+          if (idx === -1) return;
+          var numVal = parseFloat(String(newVal).replace(/[^0-9.-]/g, "")) || 0;
+          var field =
+            cellId === "pfSummAskPriceCell" ? "askPrice" : "offerPrice";
+          projs[idx][field] = numVal;
+          saveProjects(projs);
+          // Format display
+          if (numVal > 0) {
+            staticTd.textContent = "$\u00a0" + numVal.toLocaleString();
+          }
+          if (typeof updateSummKpis === "function") updateSummKpis();
+        };
+      }
+      // Purchase Price (As-is value): persist and recalc derived fields
+      if (!commitFn && cellId === "ppAsIsValue") {
+        commitFn = function (newVal) {
+          var numVal = parseFloat(String(newVal).replace(/[^0-9.-]/g, "")) || 0;
+          if (numVal > 0) {
+            staticTd.textContent =
+              "$\u00a0" + Math.round(numVal).toLocaleString();
+            // Also save as offerPrice
+            var pid = window._currentProjectId || currentProjectId;
+            var projs = getProjects();
+            var idx = projs.findIndex(function (p) {
+              return p.id === pid;
+            });
+            if (idx !== -1) {
+              projs[idx].offerPrice = numVal;
+              saveProjects(projs);
+            }
+          }
+          if (typeof recalcClosingCostTotals === "function")
+            recalcClosingCostTotals();
+          if (typeof buildPurchasePrice === "function") buildPurchasePrice();
+        };
+      }
+      // Closing Costs amount cells: recalc totals after edit
+      if (!commitFn && staticTd.closest("#pfsp-pf-closing .cc-row")) {
+        commitFn = function () {
+          if (typeof recalcClosingCostTotals === "function")
+            recalcClosingCostTotals();
+        };
+      }
+      _inlineEditCell(staticTd, commitFn);
       return;
     }
   });
@@ -18824,12 +19547,10 @@ function updateTabDots() {
   var hasDebt = files.some(function (f) {
     return ["Debt Current", "Debt Refinance"].includes(f.parsedAs || f.type);
   });
-  var dotT12 = document.getElementById("tabdot-t12");
-  var dotRR = document.getElementById("tabdot-rr");
-  var dotDebt = document.getElementById("tabdot-debt");
-  if (dotT12) dotT12.classList.toggle("visible", !hasT12);
-  if (dotRR) dotRR.classList.toggle("visible", !hasRR);
-  if (dotDebt) dotDebt.classList.toggle("visible", !hasDebt);
+  var hasHD = !!getHDMeta(currentProjectId);
+  var allUploaded = hasT12 && hasRR && hasDebt && hasHD;
+  var dotFiles = document.getElementById("tabdot-files");
+  if (dotFiles) dotFiles.classList.toggle("visible", !allUploaded);
 }
 window.updateTabDots = updateTabDots;
 
@@ -18894,7 +19615,7 @@ function rrAddRow() {
   tr.style.borderBottom = "1px solid var(--border)";
   var cs = "padding:6px 6px;font-size:12px;";
   var is =
-    "width:100%;border:none;background:transparent;font-size:12px;color:var(--header);text-align:inherit;outline:none;padding:2px 4px;border-radius:3px;";
+    "width:auto;max-width:90px;min-width:36px;border:none;background:transparent;font-size:12px;color:var(--header);text-align:inherit;outline:none;padding:2px 4px;border-radius:3px;";
   var html =
     '<td style="' +
     cs +

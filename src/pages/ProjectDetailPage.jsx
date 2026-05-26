@@ -81,17 +81,6 @@ export default function ProjectDetailPage() {
             </svg>
             <span id="globalEditToggleLabel">Edit Mode</span>
           </button>
-          <button id="fetchApisBtn" className="btn btn-secondary btn-sm">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-            Fetch APIs
-          </button>
           <button id="savePFBtn" className="btn btn-primary btn-sm">
             <svg
               viewBox="0 0 24 24"
@@ -139,69 +128,14 @@ export default function ProjectDetailPage() {
             stroke="currentColor"
             strokeWidth="2"
           >
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <line x1="3" y1="9" x2="21" y2="9" />
-            <line x1="3" y1="15" x2="21" y2="15" />
-            <line x1="9" y1="3" x2="9" y2="21" />
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          <span data-en="T12" data-zh="T12">
-            T12
+          <span data-en="Upload Files" data-zh="上传文件">
+            Upload Files
           </span>
-          <span className="tab-dot" id="tabdot-t12"></span>
-        </button>
-        <button className="proj-tab" id="ptab-rentroll">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 00-3-3.87" />
-            <path d="M16 3.13a4 4 0 010 7.75" />
-          </svg>
-          <span data-en="Rent Roll" data-zh="租户清单">
-            Rent Roll
-          </span>
-          <span className="tab-dot" id="tabdot-rr"></span>
-        </button>
-        <button className="proj-tab" id="ptab-hellodata">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-            <line x1="12" y1="22.08" x2="12" y2="12" />
-          </svg>
-          <span data-en="HelloData" data-zh="HelloData">
-            HelloData
-          </span>
-          <span className="tab-dot" id="tabdot-hd"></span>
-        </button>
-        <button className="proj-tab" id="ptab-debt">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <line x1="12" y1="1" x2="12" y2="23" />
-            <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-          </svg>
-          <span data-en="Debt Analysis" data-zh="债务分析">
-            Debt Analysis
-          </span>
-          <span className="tab-dot" id="tabdot-debt"></span>
+          <span className="tab-dot" id="tabdot-files"></span>
         </button>
       </div>
 
@@ -238,26 +172,6 @@ export default function ProjectDetailPage() {
           style={s("color:#6A1B9A;background:rgba(106,27,154,0.07)")}
         >
           Rent Roll
-        </span>
-        <span
-          className="ds-legend-tag"
-          style={s("color:#0891B2;background:rgba(8,145,178,0.08)")}
-        >
-          RentCast
-        </span>
-        <span
-          className="ds-legend-tag"
-          style={s("color:#37474F;background:rgba(55,71,79,0.07)")}
-        >
-          ATTOM
-        </span>
-        <span
-          className="ds-legend-tag"
-          style={s("color:#E65100;background:rgba(230,81,0,0.07)")}
-          data-en="Manual"
-          data-zh="手动"
-        >
-          Manual
         </span>
       </div>
 
@@ -415,6 +329,394 @@ export default function ProjectDetailPage() {
           </div>
           {/* T12 Parsed Content (shown after upload) */}
           <div id="t12ParsedContent" style={s("display:none")}></div>
+        </div>
+
+        {/* ── Rent Roll Upload Section ── */}
+        <div id="rrUploadSection" style={s("margin-top:0")}>
+          <div className="card" style={s("margin-bottom:16px")}>
+            <div
+              style={s(
+                "display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px",
+              )}
+            >
+              <div style={s("display:flex;align-items:center;gap:14px")}>
+                <div
+                  style={s(
+                    "width:46px;height:46px;border-radius:12px;background:rgba(74,101,133,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0",
+                  )}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--blue)"
+                    strokeWidth="1.8"
+                    style={s("width:22px;height:22px")}
+                  >
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 00-3-3.87" />
+                    <path d="M16 3.13a4 4 0 010 7.75" />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    style={s(
+                      "font-size:16px;font-weight:800;color:var(--header)",
+                    )}
+                    data-en="Rent Roll — Unit Lease Data"
+                    data-zh="租户清单 — 逐套租约数据"
+                  >
+                    {"Rent Roll \u2014 Unit Lease Data"}
+                  </div>
+                  <div
+                    id="rrFileInfo"
+                    style={s(
+                      "font-size:12px;color:var(--muted);margin-top:3px",
+                    )}
+                    data-en="No file uploaded · Single file only"
+                    data-zh="未上传文件 · 仅限一个文件"
+                  >
+                    {"No file uploaded \u00B7 Single file only"}
+                  </div>
+                </div>
+              </div>
+              <div style={s("display:flex;gap:8px;align-items:center")}>
+                <button className="btn btn-secondary btn-sm" id="rrUploadBtn">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    style={s("width:13px;height:13px")}
+                  >
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span
+                    id="rrUploadBtnLabel"
+                    data-en="Upload Rent Roll"
+                    data-zh="上传租户清单"
+                  >
+                    Upload Rent Roll
+                  </span>
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  id="rrDeleteBtn"
+                  style={s("display:none;color:var(--red,#c0392b)")}
+                  title="Remove"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    style={s("width:13px;height:13px")}
+                  >
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                  </svg>
+                </button>
+                <input
+                  type="file"
+                  id="rrInput"
+                  accept=".xlsx,.xls,.csv,.pdf"
+                  style={s("display:none")}
+                  onChange={(e) => window.handleRRUpload(e)}
+                />
+              </div>
+            </div>
+            <div
+              id="rrDropZone"
+              style={s(
+                "margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s",
+              )}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.currentTarget.style.borderColor = "var(--blue)";
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border)";
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.style.borderColor = "var(--border)";
+                window.handleRRDrop(e);
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--blue)"
+                strokeWidth="1.4"
+                style={s(
+                  "width:36px;height:36px;margin:0 auto 10px;display:block",
+                )}
+              >
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <div
+                style={s(
+                  "font-size:13px;font-weight:600;color:var(--header);margin-bottom:4px",
+                )}
+                data-en="Drop Rent Roll file here"
+                data-zh="拖拽租户清单文件到此"
+              >
+                Drop Rent Roll file here
+              </div>
+              <div style={s("font-size:11px;color:var(--muted)")}>
+                .xlsx · .xls · .csv · .pdf · Max 1 file
+              </div>
+            </div>
+          </div>
+          <div id="rrParsedContent" style={s("display:none")}></div>
+        </div>
+
+        {/* ── HelloData Upload Section ── */}
+        <div id="hdUploadSection" style={s("margin-top:0")}>
+          <div className="card" style={s("margin-bottom:16px")}>
+            <div
+              style={s(
+                "display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px",
+              )}
+            >
+              <div style={s("display:flex;align-items:center;gap:14px")}>
+                <div
+                  style={s(
+                    "width:46px;height:46px;border-radius:12px;background:rgba(166,124,82,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0",
+                  )}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#a67c52"
+                    strokeWidth="1.8"
+                    style={s("width:22px;height:22px")}
+                  >
+                    <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                    <line x1="12" y1="22.08" x2="12" y2="12" />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    style={s(
+                      "font-size:16px;font-weight:800;color:var(--header)",
+                    )}
+                    data-en="HelloData — Market Benchmark"
+                    data-zh="HelloData — 市场基准数据"
+                  >
+                    {"HelloData \u2014 Market Benchmark"}
+                  </div>
+                  <div
+                    id="hdFileInfo"
+                    style={s(
+                      "font-size:12px;color:var(--muted);margin-top:3px",
+                    )}
+                    data-en="No file uploaded · Async export (.xlsx)"
+                    data-zh="未上传文件 · 异步导出数据集(.xlsx)"
+                  >
+                    {"No file uploaded \u00B7 Async export (.xlsx)"}
+                  </div>
+                </div>
+              </div>
+              <div style={s("display:flex;gap:8px;align-items:center")}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  id="hdUploadBtn"
+                  onClick={() => document.getElementById("hdFileInput").click()}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    style={s("width:13px;height:13px")}
+                  >
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span
+                    id="hdUploadBtnLabel"
+                    data-en="Upload HelloData"
+                    data-zh="上传HelloData"
+                  >
+                    Upload HelloData
+                  </span>
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  id="hdDeleteBtn"
+                  style={s("display:none;color:var(--red,#c0392b)")}
+                  title="Remove"
+                  onClick={() => window.clearHDData()}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    style={s("width:13px;height:13px")}
+                  >
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                  </svg>
+                </button>
+                <input
+                  type="file"
+                  id="hdFileInput"
+                  accept=".xlsx"
+                  style={s("display:none")}
+                  onChange={(e) => window.handleHDUpload(e)}
+                />
+              </div>
+            </div>
+            <div
+              id="hdDropZone"
+              style={s(
+                "margin-top:12px;border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s",
+              )}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.currentTarget.style.borderColor = "#a67c52";
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border)";
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.style.borderColor = "var(--border)";
+                window.handleHDDrop(e);
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#a67c52"
+                strokeWidth="1.4"
+                style={s(
+                  "width:36px;height:36px;margin:0 auto 10px;display:block",
+                )}
+              >
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <div
+                style={s(
+                  "font-size:13px;font-weight:600;color:var(--header);margin-bottom:4px",
+                )}
+                data-en="Drop HelloData export here"
+                data-zh="拖拽HelloData导出文件到此"
+              >
+                Drop HelloData export here
+              </div>
+              <div style={s("font-size:11px;color:var(--muted)")}>
+                .xlsx · Async export from HelloData
+              </div>
+            </div>
+          </div>
+          <div id="hdParsedContent" style={s("display:none")}></div>
+        </div>
+
+        {/* ── Debt Upload Section ── */}
+        <div id="debtUploadSection" style={s("margin-top:0")}>
+          <div className="card" style={s("margin-bottom:16px")}>
+            <div
+              style={s(
+                "display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px",
+              )}
+            >
+              <div style={s("display:flex;align-items:center;gap:14px")}>
+                <div
+                  style={s(
+                    "width:46px;height:46px;border-radius:12px;background:rgba(139,115,85,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0",
+                  )}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--accent)"
+                    strokeWidth="1.8"
+                    style={s("width:22px;height:22px")}
+                  >
+                    <line x1="12" y1="1" x2="12" y2="23" />
+                    <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    style={s(
+                      "font-size:16px;font-weight:800;color:var(--header)",
+                    )}
+                    data-en="Debt Schedule"
+                    data-zh="债务计划"
+                  >
+                    Debt Schedule
+                  </div>
+                  <div
+                    id="debtFileInfo"
+                    style={s(
+                      "font-size:12px;color:var(--muted);margin-top:3px",
+                    )}
+                  >
+                    No file uploaded · Debt Current &amp; Refinance
+                  </div>
+                </div>
+              </div>
+              <div style={s("display:flex;gap:8px;align-items:center")}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  id="debtUploadBtn"
+                  onClick={() =>
+                    document.getElementById("debtFileInput").click()
+                  }
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    style={s("width:13px;height:13px")}
+                  >
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span id="debtUploadBtnLabel">Upload Debt Excel</span>
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  id="debtDeleteBtn"
+                  style={s("display:none;color:var(--red,#c0392b)")}
+                  title="Remove"
+                  onClick={() => window.clearDebtData()}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    style={s("width:13px;height:13px")}
+                  >
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                  </svg>
+                </button>
+                <input
+                  type="file"
+                  id="debtFileInput"
+                  accept=".xlsx"
+                  style={s("display:none")}
+                  onChange={(e) => window.handleDebtUpload(e)}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -707,9 +1009,50 @@ export default function ProjectDetailPage() {
                           "padding:9px 18px;color:var(--header);font-weight:700",
                         )}
                       >
+                        Name
+                      </td>
+                      <td
+                        id="pfSummNameCell"
+                        data-editable
+                        style={s(
+                          "padding:9px 18px;text-align:right;color:var(--header);font-weight:600",
+                        )}
+                      >
+                        {"—"}
+                      </td>
+                    </tr>
+                    <tr
+                      style={s(
+                        "border-bottom:1px solid var(--border);background:rgba(0,0,0,0.015)",
+                      )}
+                    >
+                      <td
+                        style={s(
+                          "padding:9px 18px;color:var(--header);font-weight:700",
+                        )}
+                      >
+                        Address
+                      </td>
+                      <td
+                        id="pfSummAddrCell"
+                        data-editable
+                        style={s(
+                          "padding:9px 18px;text-align:right;color:var(--header);font-weight:600",
+                        )}
+                      >
+                        {"—"}
+                      </td>
+                    </tr>
+                    <tr style={s("border-bottom:1px solid var(--border)")}>
+                      <td
+                        style={s(
+                          "padding:9px 18px;color:var(--header);font-weight:700",
+                        )}
+                      >
                         Year Built
                       </td>
                       <td
+                        id="pfSummYearBuiltCell"
                         data-editable
                         style={s(
                           "padding:9px 18px;text-align:right;color:var(--header);font-weight:600",
@@ -727,6 +1070,7 @@ export default function ProjectDetailPage() {
                         Lot Size
                       </td>
                       <td
+                        id="pfSummLotSizeCell"
                         data-editable
                         style={s(
                           "padding:9px 18px;text-align:right;color:var(--muted)",
@@ -740,6 +1084,7 @@ export default function ProjectDetailPage() {
                         Building Size
                       </td>
                       <td
+                        id="pfSummBldgSizeCell"
                         data-editable
                         style={s(
                           "padding:9px 18px;text-align:right;color:var(--muted)",
@@ -757,6 +1102,7 @@ export default function ProjectDetailPage() {
                         Ask Price
                       </td>
                       <td
+                        id="pfSummAskPriceCell"
                         data-editable
                         style={s(
                           "padding:9px 18px;text-align:right;color:var(--muted)",
@@ -770,6 +1116,7 @@ export default function ProjectDetailPage() {
                         Offer Price
                       </td>
                       <td
+                        id="pfSummOfferPriceCell"
                         data-editable
                         style={s(
                           "padding:9px 18px;text-align:right;font-weight:700;color:var(--header)",
@@ -809,6 +1156,7 @@ export default function ProjectDetailPage() {
                         Total Current Retail Units
                       </td>
                       <td
+                        id="pfSummRetailUnitsCell"
                         data-editable
                         style={s(
                           "padding:9px 18px;text-align:right;color:var(--muted)",
@@ -822,6 +1170,7 @@ export default function ProjectDetailPage() {
                         Total Parking Spaces
                       </td>
                       <td
+                        id="pfSummParkingCell"
                         data-editable
                         style={s(
                           "padding:9px 18px;text-align:right;color:var(--muted)",
@@ -2355,404 +2704,134 @@ export default function ProjectDetailPage() {
                       <td>Category</td>
                       <td className="pct-col">%</td>
                       <td className="amount-col">AMOUNT</td>
-                      <td className="notes-col">NOTES</td>
                     </tr>
 
-                    {/* 1. Due Diligence (Sage Green) */}
-                    <tr className="pf-grp">
-                      <td
-                        colSpan="4"
+                    {/* Flat list per PRD */}
+                    {[
+                      { label: "Due Diligence", type: "manual" },
+                      { label: "Other", type: "manual" },
+                      { label: "Appraisal", type: "manual" },
+                      { label: "Legal (Lender extra $27,900)", type: "manual" },
+                      {
+                        label: "Credit Reports Lender Charges",
+                        type: "manual",
+                      },
+                      {
+                        label: "Origination Fee & Lender Fees",
+                        type: "pct-loan",
+                        id: "ccOrigFee",
+                      },
+                      {
+                        label: "Environmental & PCA (Asbestos and Radon Extra)",
+                        type: "manual",
+                      },
+                      { label: "Insurance Review", type: "manual" },
+                      {
+                        label: "Abstract and Title Charges besides Insurance",
+                        type: "manual",
+                      },
+                      { label: "Commitment Fee", type: "manual" },
+                      { label: "Title Insurance", type: "manual" },
+                      { label: "Survey Fee", type: "manual" },
+                      { label: "Prepaid Tax", type: "manual" },
+                      { label: "Immediate Repairs", type: "manual" },
+                      { label: "Tax Reserve", type: "manual" },
+                      { label: "Insurance Reserve", type: "manual" },
+                      {
+                        label: "Transfer of Membership Transaction",
+                        type: "yesno",
+                      },
+                      {
+                        label: "County/State Transfer Tax",
+                        type: "pct-purchase",
+                        id: "ccCountyTax",
+                      },
+                      {
+                        label: "Recordation Tax",
+                        type: "pct-purchase",
+                        id: "ccRecordTax",
+                      },
+                      {
+                        label: "Acquisition Fee",
+                        type: "pct-purchase",
+                        id: "ccAcqFee",
+                      },
+                      { label: "Closing", type: "manual" },
+                      { label: "LLC Transfer-Related Fees", type: "manual" },
+                      { label: "Property Insurance", type: "manual" },
+                      { label: "Interest Reserve", type: "manual" },
+                      { label: "Cash Reserve", type: "manual" },
+                    ].map((item, idx) => (
+                      <tr
+                        key={idx}
+                        className="cc-row"
                         style={s(
-                          "padding:8px 14px;background:rgba(106,142,107,0.12);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#4a7c4b;border-top:1px solid rgba(106,142,107,0.25);text-align:left",
+                          idx % 2 === 1 ? "background:rgba(0,0,0,0.015)" : "",
                         )}
                       >
-                        Due Diligence
-                      </td>
-                    </tr>
-                    <tr className="grp-dd">
-                      <td>Due Diligence</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-dd">
-                      <td>Appraisal</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-dd">
-                      <td>Environmental &amp; PCA</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-dd">
-                      <td>Survey Fee</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-dd">
-                      <td>Insurance Review</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-dd">
-                      <td>Abstract and Title Charges besides Insurance</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-
-                    {/* 2. Lender Costs (Slate Blue) */}
-                    <tr className="pf-grp">
-                      <td
-                        colSpan="4"
-                        style={s(
-                          "padding:8px 14px;background:rgba(90,122,153,0.12);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#3a5a7a;border-top:1px solid rgba(90,122,153,0.25);text-align:left",
-                        )}
-                      >
-                        Lender Costs
-                      </td>
-                    </tr>
-                    <tr className="grp-lender">
-                      <td>Origination Fee &amp; Lender Fees</td>
-                      <td className="pct-col">
-                        <input
-                          id="ccOrigFeePct"
-                          className="pct-input"
-                          defaultValue=""
-                          placeholder="—"
-                          onChange={() => window.recalcOriginationFee()}
-                        />
-                      </td>
-                      <td
-                        id="ccOrigFeeAmt"
-                        className="amount-col"
-                        data-editable
-                      >
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable>
-                        {"% \u00D7 New Loan Size (from Refinance Event)"}
-                      </td>
-                    </tr>
-                    <tr className="grp-lender">
-                      <td>Credit Reports Lender Charges</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-lender">
-                      <td>Legal</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-lender">
-                      <td>Commitment Fee</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-lender">
-                      <td>Title Insurance</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-
-                    {/* 3. Transfer & Recording Taxes (Dusty Purple) */}
-                    <tr className="pf-grp">
-                      <td
-                        colSpan="4"
-                        style={s(
-                          "padding:8px 14px;background:rgba(122,98,145,0.12);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#5a4a73;border-top:1px solid rgba(122,98,145,0.25);text-align:left",
-                        )}
-                      >
-                        Transfer &amp; Recording Taxes
-                      </td>
-                    </tr>
-                    <tr className="grp-transfer">
-                      <td>Transfer of Membership Transaction</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col">
-                        <select
-                          className="pct-input cc-yes-no-select"
-                          style={s("width:60px")}
-                          defaultValue="No"
+                        <td
+                          style={s(
+                            "padding:8px 14px;font-size:12px;color:var(--header)",
+                          )}
                         >
-                          <option value="Yes">Yes</option>
-                          <option value="No">No</option>
-                        </select>
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-transfer">
-                      <td>County/State Transfer Tax</td>
-                      <td className="pct-col">
-                        <input
-                          className="pct-input"
-                          defaultValue=""
-                          placeholder="—"
-                        />
-                      </td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable>
-                        {"% \u00D7 Purchase Price"}
-                      </td>
-                    </tr>
-                    <tr className="grp-transfer">
-                      <td>Recordation Tax</td>
-                      <td className="pct-col">
-                        <input
-                          className="pct-input"
-                          defaultValue=""
-                          placeholder="—"
-                        />
-                      </td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable>
-                        {"% \u00D7 Purchase Price"}
-                      </td>
-                    </tr>
-                    <tr className="grp-transfer">
-                      <td>LLC Transfer-Related Fees</td>
-                      <td className="pct-col">
-                        <input className="pct-input" placeholder="—" />
-                      </td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-
-                    {/* 4. Acquisition Fees (Warm Amber) */}
-                    <tr className="pf-grp">
-                      <td
-                        colSpan="4"
-                        style={s(
-                          "padding:8px 14px;background:rgba(160,120,74,0.12);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#7a5a30;border-top:1px solid rgba(160,120,74,0.25);text-align:left",
-                        )}
-                      >
-                        Acquisition Fees
-                      </td>
-                    </tr>
-                    <tr className="grp-acq">
-                      <td>Acquisition Fee</td>
-                      <td className="pct-col">
-                        <input
-                          className="pct-input"
-                          defaultValue=""
-                          placeholder="—"
-                        />
-                      </td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable>
-                        {"% \u00D7 Purchase Price"}
-                      </td>
-                    </tr>
-                    <tr className="grp-acq">
-                      <td>Closing</td>
-                      <td className="pct-col">
-                        <input className="pct-input" placeholder="—" />
-                      </td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-
-                    {/* 5. Reserves & Prepayments (Teal) */}
-                    <tr className="pf-grp">
-                      <td
-                        colSpan="4"
-                        style={s(
-                          "padding:8px 14px;background:rgba(90,138,138,0.12);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#3a6a6a;border-top:1px solid rgba(90,138,138,0.25);text-align:left",
-                        )}
-                      >
-                        Reserves &amp; Prepayments
-                      </td>
-                    </tr>
-                    <tr className="grp-reserve">
-                      <td>Immediate Repairs</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-reserve">
-                      <td>Tax Reserve</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-reserve">
-                      <td>Insurance Reserve</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-reserve">
-                      <td>Prepaid Tax</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-reserve">
-                      <td>Property Insurance</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="grp-reserve">
-                      <td>Interest Reserve</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-                    <tr className="pf-hi grp-reserve">
-                      <td>Cash Reserve</td>
-                      <td className="pct-col">
-                        <input className="pct-input" placeholder="—" />
-                      </td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
-
-                    {/* 6. Other (Neutral Gray) */}
-                    <tr className="pf-grp">
-                      <td
-                        colSpan="4"
-                        style={s(
-                          "padding:8px 14px;background:rgba(122,122,122,0.10);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#666;border-top:1px solid rgba(122,122,122,0.20);text-align:left",
-                        )}
-                      >
-                        Other
-                      </td>
-                    </tr>
-                    <tr className="grp-other">
-                      <td>Other</td>
-                      <td className="pct-col"></td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
-                      </td>
-                      <td className="notes-col" data-editable></td>
-                    </tr>
+                          {item.label}
+                        </td>
+                        <td className="pct-col">
+                          {(item.type === "pct-loan" ||
+                            item.type === "pct-purchase") && (
+                            <input
+                              id={item.id ? item.id + "Pct" : undefined}
+                              className="pct-input cc-pct-input"
+                              placeholder="—"
+                              data-cc-type={item.type}
+                              data-cc-id={item.id || ""}
+                              onChange={(e) =>
+                                window.recalcClosingCostRow(e.target)
+                              }
+                            />
+                          )}
+                        </td>
+                        <td
+                          className="amount-col"
+                          data-editable
+                          id={item.id ? item.id + "Amt" : undefined}
+                          {...(item.type === "yesno"
+                            ? { "data-cc-yesno": "true" }
+                            : {})}
+                        >
+                          {"—"}
+                        </td>
+                      </tr>
+                    ))}
 
                     {/* Totals */}
                     <tr className="pf-tot">
                       <td>Total Closing Costs</td>
                       <td className="pct-col"></td>
-                      <td className="amount-col">{"—"}</td>
-                      <td className="notes-col"></td>
+                      <td id="ccTotalAmt" className="amount-col">
+                        {"—"}
+                      </td>
                     </tr>
                     <tr
-                      style={s(
-                        "background:rgba(139,111,71,0.06);border-top:1px solid rgba(139,111,71,0.25);border-bottom:1px solid rgba(139,111,71,0.25)",
-                      )}
+                      className="pf-tot"
+                      style={s("background:rgba(139,111,71,0.06)")}
                     >
                       <td
                         style={s(
-                          "padding:8px 14px;font-size:11.5px;font-weight:700;color:#6B5435;letter-spacing:.04em;text-transform:uppercase",
+                          "font-size:11.5px;font-weight:700;color:#6B5435;letter-spacing:.04em",
                         )}
-                        title="Closing Cost Ratio = Total Closing Costs / Purchase Price"
                       >
-                        Closing Cost Ratio
+                        Total Closing Costs %
                       </td>
                       <td className="pct-col"></td>
                       <td
+                        id="ccTotalPct"
                         className="amount-col"
                         style={s(
                           "font-size:11.5px;font-weight:700;color:#6B5435",
                         )}
                       >
                         {"—"}
-                      </td>
-                      <td
-                        className="notes-col"
-                        style={s(
-                          "font-size:10px;color:var(--muted);font-style:italic",
-                        )}
-                      ></td>
-                    </tr>
-                    <tr
-                      style={s(
-                        "background:rgba(21,101,192,0.06);border-bottom:1px solid rgba(139,111,71,0.25)",
-                      )}
-                    >
-                      <td
-                        colSpan="4"
-                        style={s(
-                          "padding:8px 14px 10px 14px;font-size:11px;line-height:1.5;color:var(--body)",
-                        )}
-                      >
-                        <span style={s("color:#1565C0;font-weight:700")}>
-                          {"ⓘ"}
-                        </span>{" "}
-                        <span style={s("font-weight:600")}>
-                          {
-                            "Closing Cost Ratio = Total Closing Costs \u00F7 Purchase Price (As-is)."
-                          }
-                        </span>{" "}
-                        {
-                          "HelloData\u2019s market default for Closing Costs is "
-                        }
-                        <span style={s("font-weight:700;color:#1565C0")}>
-                          {"—"}
-                        </span>
-                        {" of Purchase Price. Your computed ratio is "}
-                        <span style={s("font-weight:700;color:#6B5435")}>
-                          {"—"}
-                        </span>
-                        {" \u2014 "}
-                        <span style={s("font-weight:700;color:#6B5435")}>
-                          {"—"}
-                        </span>
-                        {
-                          " above HD market. Common reasons for higher ratios: extensive due diligence, sponsor acquisition fee, large reserves, or LLC transfer / lender fee structure."
-                        }
                       </td>
                     </tr>
                   </tbody>
@@ -2784,75 +2863,57 @@ export default function ProjectDetailPage() {
                     <tr className="pf-sec">
                       <td>Items</td>
                       <td className="amount-col">Amount</td>
-                      <td className="notes-col">Notes</td>
                     </tr>
                     <tr>
                       <td>Purchase Price (As-is value)</td>
                       <td id="ppAsIsValue" className="amount-col" data-editable>
                         {"—"}
                       </td>
-                      <td className="notes-col" data-editable></td>
                     </tr>
-                    <tr>
+                    <tr style={s("background:rgba(0,0,0,0.015)")}>
                       <td>Per Unit (Residential/Retail)</td>
-                      <td className="amount-col" data-editable>
+                      <td id="ppPerUnit" className="amount-col">
                         {"—"}
-                      </td>
-                      <td className="notes-col" data-editable>
-                        {"Purchase Price \u00F7 Total Units"}
                       </td>
                     </tr>
                     <tr>
                       <td>NOI for Year 1</td>
-                      <td className="amount-col" data-editable>
+                      <td id="ppNOIY1" className="amount-col">
                         {"—"}
                       </td>
-                      <td className="notes-col" data-editable></td>
                     </tr>
-                    <tr>
-                      <td>Cap Rate on 2026 Income</td>
-                      <td className="amount-col" data-editable>
-                        {"—"}
+                    <tr style={s("background:rgba(0,0,0,0.015)")}>
+                      <td>
+                        Cap Rate on <span id="ppCapRateYearLabel">Year 1</span>{" "}
+                        Income
                       </td>
-                      <td className="notes-col" data-editable>
-                        {"NOI for Year 1 \u00F7 Purchase Price (As-is value)"}
+                      <td id="ppCapRate" className="amount-col">
+                        {"—"}
                       </td>
                     </tr>
                     <tr>
                       <td>Closing Cost Percentage</td>
-                      <td className="amount-col" data-editable>
+                      <td id="ppClosingPct" className="amount-col">
                         {"—"}
-                      </td>
-                      <td className="notes-col" data-editable>
-                        {
-                          "Total Closing Costs (from Closing Costs) \u00F7 Purchase Price (As-is value)"
-                        }
                       </td>
                     </tr>
-                    <tr>
+                    <tr style={s("background:rgba(0,0,0,0.015)")}>
                       <td>Closing Costs</td>
-                      <td className="amount-col" data-editable>
+                      <td id="ppClosingCosts" className="amount-col">
                         {"—"}
-                      </td>
-                      <td className="notes-col" data-editable>
-                        Total Closing Costs (from Closing Costs)
                       </td>
                     </tr>
                     <tr>
                       <td>Total Acquisition Cost</td>
-                      <td className="amount-col" data-editable>
+                      <td id="ppTotalAcqCost" className="amount-col">
                         {"—"}
-                      </td>
-                      <td className="notes-col" data-editable>
-                        Closing Costs + Purchase Price (As-is value)
                       </td>
                     </tr>
                     <tr className="pf-tot">
                       <td>Total Cost (excludes capex)</td>
-                      <td id="ppTotalCost" className="amount-col" data-editable>
+                      <td id="ppTotalCost" className="amount-col">
                         {"—"}
                       </td>
-                      <td className="notes-col" data-editable></td>
                     </tr>
                   </tbody>
                 </table>
@@ -4108,340 +4169,12 @@ export default function ProjectDetailPage() {
       </div>
       {/* /proj-tab-proforma */}
 
-      {/* ============================================================ */}
-      {/* RENT ROLL TAB                                                */}
-      {/* ============================================================ */}
-      <div
-        id="proj-tab-rentroll"
-        className="proj-tab-content"
-        style={s("display:none")}
-      >
-        <div style={s("margin-top:var(--gap)")}>
-          {/* Rent Roll Header Card */}
-          <div className="card" style={s("margin-bottom:16px")}>
-            <div
-              style={s(
-                "display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px",
-              )}
-            >
-              <div style={s("display:flex;align-items:center;gap:14px")}>
-                <div
-                  style={s(
-                    "width:46px;height:46px;border-radius:12px;background:rgba(74,101,133,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0",
-                  )}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--blue)"
-                    strokeWidth="1.8"
-                    style={s("width:22px;height:22px")}
-                  >
-                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M23 21v-2a4 4 0 00-3-3.87" />
-                    <path d="M16 3.13a4 4 0 010 7.75" />
-                  </svg>
-                </div>
-                <div>
-                  <div
-                    style={s(
-                      "font-size:16px;font-weight:800;color:var(--header)",
-                    )}
-                    data-en="Rent Roll — Unit Lease Data"
-                    data-zh="租户清单 — 逐套租约数据"
-                  >
-                    {"Rent Roll \u2014 Unit Lease Data"}
-                  </div>
-                  <div
-                    id="rrFileInfo"
-                    style={s(
-                      "font-size:12px;color:var(--muted);margin-top:3px",
-                    )}
-                    data-en="No file uploaded · Single file only"
-                    data-zh="未上传文件 · 仅限一个文件"
-                  >
-                    {"No file uploaded \u00B7 Single file only"}
-                  </div>
-                </div>
-              </div>
-              <div style={s("display:flex;gap:8px;align-items:center")}>
-                <button className="btn btn-secondary btn-sm" id="rrUploadBtn">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    style={s("width:13px;height:13px")}
-                  >
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  <span
-                    id="rrUploadBtnLabel"
-                    data-en="Upload Rent Roll"
-                    data-zh="上传租户清单"
-                  >
-                    Upload Rent Roll
-                  </span>
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  id="rrDeleteBtn"
-                  style={s("display:none;color:var(--red,#c0392b)")}
-                  title="Remove"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    style={s("width:13px;height:13px")}
-                  >
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                  </svg>
-                </button>
-                <input
-                  type="file"
-                  id="rrInput"
-                  accept=".xlsx,.xls,.csv,.pdf"
-                  style={s("display:none")}
-                  onChange={(e) => window.handleRRUpload(e)}
-                />
-              </div>
-            </div>
-            {/* Drop zone */}
-            <div
-              id="rrDropZone"
-              style={s(
-                "margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s",
-              )}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.currentTarget.style.borderColor = "var(--blue)";
-              }}
-              onDragLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border)";
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.currentTarget.style.borderColor = "var(--border)";
-                window.handleRRDrop(e);
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--blue)"
-                strokeWidth="1.4"
-                style={s(
-                  "width:36px;height:36px;margin:0 auto 10px;display:block",
-                )}
-              >
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              <div
-                style={s(
-                  "font-size:13px;font-weight:600;color:var(--header);margin-bottom:4px",
-                )}
-                data-en="Drop Rent Roll file here"
-                data-zh="拖拽租户清单文件到此"
-              >
-                Drop Rent Roll file here
-              </div>
-              <div style={s("font-size:11px;color:var(--muted)")}>
-                .xlsx · .xls · .csv · .pdf · Max 1 file
-              </div>
-            </div>
-          </div>
-          {/* Rent Roll Parsed Content */}
-          <div id="rrParsedContent" style={s("display:none")}></div>
-        </div>
-      </div>
+      {/* Old tabs removed — content merged into Upload Files tab */}
+      <div id="proj-tab-rentroll" style={s("display:none")}></div>
+      <div id="proj-tab-hellodata" style={s("display:none")}></div>
 
-      {/* ============================================================ */}
-      {/* HELLODATA TAB                                                */}
-      {/* ============================================================ */}
-      <div
-        id="proj-tab-hellodata"
-        className="proj-tab-content"
-        style={s("display:none")}
-      >
-        <div style={s("margin-top:var(--gap)")}>
-          {/* HelloData Header Card */}
-          <div className="card" style={s("margin-bottom:16px")}>
-            <div
-              style={s(
-                "display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px",
-              )}
-            >
-              <div style={s("display:flex;align-items:center;gap:14px")}>
-                <div
-                  style={s(
-                    "width:46px;height:46px;border-radius:12px;background:rgba(166,124,82,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0",
-                  )}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#a67c52"
-                    strokeWidth="1.8"
-                    style={s("width:22px;height:22px")}
-                  >
-                    <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                    <line x1="12" y1="22.08" x2="12" y2="12" />
-                  </svg>
-                </div>
-                <div>
-                  <div
-                    style={s(
-                      "font-size:16px;font-weight:800;color:var(--header)",
-                    )}
-                    data-en="HelloData — Market Benchmark"
-                    data-zh="HelloData — 市场基准数据"
-                  >
-                    {"HelloData \u2014 Market Benchmark"}
-                  </div>
-                  <div
-                    id="hdFileInfo"
-                    style={s(
-                      "font-size:12px;color:var(--muted);margin-top:3px",
-                    )}
-                    data-en="No file uploaded · Async export (.xlsx)"
-                    data-zh="未上传文件 · 异步导出数据集(.xlsx)"
-                  >
-                    {"No file uploaded \u00B7 Async export (.xlsx)"}
-                  </div>
-                </div>
-              </div>
-              <div style={s("display:flex;gap:8px;align-items:center")}>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  id="hdUploadBtn"
-                  onClick={() => document.getElementById("hdFileInput").click()}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    style={s("width:13px;height:13px")}
-                  >
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  <span
-                    id="hdUploadBtnLabel"
-                    data-en="Upload HelloData"
-                    data-zh="上传HelloData"
-                  >
-                    Upload HelloData
-                  </span>
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  id="hdDeleteBtn"
-                  style={s("display:none;color:var(--red,#c0392b)")}
-                  title="Remove"
-                  onClick={() => window.clearHDData()}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    style={s("width:13px;height:13px")}
-                  >
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                  </svg>
-                </button>
-                <input
-                  type="file"
-                  id="hdFileInput"
-                  accept=".xlsx"
-                  style={s("display:none")}
-                  onChange={(e) => window.handleHDUpload(e)}
-                />
-              </div>
-            </div>
-            {/* Period hint based on Acquisition Year */}
-            <div
-              id="hdPeriodHint"
-              style={s(
-                "margin-top:12px;font-size:11px;color:#1565C0;padding:6px 10px;background:rgba(21,101,192,0.06);border-left:2px solid rgba(21,101,192,0.4);border-radius:0 4px 4px 0",
-              )}
-            >
-              <strong>Expected period:</strong>{" "}
-              {
-                "Current snapshot from AY\u22121 (year before acquisition). HD reports market benchmarks as-of the export date."
-              }
-            </div>
-            {/* Drop zone */}
-            <div
-              id="hdDropZone"
-              style={s(
-                "margin-top:12px;border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s",
-              )}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.currentTarget.style.borderColor = "#a67c52";
-              }}
-              onDragLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border)";
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.currentTarget.style.borderColor = "var(--border)";
-                window.handleHDDrop(e);
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#a67c52"
-                strokeWidth="1.4"
-                style={s(
-                  "width:36px;height:36px;margin:0 auto 10px;display:block",
-                )}
-              >
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              <div
-                style={s(
-                  "font-size:13px;font-weight:600;color:var(--header);margin-bottom:4px",
-                )}
-                data-en="Drop HelloData export here"
-                data-zh="拖拽HelloData导出文件到此"
-              >
-                Drop HelloData export here
-              </div>
-              <div style={s("font-size:11px;color:var(--muted)")}>
-                .xlsx · Async export from HelloData
-              </div>
-            </div>
-          </div>
-          {/* HelloData Parsed Content (shown after upload) */}
-          <div id="hdParsedContent" style={s("display:none")}></div>
-        </div>
-      </div>
-
-      {/* ============================================================ */}
-      {/* DEBT ANALYSIS TAB                                            */}
-      {/* ============================================================ */}
-      <div
-        id="proj-tab-debt"
-        className="proj-tab-content"
-        style={s("display:none")}
-      >
+      {/* Debt tab — kept for debt analysis tables (rendered by app.js) */}
+      <div id="proj-tab-debt" style={s("display:none")}>
         <div
           style={s(
             "display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;margin-top:4px",
