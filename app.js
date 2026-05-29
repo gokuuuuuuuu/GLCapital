@@ -53,6 +53,37 @@ var PF_DATA = {
 // Use _getRRData(pid) to read and _saveRRData(pid, data) to write.
 var RR_DATA = [];
 
+// Clean up old file dataUrls from project objects and orphaned file_data_ keys
+function _cleanupOldFileData(pid) {
+  try {
+    var projs = JSON.parse(localStorage.getItem("glcapital_projects") || "[]");
+    var changed = false;
+    projs.forEach(function (p) {
+      (p.files || []).forEach(function (f) {
+        if (f.dataUrl) {
+          // Migrate: move dataUrl to separate key, then delete from project
+          try {
+            localStorage.setItem("file_data_" + f.id, f.dataUrl);
+          } catch (e) {}
+          delete f.dataUrl;
+          delete f.rawData;
+          changed = true;
+        }
+        if (f.rawData) {
+          delete f.rawData;
+          changed = true;
+        }
+      });
+    });
+    if (changed)
+      localStorage.setItem("glcapital_projects", JSON.stringify(projs));
+  } catch (e) {
+    console.warn("[cleanup]", e);
+  }
+}
+// Run cleanup on load
+setTimeout(_cleanupOldFileData, 500);
+
 const MARKET_DATA = {};
 const COMPS_DATA = {
   sales: [],
@@ -4559,18 +4590,20 @@ function previewUploadedFile(fileId) {
   if (!proj || !proj.files) return;
   const f = proj.files.find((x) => x.id === fileId);
   if (!f) return;
+  // Resolve dataUrl: from file object (legacy) or separate storage
+  var dataUrl =
+    f.dataUrl || localStorage.getItem("file_data_" + fileId) || null;
   const zh = currentLang === "zh";
   const ext = (f.name.split(".").pop() || "").toLowerCase();
   let previewHtml = "";
-  if (f.dataUrl && ext === "pdf") {
-    previewHtml = `<iframe src="${f.dataUrl}" style="width:100%;height:520px;border:none;border-radius:8px"></iframe>`;
-  } else if (f.dataUrl && ["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
-    previewHtml = `<img src="${f.dataUrl}" style="max-width:100%;border-radius:8px;display:block;margin:0 auto">`;
-  } else if (["xlsx", "xls", "csv"].includes(ext) && f.dataUrl) {
-    // Download original file so user can open it natively
-    _previewFileInNewTab(f.dataUrl, f.name);
+  if (dataUrl && ext === "pdf") {
+    previewHtml = `<iframe src="${dataUrl}" style="width:100%;height:520px;border:none;border-radius:8px"></iframe>`;
+  } else if (dataUrl && ["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
+    previewHtml = `<img src="${dataUrl}" style="max-width:100%;border-radius:8px;display:block;margin:0 auto">`;
+  } else if (["xlsx", "xls", "csv"].includes(ext) && dataUrl) {
+    _previewFileInNewTab(dataUrl, f.name);
     return;
-  } else if (["xlsx", "xls", "csv"].includes(ext) && !f.dataUrl) {
+  } else if (["xlsx", "xls", "csv"].includes(ext) && !dataUrl) {
     // Try to fetch from /data/ for seeded projects, then download
     var _proj = proj;
     var _dataFile = _proj.dataFile || _proj.hdFile;
@@ -5446,7 +5479,21 @@ function getHDUnitMix(pid) {
   }
 }
 function _saveHDUnitMix(pid, d) {
+  // Save _allRows separately (array property not serialized by JSON.stringify)
+  if (d && d._allRows) {
+    localStorage.setItem("hd_umix_all_" + pid, JSON.stringify(d._allRows));
+  }
   localStorage.setItem("hd_umix_" + pid, JSON.stringify(d));
+}
+function getHDUnitMixAll(pid) {
+  try {
+    return JSON.parse(
+      localStorage.getItem("hd_umix_all_" + (pid || currentProjectId)) ||
+        "null",
+    );
+  } catch (e) {
+    return null;
+  }
 }
 function isHDUmixHidden(pid) {
   return (
@@ -5526,21 +5573,84 @@ function _parseHelloDataUnitMix(arrayBuffer, fileName) {
     "days on mkt": "dom",
     "days on market": "dom",
   };
-  // 30/60/90-day columns use pattern matching below
+  // First pass: map named columns (first occurrence only to avoid duplicates)
   for (var ci = 0; ci < hdr.length; ci++) {
     if (!hdr[ci] || typeof hdr[ci] !== "string") continue;
     var normalized = hdr[ci].trim().toLowerCase();
-    if (colNames[normalized]) colMap[colNames[normalized]] = ci;
-    // Pattern match 30/60/90 day columns
-    if (/30.day.*leased.*rent/i.test(normalized) && !colMap.rent30)
-      colMap.rent30 = ci;
-    if (/30.day.*ner/i.test(normalized) && !colMap.ner30) colMap.ner30 = ci;
-    if (/60.day.*leased.*rent/i.test(normalized) && !colMap.rent60)
-      colMap.rent60 = ci;
-    if (/60.day.*ner/i.test(normalized) && !colMap.ner60) colMap.ner60 = ci;
-    if (/90.day.*leased.*rent/i.test(normalized) && !colMap.rent90)
-      colMap.rent90 = ci;
-    if (/90.day.*ner/i.test(normalized) && !colMap.ner90) colMap.ner90 = ci;
+    if (colNames[normalized] && colMap[colNames[normalized]] === undefined)
+      colMap[colNames[normalized]] = ci;
+  }
+  // Second pass: use sub-header row (headerIdx - 1) to identify 30/60/90 day Rent columns
+  var subHdrRow = headerIdx > 0 ? rows[headerIdx - 1] : null;
+  if (subHdrRow) {
+    for (var si = 0; si < subHdrRow.length; si++) {
+      var sh = String(subHdrRow[si] || "")
+        .trim()
+        .toLowerCase();
+      // Match "30" / "60" / "90" followed by "Day Leased Rents" in adjacent cell
+      var shNext =
+        si + 1 < subHdrRow.length
+          ? String(subHdrRow[si + 1] || "")
+              .trim()
+              .toLowerCase()
+          : "";
+      if (
+        sh === "30" ||
+        /30.*day.*leased/i.test(sh) ||
+        /30.*day.*leased/i.test(sh + " " + shNext)
+      ) {
+        // The "Rent" column at this position is rent30
+        if (
+          colMap.rent30 === undefined &&
+          hdr[si] &&
+          /rent/i.test(String(hdr[si]))
+        )
+          colMap.rent30 = si;
+      }
+      if (
+        sh === "60" ||
+        /60.*day.*leased/i.test(sh) ||
+        /60.*day.*leased/i.test(sh + " " + shNext)
+      ) {
+        if (
+          colMap.rent60 === undefined &&
+          hdr[si] &&
+          /rent/i.test(String(hdr[si]))
+        )
+          colMap.rent60 = si;
+      }
+      if (
+        sh === "90" ||
+        /90.*day.*leased/i.test(sh) ||
+        /90.*day.*leased/i.test(sh + " " + shNext)
+      ) {
+        if (
+          colMap.rent90 === undefined &&
+          hdr[si] &&
+          /rent/i.test(String(hdr[si]))
+        )
+          colMap.rent90 = si;
+      }
+      if (/active.listing/i.test(sh)) {
+        if (
+          colMap.activeRent === undefined &&
+          hdr[si] &&
+          /rent/i.test(String(hdr[si]))
+        )
+          colMap.activeRent = si;
+      }
+    }
+  }
+  // Fallback: pattern match in header row itself
+  for (var ci2 = 0; ci2 < hdr.length; ci2++) {
+    if (!hdr[ci2] || typeof hdr[ci2] !== "string") continue;
+    var nm = hdr[ci2].trim().toLowerCase();
+    if (/30.day.*leased.*rent/i.test(nm) && colMap.rent30 === undefined)
+      colMap.rent30 = ci2;
+    if (/60.day.*leased.*rent/i.test(nm) && colMap.rent60 === undefined)
+      colMap.rent60 = ci2;
+    if (/90.day.*leased.*rent/i.test(nm) && colMap.rent90 === undefined)
+      colMap.rent90 = ci2;
   }
   if (colMap.beds === undefined) return null;
 
@@ -5593,14 +5703,30 @@ function _parseHelloDataUnitMix(arrayBuffer, fileName) {
       dom: _pf(colMap.dom),
     });
   }
-  if (!dataRows.length) return null;
-
-  // If no property name filter was applied (no column or no filename),
-  // take only the first property's rows
-  if (colMap.propName === undefined || !subjectName) {
-    // Just return all rows — user likely only has subject data
+  // Also collect ALL rows (unfiltered) for sqft→beds/floorplan mapping
+  var allRows = [];
+  for (var ai = headerIdx + 1; ai < rows.length; ai++) {
+    var ar = rows[ai];
+    if (!ar) continue;
+    var aBeds = ar[colMap.beds];
+    if (aBeds === null || aBeds === undefined || aBeds === "") continue;
+    aBeds = parseInt(aBeds, 10);
+    if (isNaN(aBeds)) continue;
+    var aSqft =
+      colMap.sqft !== undefined ? parseInt(ar[colMap.sqft], 10) || 0 : 0;
+    if (!aSqft) continue;
+    allRows.push({
+      beds: aBeds,
+      sqft: aSqft,
+      floorplan:
+        colMap.floorplan !== undefined ? ar[colMap.floorplan] || "" : "",
+    });
   }
 
+  if (!dataRows.length) return null;
+
+  // Attach allRows for broader sqft matching (naming/beds lookup)
+  dataRows._allRows = allRows;
   return dataRows;
 }
 
@@ -5723,6 +5849,23 @@ function _parseHelloDataDealAssumptions(arrayBuffer) {
     }
     if (val != null) result[label] = val;
   }
+  // Also parse Financing Assumptions (col 5=label, col 7=Financing, col 8=Refi Loan)
+  var financing = {};
+  for (var fi = 0; fi < Math.min(rows.length, 25); fi++) {
+    var fr = rows[fi];
+    if (!fr) continue;
+    if (fr[5] == null || typeof fr[5] !== "string") continue;
+    var fLabel = fr[5].trim();
+    if (!fLabel || /financing.assumption/i.test(fLabel)) continue;
+    if (/sources|uses|capital.improvement/i.test(String(fr[0] || ""))) continue;
+    var fVal = fr[7] != null && typeof fr[7] === "number" ? fr[7] : null;
+    var rVal = fr[8] != null && typeof fr[8] === "number" ? fr[8] : null;
+    if (fVal != null || rVal != null) {
+      financing[fLabel] = { financing: fVal, refiLoan: rVal };
+    }
+  }
+  if (Object.keys(financing).length > 0) result._financing = financing;
+
   return Object.keys(result).length > 0 ? result : null;
 }
 function getHDDealAssumptions(pid) {
@@ -5793,9 +5936,11 @@ function handleHDUpload(evt) {
   var previewReader = new FileReader();
   previewReader.onload = function (e) {
     try {
+      // Clean up old file data to free space
+      _cleanupOldFileData(pid);
       localStorage.setItem("hd_file_" + pid, e.target.result);
     } catch (ex) {
-      // localStorage may be full for large files — ignore
+      console.warn("[HD preview] localStorage quota exceeded");
     }
   };
   previewReader.readAsDataURL(file);
@@ -5844,7 +5989,8 @@ function handleHDUpload(evt) {
     } catch (err) {
       toast("Parse error: " + err.message, "error");
     }
-    if (evt.target && evt.target.value) evt.target.value = "";
+    var hdInputEl = document.getElementById("hdFileInput");
+    if (hdInputEl) hdInputEl.value = "";
   };
   reader.readAsArrayBuffer(file);
 }
@@ -5857,6 +6003,7 @@ function clearHDData() {
   localStorage.removeItem("hd_sel_" + pid);
   localStorage.removeItem("hd_modsrc_" + pid);
   localStorage.removeItem("hd_umix_" + pid);
+  localStorage.removeItem("hd_umix_all_" + pid);
   localStorage.removeItem("hd_umix_hidden_" + pid);
   localStorage.removeItem("hd_file_" + pid);
   localStorage.removeItem("hd_rc_" + pid);
@@ -6511,22 +6658,31 @@ function _getRRTotalUnits(pid) {
 }
 
 function _resolveUnits(pid) {
-  var src = _getUnitsSrc(pid);
-  if (src === "rr-occupied") return _getRROccupiedUnits(pid) || 1;
-  if (src === "rr-total") return _getRRTotalUnits(pid) || 1;
-  if (src === "hd") return _getHDUnits(pid) || 1;
-  // 'auto': HD > RR total > project override > 27
-  var projs = JSON.parse(localStorage.getItem("glcapital_projects") || "[]");
-  var proj = projs.find(function (p) {
-    return p.id === (pid || currentProjectId);
-  });
-  var manual = proj && proj.assumptions && proj.assumptions.units;
-  if (manual) return manual;
-  var hd = _getHDUnits(pid);
-  if (hd) return hd;
-  var rr = _getRRTotalUnits(pid);
-  if (rr) return rr;
-  return 27;
+  // Units source follows Summary's Total Apartment Units selection
+  var summSrc = (window._pfSourceSel && window._pfSourceSel.units) || "rr";
+  if (
+    summSrc === "manual" &&
+    window._pfManualVals &&
+    window._pfManualVals.units
+  ) {
+    return parseInt(window._pfManualVals.units, 10) || 0;
+  }
+  if (summSrc === "api") {
+    return _getHDUnits(pid) || 0;
+  }
+  if (summSrc === "rr") {
+    var rr = _getRRTotalUnits(pid);
+    if (rr) return rr;
+    // No RR data — fallback to HD if available
+    var hdFb = _getHDUnits(pid);
+    if (hdFb) return hdFb;
+  }
+  // Last resort: try any available source
+  var rrAny = _getRRTotalUnits(pid);
+  if (rrAny) return rrAny;
+  var hdAny = _getHDUnits(pid);
+  if (hdAny) return hdAny;
+  return 0;
 }
 
 function changeProjUnits(val) {
@@ -8142,10 +8298,20 @@ var _HD_LABEL_TO_L1 = {
 };
 
 function _getHDUnits(pid) {
-  var rc = getHDRentComps(pid || currentProjectId);
+  var _pid = pid || currentProjectId;
+  var rc = getHDRentComps(_pid);
   if (rc && rc.units > 0) return rc.units;
-  var meta = getHDMeta(pid || currentProjectId);
+  var meta = getHDMeta(_pid);
   if (meta && meta.units > 0) return meta.units;
+  // Sum from HD Unit Mix subject rows
+  var umix = getHDUnitMix(_pid);
+  if (umix && umix.length > 0) {
+    var total = 0;
+    umix.forEach(function (u) {
+      total += u.units || 0;
+    });
+    if (total > 0) return total;
+  }
   return 0;
 }
 
@@ -9915,9 +10081,6 @@ function changeExpRowSource(label, newSrc) {
 }
 
 function buildPFTable() {
-  // Sync units source select
-  var _usSel = document.getElementById("pfUnitsSrcSelect");
-  if (_usSel) _usSel.value = _getUnitsSrc(currentProjectId);
   // Sync calendar year column headers to the project's Acquisition Year
   if (typeof _refreshYearHeaders === "function") _refreshYearHeaders();
   var pfEmpty = document.getElementById("pfEmptyState");
@@ -10374,8 +10537,8 @@ function buildPFTable() {
       adjV.push(Math.round(adjV[_ai - 1] * opRate2 * 100) / 100);
     }
 
-    var cf6 = pf.cf || [];
-    var dscr6 = pf.dscr || [];
+    var cf6 = (pf.cf || []).slice(0, 6);
+    var dscr6 = (pf.dscr || []).slice(0, 6);
 
     // 7th col (2029): recompute from assumptions for CF & DSCR
     var _pfdCF = _getProjectPFData(currentProjectId) || PF_DATA;
@@ -10421,16 +10584,24 @@ function buildPFTable() {
       var fw = opts.isTot ? "font-weight:800;" : "";
       var col = opts.isTot ? "color:var(--blue);" : "color:var(--body);";
       var txt;
-      if (v === null || v === undefined) {
-        txt = '<span style="color:var(--muted)">—</span>';
+      if (
+        v === null ||
+        v === undefined ||
+        (typeof v === "number" && isNaN(v))
+      ) {
+        txt = '<span style="color:var(--muted)">\u2014</span>';
       } else {
         var n = Math.round(parseFloat(v));
-        txt =
-          n < 0
-            ? "(" + Math.abs(n).toLocaleString() + ")"
-            : n === 0
-              ? '<span style="color:var(--muted)">—</span>'
-              : n.toLocaleString();
+        if (isNaN(n)) {
+          txt = '<span style="color:var(--muted)">\u2014</span>';
+        } else {
+          txt =
+            n < 0
+              ? "(" + Math.abs(n).toLocaleString() + ")"
+              : n === 0
+                ? '<span style="color:var(--muted)">\u2014</span>'
+                : n.toLocaleString();
+        }
       }
       return (
         '<td style="padding:7px 8px;text-align:right;font-size:12px;' +
@@ -11737,6 +11908,24 @@ function _findHDBySqft(hdUmix, targetSqft) {
   if (best && bestDist / targetSqft > 0.2) return null;
   return best;
 }
+// Broader match using ALL HD Unit Mix rows (all comps, not just subject)
+// Returns {beds, floorplan} for naming; no tolerance limit
+function _findHDInfoBySqft(pid, targetSqft) {
+  var allRows = getHDUnitMixAll(pid);
+  if (!allRows || !allRows.length || !targetSqft) return null;
+  var best = null,
+    bestDist = Infinity;
+  allRows.forEach(function (row) {
+    var dist = Math.abs((row.sqft || 0) - targetSqft);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = row;
+    }
+  });
+  // 30% tolerance for naming (more relaxed than rent matching)
+  if (best && bestDist / targetSqft > 0.3) return null;
+  return best;
+}
 
 // Unit Mix column-level rent source: 'rr' | 'hd-leasedRent' | 'hd-rent30' | 'hd-rent60' | 'hd-rent90'
 function _getUmixColSrc(pid) {
@@ -11829,16 +12018,28 @@ function buildPFUnitMix() {
     // Build unit mix rows
     var mixRows = [];
     if (sortedSqfts.length > 0) {
-      // Track beds-to-sqft mapping for naming with suffix
-      var bedsSqftMap = {}; // beds → [sqft1, sqft2, ...]
+      // Resolve beds for each sqft group using HD (strict → broad) → RR fallback
+      var sqftBeds = {}; // sqft → beds
       sortedSqfts.forEach(function (sqft) {
         var hdMatch = sqft ? _findHDBySqft(hdUmix, sqft) : null;
         var beds = hdMatch ? hdMatch.beds : null;
-        // Try to get beds from RR data if RR has it
+        // Broader match: use all HD comps for beds/naming info
+        if (beds == null && showHD) {
+          var hdInfo = _findHDInfoBySqft(pid, sqft);
+          if (hdInfo) beds = hdInfo.beds;
+        }
+        // Fallback: RR data
         var rrGroup = sqftGroups[sqft];
         if (beds == null && rrGroup.length > 0 && rrGroup[0].beds != null) {
           beds = rrGroup[0].beds;
         }
+        sqftBeds[sqft] = beds;
+      });
+
+      // Track beds→sqft groups for suffix logic
+      var bedsSqftMap = {};
+      sortedSqfts.forEach(function (sqft) {
+        var beds = sqftBeds[sqft];
         if (beds != null) {
           if (!bedsSqftMap[beds]) bedsSqftMap[beds] = [];
           bedsSqftMap[beds].push(sqft);
@@ -11848,39 +12049,29 @@ function buildPFUnitMix() {
       sortedSqfts.forEach(function (sqft) {
         var group = sqftGroups[sqft];
         var hdMatch = sqft ? _findHDBySqft(hdUmix, sqft) : null;
+        var beds = sqftBeds[sqft];
 
-        // Unit Types: HD Floorplan Name if available, else sqft
+        // Unit Types naming:
+        // 1) Has HD → use beds-based name like "1BR", "2BR" (from HD floorplan or beds)
+        // 2) No HD → use sqft as name
         var typeName;
-        if (hdMatch && hdMatch.floorplan) {
-          typeName = hdMatch.floorplan;
-          // If same beds has multiple sqft groups, add suffix
-          var beds = hdMatch.beds;
-          if (
-            beds != null &&
-            bedsSqftMap[beds] &&
-            bedsSqftMap[beds].length > 1
-          ) {
-            typeName = typeName + " (" + sqft + ")";
+        if (showHD && beds != null) {
+          // Use beds-based naming from HD
+          var bedsLabel = beds === 0 ? "Studio" : beds + "BR";
+          // If same beds has multiple sqft groups, add sqft suffix
+          if (bedsSqftMap[beds] && bedsSqftMap[beds].length > 1) {
+            typeName = bedsLabel + " (" + sqft + ")";
+          } else {
+            typeName = bedsLabel;
           }
+        } else if (hdMatch && hdMatch.floorplan) {
+          typeName = hdMatch.floorplan;
         } else {
           typeName = sqft + "";
         }
 
         // # Units: count of all units in group (including vacant)
         var unitCount = group.length;
-
-        // Bedroom: from HD match or RR data
-        var beds = null;
-        if (hdMatch) beds = hdMatch.beds;
-        if (beds == null) {
-          // Try from RR data if it has beds field
-          for (var ri = 0; ri < group.length; ri++) {
-            if (group[ri].beds != null) {
-              beds = group[ri].beds;
-              break;
-            }
-          }
-        }
 
         // As-is Rent: average of actual_rent > 0 (exclude vacant/zero rent)
         var rentsAboveZero = group.filter(function (r) {
@@ -11941,8 +12132,9 @@ function buildPFUnitMix() {
   var manC = DS_COLORS.manual;
 
   var colSrc = _getUmixColSrc(pid);
-  // If HD not available, force RR
+  // If HD not available, force RR; if RR not available, force first HD
   if (!showHD && colSrc.indexOf("hd-") === 0) colSrc = "rr";
+  if (!hasRRData && colSrc === "rr") colSrc = showHD ? "hd-leasedRent" : "rr";
   var manualRents = _getUmixManualRents(pid);
 
   // Helper: get effective rent for a row based on column source (+ manual override)
@@ -12001,6 +12193,8 @@ function buildPFUnitMix() {
   UMIX_SRC_OPTIONS.forEach(function (o) {
     // Hide HD options if HD not uploaded
     if (!showHD && o.value.indexOf("hd-") === 0) return;
+    // Hide RR option if no RR data uploaded
+    if (!hasRRData && o.value === "rr") return;
     headerSelHtml +=
       '<option value="' +
       o.value +
@@ -12013,14 +12207,9 @@ function buildPFUnitMix() {
       "</option>";
   });
   headerSelHtml += "</select>";
-  // Year labels: prefer RR report year, fallback to acquisitionYear - 1
-  var _rrMeta = _getRRMeta(pid);
-  var _rrAsIsYr =
-    _rrMeta && _rrMeta.reportYear
-      ? _rrMeta.reportYear
-      : ((typeof getProjectAssumptions === "function"
-          ? getProjectAssumptions().acquisitionYear
-          : 2026) || 2026) - 1;
+  var _ayAsmt =
+    typeof getProjectAssumptions === "function" ? getProjectAssumptions() : {};
+  var _rrAsIsYr = _ayAsmt.acquisitionYear || 2026;
   var _rrAY = _rrAsIsYr + 1;
   theadHtml +=
     '<th style="' +
@@ -12083,12 +12272,7 @@ function buildPFUnitMix() {
           : activeSrc === "manual"
             ? manC.tag
             : rrC.tag;
-      var rentBg =
-        activeSrc === "hd"
-          ? hdC.cell
-          : activeSrc === "manual"
-            ? manC.cell
-            : "transparent";
+      var rentBg = "transparent";
 
       var asIsAnn =
         !isTot && activeRent && u.units ? activeRent * 12 * u.units : 0;
@@ -12223,7 +12407,9 @@ function buildPFUnitMix() {
         ';border-left:1px solid var(--border)">' +
         (u.growthRent && !isTot
           ? "$\u00a0" + Number(u.growthRent).toLocaleString()
-          : "") +
+          : isTot
+            ? ""
+            : "\u2014") +
         "</td>";
       html +=
         "<td" +
@@ -14340,6 +14526,8 @@ function switchProjTab(tab, btn) {
     _loadPFOverrides();
     _checkPFEmptyState(proj);
     buildPFTable();
+    buildPFUnitMix();
+    if (typeof populateSummary === "function") populateSummary();
     updatePFEditLog();
   }
   if (tab === "files") {
@@ -14351,11 +14539,15 @@ function switchProjTab(tab, btn) {
     }
     _refreshHDUploadUI();
     _renderHDParsedContent();
+    if (typeof _updateDebtUI === "function") _updateDebtUI();
   }
   // Legacy aliases — redirect to files tab
-  if (tab === "rentroll" || tab === "hellodata" || tab === "debt") {
+  if (tab === "rentroll" || tab === "hellodata") {
     switchProjTab("files", document.getElementById("ptab-files"));
     return;
+  }
+  if (tab === "debt") {
+    if (typeof buildDebtAnalysis === "function") buildDebtAnalysis();
   }
 }
 
@@ -14365,6 +14557,7 @@ function openProjectAnalysis(pid) {
   window.currentProjectId = pid;
   window._currentProjectId = pid;
   _loadPfManualVals();
+  _loadPfSourceSel();
   // Reset edit mode on project open
   if (_globalEditMode) {
     _globalEditMode = false;
@@ -14452,6 +14645,19 @@ function handleT12Upload(event) {
   });
   if (!proj) return;
   if (!proj.files) proj.files = [];
+  // Remove old T12 files and their stored data
+  proj.files.forEach(function (f) {
+    if (
+      f.type === "T12" ||
+      f.type === "Selling Model" ||
+      f.parsedAs === "T12" ||
+      f.parsedAs === "Selling Model"
+    ) {
+      try {
+        localStorage.removeItem("file_data_" + f.id);
+      } catch (e) {}
+    }
+  });
   proj.files = proj.files.filter(function (f) {
     return (
       f.type !== "T12" &&
@@ -14472,29 +14678,20 @@ function handleT12Upload(event) {
   });
   localStorage.setItem("glcapital_projects", JSON.stringify(projs));
 
-  // Store original file as dataUrl for preview
+  // Store original file as dataUrl for preview (separate key to avoid quota)
   var reader = new FileReader();
   reader.onload = function (e) {
     try {
-      var projs2 = JSON.parse(
-        localStorage.getItem("glcapital_projects") || "[]",
-      );
-      var p2 = projs2.find(function (p) {
-        return p.id === pid;
-      });
-      if (p2) {
-        var fObj = (p2.files || []).find(function (x) {
-          return x.id === fileId;
-        });
-        if (fObj) {
-          fObj.dataUrl = e.target.result;
-          fObj.mimeType = file.type || "application/octet-stream";
-        }
-        localStorage.setItem("glcapital_projects", JSON.stringify(projs2));
-        renderT12Tab(p2);
-      }
+      localStorage.setItem("file_data_" + fileId, e.target.result);
     } catch (err) {
-      /* ignore preview save errors */
+      console.warn("[T12 preview] localStorage quota exceeded");
+    }
+    var p2 = getProjects().find(function (p) {
+      return p.id === pid;
+    });
+    if (p2) {
+      _updateT12UI(p2);
+      renderT12Parsed(p2);
     }
   };
   reader.readAsDataURL(file);
@@ -14535,8 +14732,9 @@ function handleT12Upload(event) {
 
   // Update UI
   _updateT12UI(proj);
-  // Reset input
-  event.target.value = "";
+  // Reset input to allow re-uploading same file
+  var t12InputEl = document.getElementById("t12Input");
+  if (t12InputEl) t12InputEl.value = "";
   updateTabDots();
 }
 
@@ -14552,6 +14750,13 @@ function handleT12Drop(event) {
 function deleteT12() {
   const proj = getProjects().find((p) => p.id === currentProjectId);
   if (!proj) return;
+  (proj.files || []).forEach(function (f) {
+    if (["T12", "Selling Model"].includes(f.parsedAs || f.type)) {
+      try {
+        localStorage.removeItem("file_data_" + f.id);
+      } catch (e) {}
+    }
+  });
   proj.files = (proj.files || []).filter(
     (f) => !["T12", "Selling Model"].includes(f.parsedAs || f.type),
   );
@@ -15782,25 +15987,37 @@ function handleDebtUpload(evt) {
     });
     if (proj) {
       if (!proj.files) proj.files = [];
+      // Remove old Debt files and their stored data
+      proj.files.forEach(function (f) {
+        if (f.type === "Debt" || f.parsedAs === "Debt") {
+          try {
+            localStorage.removeItem("file_data_" + f.id);
+          } catch (e) {}
+        }
+      });
       proj.files = proj.files.filter(function (f) {
         return f.type !== "Debt";
       });
+      var debtFileId = "f" + Date.now();
       proj.files.push({
-        id: "f" + Date.now(),
+        id: debtFileId,
         name: file.name,
         size: file.size,
         type: "Debt",
         parsedAs: "Debt",
         date: new Date().toLocaleDateString(),
         status: "parsed",
-        dataUrl: e.target.result,
-        mimeType: file.type || "application/octet-stream",
       });
       saveProjects(
         getProjects().map(function (p) {
           return p.id === proj.id ? proj : p;
         }),
       );
+      try {
+        localStorage.setItem("file_data_" + debtFileId, e.target.result);
+      } catch (err) {
+        console.warn("[Debt preview] localStorage quota exceeded");
+      }
     }
   };
   previewReader.readAsDataURL(file);
@@ -15820,14 +16037,105 @@ function handleDebtUpload(evt) {
           : "Debt data uploaded and parsed",
         "success",
       );
+      _updateDebtUI();
       updateTabDots();
     } catch (err) {
       toast("Parse error: " + err.message, "error");
     }
   };
   parseReader.readAsArrayBuffer(file);
-  if (evt.target && evt.target.value) evt.target.value = "";
+  var debtInputEl = document.getElementById("debtFileInput");
+  if (debtInputEl) debtInputEl.value = "";
 }
+function handleDebtDrop(evt) {
+  var file =
+    evt.dataTransfer && evt.dataTransfer.files && evt.dataTransfer.files[0];
+  if (file) handleDebtUpload({ target: { files: [file] } });
+}
+window.handleDebtDrop = handleDebtDrop;
+
+function _updateDebtUI() {
+  var pid = currentProjectId;
+  var proj = getProjects().find(function (p) {
+    return p.id === pid;
+  });
+  var f =
+    proj &&
+    (proj.files || []).find(function (x) {
+      return (x.parsedAs || x.type) === "Debt";
+    });
+  var zh = currentLang === "zh";
+  var infoEl = document.getElementById("debtFileInfo");
+  var dz = document.getElementById("debtDropZone");
+  var delBtn = document.getElementById("debtDeleteBtn");
+  var upLabel = document.getElementById("debtUploadBtnLabel");
+  var pc = document.getElementById("debtParsedContent");
+  if (f) {
+    if (infoEl)
+      infoEl.textContent =
+        f.name +
+        " · " +
+        (f.size ? Math.round(f.size / 1024) + "KB · " : "") +
+        (zh ? "已解析" : "Parsed");
+    if (dz) dz.style.display = "none";
+    if (delBtn) delBtn.style.display = "";
+    if (upLabel) upLabel.textContent = zh ? "替换文件" : "Replace File";
+    if (pc) {
+      pc.style.display = "";
+      pc.innerHTML = _buildFilePreviewCard(f);
+    }
+  } else {
+    if (infoEl)
+      infoEl.textContent = zh
+        ? "未上传文件 · Debt Current & Refinance"
+        : "No file uploaded · Debt Current & Refinance";
+    if (dz) dz.style.display = "";
+    if (delBtn) delBtn.style.display = "none";
+    if (upLabel)
+      upLabel.textContent = zh ? "上传债务文件" : "Upload Debt Excel";
+    if (pc) {
+      pc.style.display = "none";
+      pc.innerHTML = "";
+    }
+  }
+}
+window._updateDebtUI = _updateDebtUI;
+
+function clearDebtData() {
+  var pid = currentProjectId;
+  localStorage.removeItem("debt_data_" + pid);
+  // Remove debt file from project
+  var projs = getProjects();
+  var proj = projs.find(function (p) {
+    return p.id === pid;
+  });
+  if (proj) {
+    (proj.files || []).forEach(function (f) {
+      if (
+        ["Debt", "Debt Current", "Debt Refinance"].indexOf(
+          f.parsedAs || f.type,
+        ) !== -1
+      ) {
+        try {
+          localStorage.removeItem("file_data_" + f.id);
+        } catch (e) {}
+      }
+    });
+    proj.files = (proj.files || []).filter(function (f) {
+      return (
+        (f.parsedAs || f.type) !== "Debt" &&
+        (f.parsedAs || f.type) !== "Debt Current" &&
+        (f.parsedAs || f.type) !== "Debt Refinance"
+      );
+    });
+    saveProjects(projs);
+  }
+  _updateDebtUI();
+  if (typeof buildDebtAnalysis === "function") buildDebtAnalysis();
+  updateTabDots();
+  toast(currentLang === "zh" ? "债务数据已删除" : "Debt data removed");
+}
+window.clearDebtData = clearDebtData;
 
 function _getDebtData(pid) {
   try {
@@ -15863,8 +16171,75 @@ function buildDebtAnalysis() {
     interestPerYear: null,
     payment: null,
   };
-  var current = (debtData && debtData.current) || _emptyDebt;
+  var current = (debtData && debtData.current) || Object.assign({}, _emptyDebt);
   var refi = (debtData && debtData.refi) || Object.assign({}, _emptyDebt);
+
+  // Merge HD Financing Assumptions as fallback (only fill null fields)
+  var deal = getHDDealAssumptions(pid);
+  var hdFin = deal && deal._financing ? deal._financing : null;
+  if (hdFin) {
+    // Helper: get HD financing value
+    function _hdF(label, col) {
+      var row = hdFin[label];
+      return row ? row[col] : null;
+    }
+    // Debt Current ← Financing column
+    if (current.loanAmount == null) {
+      var hdLoan = _hdF("Loan Amount", "financing");
+      if (hdLoan) current.loanAmount = hdLoan;
+    }
+    if (current.principal == null && current.loanAmount)
+      current.principal = current.loanAmount;
+    if (current.interestPerAnnum == null) {
+      var hdRate = _hdF("Interest Rate", "financing");
+      if (hdRate != null) current.interestPerAnnum = hdRate * 100; // 0.065 → 6.5
+    }
+    if (current.durationMonths == null) {
+      var hdAmort = _hdF("Amortization", "financing");
+      if (hdAmort) {
+        current.durationMonths = hdAmort;
+        current.durationYears = Math.round(hdAmort / 12);
+      }
+    }
+    // Debt Refinance ← Refi Loan column
+    if (refi.loanAmount == null) {
+      var hdRefiLoan = _hdF("Loan Amount", "refiLoan");
+      if (hdRefiLoan) refi.loanAmount = hdRefiLoan;
+    }
+    if (refi.principal == null && refi.loanAmount)
+      refi.principal = refi.loanAmount;
+    if (refi.interestPerAnnum == null) {
+      var hdRefiRate = _hdF("Interest Rate", "refiLoan");
+      if (hdRefiRate != null) refi.interestPerAnnum = hdRefiRate * 100;
+    }
+    if (refi.durationMonths == null) {
+      var hdRefiAmort = _hdF("Amortization", "refiLoan");
+      if (hdRefiAmort) {
+        refi.durationMonths = hdRefiAmort;
+        refi.durationYears = Math.round(hdRefiAmort / 12);
+      }
+    }
+  }
+
+  // Recompute derived values after HD merge
+  [current, refi].forEach(function (d) {
+    if (d.interestPerAnnum && !d.interestPerMonth)
+      d.interestPerMonth = d.interestPerAnnum / 12;
+    if (d.durationYears && !d.durationMonths)
+      d.durationMonths = d.durationYears * 12;
+    if (!d.mortgageConstant && d.interestPerMonth && d.durationMonths) {
+      var im = d.interestPerMonth / 100; // convert from pct to decimal
+      d.mortgageConstant = im / (1 - Math.pow(1 + im, -d.durationMonths));
+    }
+    if (!d.annualMortgagePayments && d.mortgageConstant && d.principal) {
+      d.annualMortgagePayments =
+        Math.round(d.mortgageConstant * d.principal * 12 * 100) / 100;
+    }
+    if (!d.interestPerYear && d.principal && d.interestPerAnnum) {
+      d.interestPerYear =
+        Math.round(d.principal * (d.interestPerAnnum / 100) * 100) / 100;
+    }
+  });
 
   // Null-safe formatters
   function _fmtPctDebt(v, suffix) {
@@ -16025,19 +16400,30 @@ function buildDebtAnalysis() {
     var _hasDebtData = debtData && (debtData.current || debtData.refi);
     var noi =
       _hasDebtData || _pfLoaded ? window._noiTotals || PF_DATA.noi || [] : [];
-    var periods = [
-      "Nov'23\u2013Oct'24",
-      "Nov'24\u2013Oct'25",
-      "Stabilized",
-      "Nov'26\u2013Oct'27",
-      "Nov'27\u2013Oct'28",
-      "Nov'28\u2013Oct'29",
-      "Nov'29\u2013Oct'30",
-    ];
+    var _dAY =
+      typeof getProjectAssumptions === "function"
+        ? getProjectAssumptions().acquisitionYear || 2026
+        : 2026;
+    var periods = [];
+    for (var _pi = 0; _pi < 7; _pi++) {
+      var _yr = _dAY - 2 + _pi;
+      if (_pi === 2) {
+        periods.push("Stabilized");
+      } else {
+        periods.push(
+          "Nov'" +
+            String(_yr - 1).slice(2) +
+            "\u2013Oct'" +
+            String(_yr).slice(2),
+        );
+      }
+    }
     var html = "";
     for (var i = 0; i < 7; i++) {
       var noiVal = noi[i] || 0;
       var ds = i < 3 ? dsY1to3 : dsY4to7;
+      if (isNaN(noiVal)) noiVal = 0;
+      if (isNaN(ds)) ds = 0;
       var dscr = ds > 0 ? noiVal / ds : 0;
       var cf = noiVal - ds;
       var isStab = i === 2;
@@ -16046,17 +16432,31 @@ function buildDebtAnalysis() {
           ? '<span class="badge badge-t12" style="font-size:10px">Existing</span>'
           : '<span class="badge badge-rentcast" style="font-size:10px">Refi</span>';
       var dscrColor =
-        dscr >= 1.25 ? "var(--green)" : dscr >= 1.0 ? "#E65100" : "var(--red)";
-      var cfColor = cf >= 0 ? "var(--green)" : "var(--red)";
+        dscr === 0
+          ? "var(--muted)"
+          : dscr >= 1.25
+            ? "var(--green)"
+            : dscr >= 1.0
+              ? "#E65100"
+              : "var(--red)";
+      var cfColor =
+        cf === 0 ? "var(--muted)" : cf > 0 ? "var(--green)" : "var(--red)";
       var cfText =
-        cf >= 0
-          ? "+$" + Math.abs(Math.round(cf)).toLocaleString()
-          : "\u2013$" + Math.abs(Math.round(cf)).toLocaleString();
-      var rowStyle = isStab ? ' style="background:rgba(139,115,85,0.04)"' : "";
+        cf === 0
+          ? "\u2014"
+          : cf > 0
+            ? "+$" + Math.abs(Math.round(cf)).toLocaleString()
+            : "\u2013$" + Math.abs(Math.round(cf)).toLocaleString();
+      var rowStyle = isStab ? ' style="background:rgba(0,0,0,0.015)"' : "";
       var label = isStab ? "<strong>" + periods[i] + "</strong>" : periods[i];
-      var noiText = isStab
-        ? "<strong>$" + Math.round(noiVal).toLocaleString() + "</strong>"
-        : "$" + Math.round(noiVal).toLocaleString();
+      var noiText =
+        noiVal === 0
+          ? "\u2014"
+          : isStab
+            ? "<strong>$" + Math.round(noiVal).toLocaleString() + "</strong>"
+            : "$" + Math.round(noiVal).toLocaleString();
+      var dsText = ds === 0 ? "\u2014" : "$" + Math.round(ds).toLocaleString();
+      var dscrText = dscr === 0 ? "\u2014" : dscr.toFixed(2) + "\u00d7";
       html +=
         "<tr" +
         rowStyle +
@@ -16067,16 +16467,16 @@ function buildDebtAnalysis() {
         "<td>" +
         noiText +
         "</td>" +
-        "<td>$" +
-        Math.round(ds).toLocaleString() +
+        "<td>" +
+        dsText +
         "</td>" +
         '<td style="color:' +
         dscrColor +
         ";font-weight:" +
         (isStab ? "700" : "600") +
         '">' +
-        dscr.toFixed(2) +
-        "\u00d7</td>" +
+        dscrText +
+        "</td>" +
         "<td>" +
         debtType +
         "</td>" +
@@ -16264,16 +16664,28 @@ function handleRRUpload(event) {
   var file = event.target.files && event.target.files[0];
   if (!file) return;
   // Read/write projects directly via localStorage (avoids ES-module closure issues)
-  var pid = currentProjectId;
+  var pid = window._currentProjectId || currentProjectId;
+  if (!pid) {
+    toast("No active project", "error");
+    return;
+  }
   var projs = JSON.parse(localStorage.getItem("glcapital_projects") || "[]");
   var proj = projs.find(function (p) {
     return p.id === pid;
   });
   if (!proj) {
+    toast("No active project", "error");
     return;
   }
-  console.log("[RR Upload] project found:", proj.name);
   if (!proj.files) proj.files = [];
+  // Remove old RR files and their stored data
+  proj.files.forEach(function (f) {
+    if (f.type === "Rent Roll" || f.parsedAs === "Rent Roll") {
+      try {
+        localStorage.removeItem("file_data_" + f.id);
+      } catch (e) {}
+    }
+  });
   proj.files = proj.files.filter(function (f) {
     return f.type !== "Rent Roll" && f.parsedAs !== "Rent Roll";
   });
@@ -16289,29 +16701,22 @@ function handleRRUpload(event) {
   });
   localStorage.setItem("glcapital_projects", JSON.stringify(projs));
 
-  // Store original file as dataUrl for preview
+  // Store original file as dataUrl for preview (separate key to avoid quota)
   var reader = new FileReader();
   reader.onload = function (e) {
     try {
-      var projs2 = JSON.parse(
-        localStorage.getItem("glcapital_projects") || "[]",
-      );
-      var p2 = projs2.find(function (p) {
-        return p.id === pid;
-      });
-      if (p2) {
-        var fObj = (p2.files || []).find(function (x) {
-          return x.id === fileId;
-        });
-        if (fObj) {
-          fObj.dataUrl = e.target.result;
-          fObj.mimeType = file.type || "application/octet-stream";
-        }
-        localStorage.setItem("glcapital_projects", JSON.stringify(projs2));
-        renderRRTab(p2);
-      }
+      localStorage.setItem("file_data_" + fileId, e.target.result);
     } catch (err) {
-      /* ignore preview save errors */
+      console.warn(
+        "[RR preview] localStorage quota exceeded, preview may not work",
+      );
+    }
+    var p2 = getProjects().find(function (p) {
+      return p.id === pid;
+    });
+    if (p2) {
+      _updateRRUI(p2);
+      renderRRParsed(p2);
     }
   };
   reader.readAsDataURL(file);
@@ -16334,6 +16739,14 @@ function handleRRUpload(event) {
         return x.id === pid;
       });
       if (typeof populateSummary === "function") populateSummary();
+      // Refresh Upload Files UI
+      var _projAfterParse = getProjects().find(function (p) {
+        return p.id === pid;
+      });
+      if (_projAfterParse) {
+        _updateRRUI(_projAfterParse);
+        renderRRParsed(_projAfterParse);
+      }
       var msg =
         currentLang === "zh"
           ? "租户清单已上传并解析" +
@@ -16343,15 +16756,18 @@ function handleRRUpload(event) {
             (parsed.t12 ? " + T12" : "") +
             (parsed.debt ? " + Debt" : "");
       toast(msg, "success");
+      updateTabDots();
     } catch (err) {
+      console.error("[RR parse]", err);
       toast("Parse error: " + err.message, "error");
     }
   };
   parseReader.readAsArrayBuffer(file);
 
   _updateRRUI(proj);
-  event.target.value = "";
-  updateTabDots();
+  // Reset file input to allow re-uploading the same file
+  var rrInputEl = document.getElementById("rrInput");
+  if (rrInputEl) rrInputEl.value = "";
 }
 
 function handleRRDrop(event) {
@@ -16366,6 +16782,13 @@ function handleRRDrop(event) {
 function deleteRR() {
   const proj = getProjects().find((p) => p.id === currentProjectId);
   if (!proj) return;
+  (proj.files || []).forEach(function (f) {
+    if (["Rent Roll"].includes(f.parsedAs || f.type)) {
+      try {
+        localStorage.removeItem("file_data_" + f.id);
+      } catch (e) {}
+    }
+  });
   proj.files = (proj.files || []).filter(
     (f) => !["Rent Roll"].includes(f.parsedAs || f.type),
   );
@@ -17221,6 +17644,25 @@ var _helloDataMock = {};
 
 // Tracks current selection per field: 'rr', 'api', or 'manual'
 var _pfSourceSel = { occ: "rr", units: "rr" };
+function _loadPfSourceSel() {
+  try {
+    var saved = JSON.parse(
+      localStorage.getItem(
+        "pf_source_sel_" + (window._currentProjectId || ""),
+      ) || "null",
+    );
+    if (saved) {
+      _pfSourceSel.occ = saved.occ || "rr";
+      _pfSourceSel.units = saved.units || "rr";
+    }
+  } catch (e) {}
+}
+function _savePfSourceSel() {
+  localStorage.setItem(
+    "pf_source_sel_" + (window._currentProjectId || ""),
+    JSON.stringify(_pfSourceSel),
+  );
+}
 // Stores manual override values per field
 var _pfManualVals = {};
 function _loadPfManualVals() {
@@ -17343,24 +17785,14 @@ function _dualSrcHtml(field, sel, rrVal, apiVal, rrLabel, apiLabel) {
     if (o.val === "manual") return isEdit;
     return o.display !== "—";
   });
-  // If selected source was filtered out, fall back to first available
+  // Never override _pfSourceSel — it's the user's explicit choice.
+  // If the selected source has no data, just show "—" as its value.
   var hasSel = opts.some(function (o) {
     return o.val === sel;
   });
   if (!hasSel && opts.length > 0) {
-    sel = opts[0].val;
-    _pfSourceSel[field] = sel;
-    // Recalculate active value
-    if (sel === "manual") {
-      activeVal = manualVal !== undefined && manualVal !== "" ? manualVal : "—";
-      activeColor = mnC;
-    } else if (sel === "api") {
-      activeVal = apiVal;
-      activeColor = hdC;
-    } else {
-      activeVal = rrVal;
-      activeColor = rrC;
-    }
+    // Selected source was filtered (no data). Show first available value but keep sel unchanged.
+    activeVal = "—";
   }
   // Hide switcher when not needed:
   // - Only one data source has data, OR
@@ -17392,7 +17824,12 @@ function _dualSrcHtml(field, sel, rrVal, apiVal, rrLabel, apiLabel) {
       "</span>"
     );
   }
-  var selOpts = opts
+  // Always include all available sources in dropdown (not just filtered ones)
+  var dropdownOpts = allOpts.filter(function (o) {
+    if (o.val === "manual") return isEdit;
+    return true; // show all RR/HD options
+  });
+  var selOpts = dropdownOpts
     .map(function (o) {
       return (
         '<option value="' +
@@ -17465,12 +17902,25 @@ function savePFManualVal(field, val) {
 
 function selectPFSource(field, src) {
   _pfSourceSel[field] = src;
+  _savePfSourceSel();
   // Re-render to update chip styles and show manual input if needed
   var projs = getProjects();
   var proj = projs.find(function (p) {
     return p.id === currentProjectId;
   });
   renderPFDualSource(proj);
+  // When Total Apartment Units source changes, sync everything
+  if (field === "units") {
+    // Directly update KPI units card
+    var kpiEl = document.getElementById("kpiUnits");
+    if (kpiEl) {
+      var unitsVal = _resolveUnits(currentProjectId);
+      kpiEl.textContent = unitsVal > 0 ? unitsVal : "—";
+    }
+    if (typeof buildPFTable === "function") buildPFTable();
+    if (typeof buildPFUnitMix === "function") buildPFUnitMix();
+  }
+  if (typeof updateSummKpis === "function") updateSummKpis();
   var srcNames = { rr: "Rent Roll", api: "HelloData", manual: "Manual" };
   toast("Source: " + (srcNames[src] || src) + " · " + field.toUpperCase());
 }
@@ -17511,16 +17961,13 @@ function populateSummary() {
     _setCell("pfSummYearBuiltCell", rc.yrBuilt);
   }
 
-  // ── Occupancy Rate: multiple sources ──
-  // 1) HD Rent Comps leased %
-  // 2) RR: occupied / total
-  // (Already handled by renderPFDualSource for the dual-source cell)
-  // Enhance _helloDataMock with real HD data if available
-  if (rc) {
-    if (rc.leasedPct != null)
-      _helloDataMock.occupancy = rc.leasedPct.toFixed(1);
-    if (rc.units) _helloDataMock.units = rc.units;
+  // ── Occupancy Rate & Units: populate _helloDataMock from all HD sources ──
+  if (rc && rc.leasedPct != null) {
+    _helloDataMock.occupancy = rc.leasedPct.toFixed(1);
   }
+  // Units: try Rent Comps → HD Meta → HD Unit Mix total
+  var hdUnitsVal = _getHDUnits(pid);
+  if (hdUnitsVal > 0) _helloDataMock.units = hdUnitsVal;
 
   // ── Ask Price / Offer Price: from project data (manual entry) ──
   if (proj && proj.askPrice) {
@@ -17536,8 +17983,18 @@ function populateSummary() {
     );
   }
 
-  // ── Total Apartment Units: from HD Rent Comps or RR count ──
-  // (Already handled by renderPFDualSource dual-source cell)
+  // ── Total Apartment Units: auto-select source only on first load (no saved preference) ──
+  var hasSavedSel = !!localStorage.getItem("pf_source_sel_" + pid);
+  if (!hasSavedSel) {
+    var hasRRUnits = rrRows.length > 0;
+    var hasHDUnits = _helloDataMock.units > 0;
+    if (hasHDUnits && !hasRRUnits) {
+      _pfSourceSel.units = "api";
+    } else if (hasRRUnits) {
+      _pfSourceSel.units = "rr";
+    }
+    _savePfSourceSel();
+  }
 
   // ── Total Parking Spaces: from project data if available ──
   if (proj && proj.prkgSpaces) {
@@ -19497,29 +19954,21 @@ _domReady(function setupListeners2() {
     saveAssumptions();
   });
 
-  // Dropzone click-to-upload (use ID selectors matching JSX)
+  // Dropzone click-to-upload — only if click is on the dropzone itself, not on buttons inside it
   var t12Drop = document.getElementById("t12DropZone");
   if (t12Drop)
-    t12Drop.addEventListener("click", function () {
+    t12Drop.addEventListener("click", function (e) {
+      if (e.target.closest("button") || e.target.closest("input")) return;
       document.getElementById("t12Input").click();
     });
   var rrDrop = document.getElementById("rrDropZone");
   if (rrDrop)
-    rrDrop.addEventListener("click", function () {
+    rrDrop.addEventListener("click", function (e) {
+      if (e.target.closest("button") || e.target.closest("input")) return;
       document.getElementById("rrInput").click();
     });
 
-  // Native change listeners on file inputs (backup for React onChange)
-  var rrInput = document.getElementById("rrInput");
-  if (rrInput)
-    rrInput.addEventListener("change", function (e) {
-      handleRRUpload(e);
-    });
-  var t12Input = document.getElementById("t12Input");
-  if (t12Input)
-    t12Input.addEventListener("change", function (e) {
-      handleT12Upload(e);
-    });
+  // React onChange handles file inputs — no duplicate native listeners needed
 });
 
 function downloadOriginalFile() {
@@ -19555,25 +20004,17 @@ function updateTabDots() {
 window.updateTabDots = updateTabDots;
 
 // ─── KPI Summary Strip ────────────────────────────────────────────────────
+function _getActiveUnitsValue() {
+  // Same logic as _resolveUnits but returns display string
+  var v = _resolveUnits(currentProjectId);
+  return v && v > 0 ? v : "—";
+}
+
 function updateSummKpis() {
-  // Units — single source of truth: Project Summary's selected source (RR / HD / Manual)
+  // Units — from Total Apartment Units selection
   var kpiUnits = document.getElementById("kpiUnits");
   if (kpiUnits) {
-    var unitsSrc = (window._pfSourceSel && window._pfSourceSel.units) || "rr";
-    var unitsVal;
-    if (
-      unitsSrc === "manual" &&
-      window._pfManualVals &&
-      window._pfManualVals.units
-    ) {
-      unitsVal = window._pfManualVals.units;
-    } else if (unitsSrc === "api" && window._helloDataMock) {
-      unitsVal = window._helloDataMock.units;
-    } else {
-      var unitsEl = document.getElementById("rrTotalUnits");
-      unitsVal = unitsEl ? unitsEl.textContent.trim() : "—";
-    }
-    kpiUnits.textContent = unitsVal || "—";
+    kpiUnits.textContent = _getActiveUnitsValue() || "—";
   }
 
   // As-is Rent & Projected Rent from RR total row

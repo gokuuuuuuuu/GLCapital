@@ -2457,33 +2457,10 @@ body {
   border-top: 2px solid rgba(74, 124, 89, 0.22);
 }
 .pf-data-table tr.pf-hi td {
-  background: rgba(255, 200, 80, 0.12);
+  background: rgba(0, 0, 0, 0.02);
 }
-.pf-data-table
-  tr:nth-child(even):not(.pf-sec):not(.pf-tot):not(.pf-hi):not(.grp-dd):not(
-    .grp-lender
-  ):not(.grp-transfer):not(.grp-acq):not(.grp-reserve):not(.grp-other)
-  td {
+.pf-data-table tr:nth-child(even):not(.pf-sec):not(.pf-tot):not(.pf-hi) td {
   background: rgba(0, 0, 0, 0.015);
-}
-/* Closing Costs group color families (sage / slate-blue / dusty-purple / amber / teal / gray) */
-.pf-data-table tr.grp-dd td {
-  background: rgba(106, 142, 107, 0.05) !important;
-}
-.pf-data-table tr.grp-lender td {
-  background: rgba(90, 122, 153, 0.05) !important;
-}
-.pf-data-table tr.grp-transfer td {
-  background: rgba(122, 98, 145, 0.05) !important;
-}
-.pf-data-table tr.grp-acq td {
-  background: rgba(160, 120, 74, 0.05) !important;
-}
-.pf-data-table tr.grp-reserve td {
-  background: rgba(90, 138, 138, 0.05) !important;
-}
-.pf-data-table tr.grp-other td {
-  background: rgba(122, 122, 122, 0.04) !important;
 }
 .pf-data-table td:last-child {
   text-align: right;

@@ -2,6 +2,46 @@ import React from "react";
 import { s } from "../utils/parseStyle";
 
 export default function ProjectDetailPage() {
+  // Base year from Assumptions (AY = Acquisition Year, default 2026)
+  // Columns: AY-2, AY-1, AY(Stab), AY+1, AY+2, AY+3, AY+4
+  const AY = 2026;
+  const pfYears = [AY - 2, AY - 1, AY, AY + 1, AY + 2, AY + 3, AY + 4];
+  const pfStabIdx = 2; // index of AY in pfYears (the divider line is before AY+1)
+  const thStyle =
+    "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap";
+  const thStyleBl = thStyle + ";border-left:2px solid rgba(74,124,89,0.3)";
+  const yearThs = (borderColor) =>
+    pfYears.map((yr, i) => (
+      <th
+        key={yr}
+        style={s(
+          i === pfStabIdx + 1
+            ? thStyle +
+                ";border-left:2px solid " +
+                (borderColor || "rgba(74,124,89,0.3)")
+            : thStyle,
+        )}
+      >
+        {yr}
+      </th>
+    ));
+  // For tables without Per Unit/Units columns (8 cols: label + 7 years)
+  const yearThsSimple = (borderColor) =>
+    pfYears.map((yr, i) => (
+      <th
+        key={yr}
+        style={s(
+          i === pfStabIdx + 1
+            ? thStyle +
+                ";border-left:2px solid " +
+                (borderColor || "rgba(74,124,89,0.3)")
+            : thStyle,
+        )}
+      >
+        {yr}
+      </th>
+    ));
+
   return (
     <div id="page-project-detail" className="page">
       <div
@@ -136,6 +176,22 @@ export default function ProjectDetailPage() {
             Upload Files
           </span>
           <span className="tab-dot" id="tabdot-files"></span>
+        </button>
+        <button className="proj-tab" id="ptab-debt">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <line x1="12" y1="1" x2="12" y2="23" />
+            <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+          </svg>
+          <span data-en="Debt Analysis" data-zh="债务分析">
+            Debt Analysis
+          </span>
         </button>
       </div>
 
@@ -716,7 +772,52 @@ export default function ProjectDetailPage() {
                 />
               </div>
             </div>
+            <div
+              id="debtDropZone"
+              style={s(
+                "margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s",
+              )}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.currentTarget.style.borderColor = "var(--accent)";
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border)";
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.style.borderColor = "var(--border)";
+                window.handleDebtDrop && window.handleDebtDrop(e);
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="1.4"
+                style={s(
+                  "width:36px;height:36px;margin:0 auto 10px;display:block",
+                )}
+              >
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <div
+                style={s(
+                  "font-size:13px;font-weight:600;color:var(--header);margin-bottom:4px",
+                )}
+                data-en="Drop Debt Schedule file here"
+                data-zh="拖拽债务文件到此"
+              >
+                Drop Debt Schedule file here
+              </div>
+              <div style={s("font-size:11px;color:var(--muted)")}>
+                .xlsx · Debt Current &amp; Refinance
+              </div>
+            </div>
           </div>
+          <div id="debtParsedContent" style={s("display:none")}></div>
         </div>
       </div>
 
@@ -1003,182 +1104,97 @@ export default function ProjectDetailPage() {
                   )}
                 >
                   <tbody>
-                    <tr style={s("border-bottom:1px solid var(--border)")}>
-                      <td
+                    {[
+                      { label: "Name", id: "pfSummNameCell", editable: true },
+                      {
+                        label: "Address",
+                        id: "pfSummAddrCell",
+                        editable: true,
+                      },
+                      {
+                        label: "Year Built",
+                        id: "pfSummYearBuiltCell",
+                        editable: true,
+                      },
+                      {
+                        label: "Lot Size",
+                        id: "pfSummLotSizeCell",
+                        editable: true,
+                      },
+                      {
+                        label: "Building Size",
+                        id: "pfSummBldgSizeCell",
+                        editable: true,
+                      },
+                      {
+                        label: "Ask Price",
+                        id: "pfSummAskPriceCell",
+                        editable: true,
+                      },
+                      {
+                        label: "Offer Price",
+                        id: "pfSummOfferPriceCell",
+                        editable: true,
+                        bold: true,
+                      },
+                      {
+                        label: "Occupancy Rate",
+                        id: "pfSummOccCell",
+                        dual: true,
+                      },
+                      {
+                        label: "Total Apartment Units",
+                        id: "pfSummUnitsCell",
+                        dual: true,
+                      },
+                      {
+                        label: "Total Current Retail Units",
+                        id: "pfSummRetailUnitsCell",
+                        editable: true,
+                      },
+                      {
+                        label: "Total Parking Spaces",
+                        id: "pfSummParkingCell",
+                        editable: true,
+                      },
+                    ].map((row, idx) => (
+                      <tr
+                        key={idx}
                         style={s(
-                          "padding:9px 18px;color:var(--header);font-weight:700",
+                          "border-bottom:1px solid var(--border)" +
+                            (idx % 2 === 1
+                              ? ";background:rgba(0,0,0,0.015)"
+                              : ""),
                         )}
                       >
-                        Name
-                      </td>
-                      <td
-                        id="pfSummNameCell"
-                        data-editable
-                        style={s(
-                          "padding:9px 18px;text-align:right;color:var(--header);font-weight:600",
+                        <td
+                          style={s(
+                            "padding:9px 18px;color:var(--body);font-weight:600",
+                          )}
+                        >
+                          {row.label}
+                        </td>
+                        {row.dual ? (
+                          <td
+                            id={row.id}
+                            style={s(
+                              "padding:6px 18px 6px 10px;text-align:right",
+                            )}
+                          ></td>
+                        ) : (
+                          <td
+                            id={row.id}
+                            data-editable
+                            style={s(
+                              "padding:9px 18px;text-align:right;color:var(--header);font-weight:" +
+                                (row.bold ? "700" : "500"),
+                            )}
+                          >
+                            {"—"}
+                          </td>
                         )}
-                      >
-                        {"—"}
-                      </td>
-                    </tr>
-                    <tr
-                      style={s(
-                        "border-bottom:1px solid var(--border);background:rgba(0,0,0,0.015)",
-                      )}
-                    >
-                      <td
-                        style={s(
-                          "padding:9px 18px;color:var(--header);font-weight:700",
-                        )}
-                      >
-                        Address
-                      </td>
-                      <td
-                        id="pfSummAddrCell"
-                        data-editable
-                        style={s(
-                          "padding:9px 18px;text-align:right;color:var(--header);font-weight:600",
-                        )}
-                      >
-                        {"—"}
-                      </td>
-                    </tr>
-                    <tr style={s("border-bottom:1px solid var(--border)")}>
-                      <td
-                        style={s(
-                          "padding:9px 18px;color:var(--header);font-weight:700",
-                        )}
-                      >
-                        Year Built
-                      </td>
-                      <td
-                        id="pfSummYearBuiltCell"
-                        data-editable
-                        style={s(
-                          "padding:9px 18px;text-align:right;color:var(--header);font-weight:600",
-                        )}
-                      >
-                        {"—"}
-                      </td>
-                    </tr>
-                    <tr
-                      style={s(
-                        "border-bottom:1px solid var(--border);background:rgba(0,0,0,0.015)",
-                      )}
-                    >
-                      <td style={s("padding:9px 18px;color:var(--body)")}>
-                        Lot Size
-                      </td>
-                      <td
-                        id="pfSummLotSizeCell"
-                        data-editable
-                        style={s(
-                          "padding:9px 18px;text-align:right;color:var(--muted)",
-                        )}
-                      >
-                        {"—"}
-                      </td>
-                    </tr>
-                    <tr style={s("border-bottom:1px solid var(--border)")}>
-                      <td style={s("padding:9px 18px;color:var(--body)")}>
-                        Building Size
-                      </td>
-                      <td
-                        id="pfSummBldgSizeCell"
-                        data-editable
-                        style={s(
-                          "padding:9px 18px;text-align:right;color:var(--muted)",
-                        )}
-                      >
-                        {"—"}
-                      </td>
-                    </tr>
-                    <tr
-                      style={s(
-                        "border-bottom:1px solid var(--border);background:rgba(0,0,0,0.015)",
-                      )}
-                    >
-                      <td style={s("padding:9px 18px;color:var(--body)")}>
-                        Ask Price
-                      </td>
-                      <td
-                        id="pfSummAskPriceCell"
-                        data-editable
-                        style={s(
-                          "padding:9px 18px;text-align:right;color:var(--muted)",
-                        )}
-                      >
-                        {"—"}
-                      </td>
-                    </tr>
-                    <tr style={s("border-bottom:1px solid var(--border)")}>
-                      <td style={s("padding:9px 18px;color:var(--body)")}>
-                        Offer Price
-                      </td>
-                      <td
-                        id="pfSummOfferPriceCell"
-                        data-editable
-                        style={s(
-                          "padding:9px 18px;text-align:right;font-weight:700;color:var(--header)",
-                        )}
-                      >
-                        {"—"}
-                      </td>
-                    </tr>
-                    <tr
-                      style={s(
-                        "border-bottom:1px solid var(--border);background:rgba(0,0,0,0.015)",
-                      )}
-                    >
-                      <td style={s("padding:9px 18px;color:var(--body)")}>
-                        Occupancy Rate
-                      </td>
-                      <td
-                        id="pfSummOccCell"
-                        style={s("padding:6px 18px 6px 10px;text-align:right")}
-                      ></td>
-                    </tr>
-                    <tr style={s("border-bottom:1px solid var(--border)")}>
-                      <td style={s("padding:9px 18px;color:var(--body)")}>
-                        Total Apartment Units
-                      </td>
-                      <td
-                        id="pfSummUnitsCell"
-                        style={s("padding:6px 18px 6px 10px;text-align:right")}
-                      ></td>
-                    </tr>
-                    <tr
-                      style={s(
-                        "border-bottom:1px solid var(--border);background:rgba(0,0,0,0.015)",
-                      )}
-                    >
-                      <td style={s("padding:9px 18px;color:var(--body)")}>
-                        Total Current Retail Units
-                      </td>
-                      <td
-                        id="pfSummRetailUnitsCell"
-                        data-editable
-                        style={s(
-                          "padding:9px 18px;text-align:right;color:var(--muted)",
-                        )}
-                      >
-                        {"—"}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={s("padding:9px 18px;color:var(--body)")}>
-                        Total Parking Spaces
-                      </td>
-                      <td
-                        id="pfSummParkingCell"
-                        data-editable
-                        style={s(
-                          "padding:9px 18px;text-align:right;color:var(--muted)",
-                        )}
-                      >
-                        {"—"}
-                      </td>
-                    </tr>
+                      </tr>
+                    ))}
                   </tbody>
                   <tbody id="summCustomFields"></tbody>
                 </table>
@@ -1261,9 +1277,21 @@ export default function ProjectDetailPage() {
                 <div style={s("overflow-x:auto")}>
                   <table
                     style={s(
-                      "width:100%;border-collapse:collapse;min-width:1060px;font-size:12px",
+                      "width:100%;border-collapse:collapse;min-width:1060px;font-size:12px;table-layout:fixed",
                     )}
                   >
+                    <colgroup>
+                      <col style={s("width:26%")} />
+                      <col style={s("width:8%")} />
+                      <col style={s("width:6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                    </colgroup>
                     <thead>
                       {/* Section label row */}
                       <tr
@@ -1273,7 +1301,7 @@ export default function ProjectDetailPage() {
                       >
                         <td
                           id="pfRevLabel"
-                          colSpan="11"
+                          colSpan="10"
                           style={s(
                             "padding:8px 14px;font-size:12px;font-weight:800;color:var(--green)",
                           )}
@@ -1302,85 +1330,14 @@ export default function ProjectDetailPage() {
                         >
                           Per Unit
                         </th>
-                        <th style={s("display:none")}>Source</th>
                         <th
                           style={s(
-                            "padding:4px 8px;text-align:center;font-weight:600;color:var(--header);white-space:nowrap;min-width:60px",
+                            "padding:8px 8px;text-align:center;font-weight:600;color:var(--header);white-space:nowrap;min-width:60px",
                           )}
                         >
-                          <div>Units</div>
-                          <select
-                            id="pfUnitsSrcSelect"
-                            style={{
-                              fontSize: "8px",
-                              padding: "1px 12px 1px 4px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "8px",
-                              background: "transparent",
-                              color: "var(--muted)",
-                              cursor: "pointer",
-                              outline: "none",
-                            }}
-                            onChange={(e) =>
-                              window.setUnitsSrc &&
-                              window.setUnitsSrc(e.target.value)
-                            }
-                          >
-                            <option value="auto">Auto</option>
-                            <option value="hd">HD</option>
-                            <option value="rr-total">RR Total</option>
-                            <option value="rr-occupied">RR Occupied</option>
-                          </select>
+                          Units
                         </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2024
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2025
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2026
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)",
-                          )}
-                        >
-                          2027
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2028
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2029
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2030
-                        </th>
+                        {yearThs("rgba(74,124,89,0.3)")}
                       </tr>
                     </thead>
                     {/* Upper table: Per-Unit Income */}
@@ -1436,7 +1393,7 @@ export default function ProjectDetailPage() {
                     {/* Legacy global Add Field button (hidden) */}
                     <tbody style={s("display:none")}>
                       <tr>
-                        <td colSpan="11" style={s("padding:8px 14px")}>
+                        <td colSpan="10" style={s("padding:8px 14px")}>
                           <button
                             id="btnAddIncomeField"
                             onClick={() => window.openAddFieldModal("income")}
@@ -1591,9 +1548,21 @@ export default function ProjectDetailPage() {
                 <div style={s("overflow-x:auto")}>
                   <table
                     style={s(
-                      "width:100%;border-collapse:collapse;min-width:1060px;font-size:12px",
+                      "width:100%;border-collapse:collapse;min-width:1060px;font-size:12px;table-layout:fixed",
                     )}
                   >
+                    <colgroup>
+                      <col style={s("width:26%")} />
+                      <col style={s("width:8%")} />
+                      <col style={s("width:6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                    </colgroup>
                     <thead>
                       {/* Section label row */}
                       <tr
@@ -1603,7 +1572,7 @@ export default function ProjectDetailPage() {
                       >
                         <td
                           id="pfExpLabel"
-                          colSpan="11"
+                          colSpan="10"
                           style={s(
                             "padding:8px 14px;font-size:12px;font-weight:800;color:var(--green)",
                           )}
@@ -1632,7 +1601,6 @@ export default function ProjectDetailPage() {
                         >
                           Per Unit
                         </th>
-                        <th style={s("display:none")}>Source</th>
                         <th
                           style={s(
                             "padding:8px 8px;text-align:center;font-weight:600;color:var(--header);white-space:nowrap;min-width:60px",
@@ -1640,55 +1608,7 @@ export default function ProjectDetailPage() {
                         >
                           Units
                         </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2024
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2025
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2026
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)",
-                          )}
-                        >
-                          2027
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2028
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2029
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2030
-                        </th>
+                        {yearThs("rgba(74,124,89,0.3)")}
                       </tr>
                     </thead>
                     <tbody id="pfExpUpperBody">
@@ -1737,7 +1657,7 @@ export default function ProjectDetailPage() {
                     ></tbody>
                     <tbody style={s("display:none")}>
                       <tr>
-                        <td colSpan="11" style={s("padding:8px 14px")}>
+                        <td colSpan="10" style={s("padding:8px 14px")}>
                           <button
                             id="btnAddExpField"
                             onClick={() => window.openExpAddFieldModal()}
@@ -1883,9 +1803,20 @@ export default function ProjectDetailPage() {
                 <div style={s("overflow-x:auto")}>
                   <table
                     style={s(
-                      "width:100%;border-collapse:collapse;min-width:860px;font-size:12px",
+                      "width:100%;border-collapse:collapse;min-width:860px;font-size:12px;table-layout:fixed",
                     )}
                   >
+                    <colgroup>
+                      <col style={s("width:34%")} />
+                      <col style={s("width:6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                    </colgroup>
                     <thead>
                       <tr
                         style={s(
@@ -1894,7 +1825,7 @@ export default function ProjectDetailPage() {
                       >
                         <th
                           style={s(
-                            "padding:8px 14px;text-align:left;font-weight:700;color:var(--header);min-width:200px",
+                            "padding:8px 14px;text-align:left;font-weight:700;color:var(--header)",
                           )}
                         ></th>
                         <th
@@ -1902,55 +1833,7 @@ export default function ProjectDetailPage() {
                             "padding:8px 8px;text-align:right;font-weight:600;color:var(--muted)",
                           )}
                         ></th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2024
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2025
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2026
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.3)",
-                          )}
-                        >
-                          2027
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2028
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2029
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2030
-                        </th>
+                        {yearThs("rgba(74,124,89,0.3)")}
                       </tr>
                     </thead>
                     <tbody id="pfNoiBody">
@@ -2030,9 +1913,19 @@ export default function ProjectDetailPage() {
                 <div style={s("overflow-x:auto")}>
                   <table
                     style={s(
-                      "width:100%;border-collapse:collapse;min-width:860px;font-size:12px",
+                      "width:100%;border-collapse:collapse;min-width:860px;font-size:12px;table-layout:fixed",
                     )}
                   >
+                    <colgroup>
+                      <col style={s("width:40%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                    </colgroup>
                     <thead>
                       <tr
                         style={s(
@@ -2060,55 +1953,7 @@ export default function ProjectDetailPage() {
                         >
                           Line Item
                         </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2024
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2025
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2026
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,101,133,0.25)",
-                          )}
-                        >
-                          2027
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2028
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2029
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2030
-                        </th>
+                        {yearThs("rgba(74,101,133,0.25)")}
                       </tr>
                     </thead>
                     <tbody id="pfCfBody">
@@ -2561,9 +2406,19 @@ export default function ProjectDetailPage() {
                 <div style={s("overflow-x:auto")}>
                   <table
                     style={s(
-                      "width:100%;border-collapse:collapse;min-width:860px;font-size:12px",
+                      "width:100%;border-collapse:collapse;min-width:860px;font-size:12px;table-layout:fixed",
                     )}
                   >
+                    <colgroup>
+                      <col style={s("width:40%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                      <col style={s("width:8.6%")} />
+                    </colgroup>
                     <thead>
                       <tr
                         style={s(
@@ -2591,55 +2446,7 @@ export default function ProjectDetailPage() {
                         >
                           Line Item
                         </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2024
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2025
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2026
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap;border-left:2px solid rgba(74,124,89,0.25)",
-                          )}
-                        >
-                          2027
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2028
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2029
-                        </th>
-                        <th
-                          style={s(
-                            "padding:8px 8px;text-align:right;font-weight:700;color:var(--header);white-space:nowrap",
-                          )}
-                        >
-                          2030
-                        </th>
+                        {yearThs("rgba(74,124,89,0.25)")}
                       </tr>
                     </thead>
                     <tbody id="pfDscrBody"></tbody>
@@ -4173,8 +3980,12 @@ export default function ProjectDetailPage() {
       <div id="proj-tab-rentroll" style={s("display:none")}></div>
       <div id="proj-tab-hellodata" style={s("display:none")}></div>
 
-      {/* Debt tab — kept for debt analysis tables (rendered by app.js) */}
-      <div id="proj-tab-debt" style={s("display:none")}>
+      {/* Debt Analysis tab — analysis tables only, upload is in Upload Files */}
+      <div
+        id="proj-tab-debt"
+        className="proj-tab-content"
+        style={s("display:none")}
+      >
         <div
           style={s(
             "display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;margin-top:4px",
@@ -4192,124 +4003,6 @@ export default function ProjectDetailPage() {
               Existing vs. refinance scenario comparison
             </div>
           </div>
-          <div style={s("display:flex;align-items:center;gap:10px")}>
-            <div style={s("display:flex;align-items:center;gap:8px")}>
-              <button
-                className="btn btn-secondary btn-sm"
-                id="debtUploadBtn"
-                onClick={() => document.getElementById("debtFileInput").click()}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  style={s("width:13px;height:13px")}
-                >
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <span id="debtUploadBtnLabel">Upload Debt Excel</span>
-              </button>
-              <button
-                className="btn btn-ghost btn-sm"
-                id="debtDeleteBtn"
-                style={s("display:none;color:var(--red,#c0392b)")}
-                title="Remove"
-                onClick={() => window.clearDebtData()}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  style={s("width:13px;height:13px")}
-                >
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                </svg>
-              </button>
-              <input
-                type="file"
-                id="debtFileInput"
-                accept=".xlsx"
-                style={s("display:none")}
-                onChange={(e) => window.handleDebtUpload(e)}
-              />
-            </div>
-            <div className="project-switcher-wrap">
-              <div id="debtProjectSwitcher" className="project-switcher">
-                <div className="project-dot"></div>
-                <span className="project-name" id="debtProjectName">
-                  Project
-                </span>
-                <svg
-                  className="project-chevron"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </div>
-              <div className="project-dropdown" id="dropdown-debt"></div>
-            </div>
-          </div>
-          {/* /edit+switcher row */}
-        </div>
-        <div
-          className="card"
-          style={s("padding:14px 18px;margin-bottom:var(--gap)")}
-        >
-          <div
-            style={s(
-              "display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px",
-            )}
-          >
-            <div>
-              <div
-                style={s("font-size:13px;font-weight:700;color:var(--header)")}
-              >
-                Debt Schedule Upload
-              </div>
-              <div style={s("font-size:11px;color:var(--muted)")}>
-                Upload Excel to auto-fill Debt Current &amp; Refinance
-              </div>
-            </div>
-            <label
-              style={s(
-                "display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border:1px dashed var(--border2);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--accent)",
-              )}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              Upload Excel
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={(e) => window.handleDebtUpload(e)}
-                style={s("display:none")}
-              />
-            </label>
-          </div>
-          <div
-            id="debtUploadStatus"
-            style={s("margin-top:8px;font-size:11px;color:var(--muted)")}
-          ></div>
         </div>
         <div className="bento bento-2" style={s("margin-bottom:var(--gap)")}>
           <div className="card">
