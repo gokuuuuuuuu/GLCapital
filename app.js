@@ -54,29 +54,53 @@ var PF_DATA = {
 var RR_DATA = [];
 
 // Clean up old file dataUrls from project objects and orphaned file_data_ keys
-function _cleanupOldFileData(pid) {
+function _cleanupOldFileData() {
   try {
+    // 1. Remove dataUrl/rawData from project objects (huge base64 blobs)
     var projs = JSON.parse(localStorage.getItem("glcapital_projects") || "[]");
     var changed = false;
     projs.forEach(function (p) {
       (p.files || []).forEach(function (f) {
         if (f.dataUrl) {
-          // Migrate: move dataUrl to separate key, then delete from project
-          try {
-            localStorage.setItem("file_data_" + f.id, f.dataUrl);
-          } catch (e) {}
           delete f.dataUrl;
-          delete f.rawData;
           changed = true;
         }
         if (f.rawData) {
           delete f.rawData;
           changed = true;
         }
+        if (f.mimeType) {
+          delete f.mimeType;
+          changed = true;
+        }
       });
+      // Remove parsedT12/parsedRR inline data
+      if (p.parsedT12) {
+        delete p.parsedT12;
+        changed = true;
+      }
+      if (p.parsedRR) {
+        delete p.parsedRR;
+        changed = true;
+      }
     });
     if (changed)
       localStorage.setItem("glcapital_projects", JSON.stringify(projs));
+
+    // 2. Remove all file_data_ and hd_file_ preview blobs to free space
+    var keysToRemove = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (
+        key &&
+        (key.indexOf("file_data_") === 0 || key.indexOf("hd_file_") === 0)
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(function (k) {
+      localStorage.removeItem(k);
+    });
   } catch (e) {
     console.warn("[cleanup]", e);
   }
@@ -111,7 +135,7 @@ function _getRRData(pid) {
   }
 }
 function _saveRRData(pid, d) {
-  localStorage.setItem("rr_data_" + pid, JSON.stringify(d));
+  _safeLSSet("rr_data_" + pid, JSON.stringify(d));
 }
 function _getProjectPFData(pid) {
   try {
@@ -121,7 +145,7 @@ function _getProjectPFData(pid) {
   }
 }
 function _saveProjectPFData(pid, d) {
-  localStorage.setItem("pf_data_" + pid, JSON.stringify(d));
+  _safeLSSet("pf_data_" + pid, JSON.stringify(d));
 }
 
 // ─── XLSX PARSE FUNCTIONS ────────────────────────────────────────────────────
@@ -465,7 +489,7 @@ function _parseRRFromXlsx(buf, pid) {
     // Save RR metadata (occupancy, report year, etc.)
     if (rrReportYear) rrMeta.reportYear = rrReportYear;
     if (Object.keys(rrMeta).length > 0) {
-      localStorage.setItem("rr_meta_" + pid, JSON.stringify(rrMeta));
+      _safeLSSet("rr_meta_" + pid, JSON.stringify(rrMeta));
     }
   }
   return units;
@@ -5413,7 +5437,7 @@ function getHDData(pid) {
   }
 }
 function _saveHDData(pid, d) {
-  localStorage.setItem("hd_fa_" + pid, JSON.stringify(d));
+  _safeLSSet("hd_fa_" + pid, JSON.stringify(d));
 }
 function getHDMeta(pid) {
   try {
@@ -5425,7 +5449,7 @@ function getHDMeta(pid) {
   }
 }
 function _saveHDMeta(pid, m) {
-  localStorage.setItem("hd_meta_" + pid, JSON.stringify(m));
+  _safeLSSet("hd_meta_" + pid, JSON.stringify(m));
 }
 
 // Parse Financial Analysis sheet from HelloData xlsx ArrayBuffer → {rowLabel: {low,median,high}}
@@ -5478,12 +5502,26 @@ function getHDUnitMix(pid) {
     return null;
   }
 }
+function _safeLSSet(key, val) {
+  try {
+    localStorage.setItem(key, val);
+  } catch (e) {
+    // Quota exceeded — clean up and retry once
+    _cleanupOldFileData();
+    try {
+      localStorage.setItem(key, val);
+    } catch (e2) {
+      console.warn("[localStorage] quota exceeded for", key);
+    }
+  }
+}
+
 function _saveHDUnitMix(pid, d) {
   // Save _allRows separately (array property not serialized by JSON.stringify)
   if (d && d._allRows) {
-    localStorage.setItem("hd_umix_all_" + pid, JSON.stringify(d._allRows));
+    _safeLSSet("hd_umix_all_" + pid, JSON.stringify(d._allRows));
   }
-  localStorage.setItem("hd_umix_" + pid, JSON.stringify(d));
+  _safeLSSet("hd_umix_" + pid, JSON.stringify(d));
 }
 function getHDUnitMixAll(pid) {
   try {
@@ -5813,7 +5851,7 @@ function getHDRentComps(pid) {
   }
 }
 function _saveHDRentComps(pid, d) {
-  localStorage.setItem("hd_rc_" + (pid || currentProjectId), JSON.stringify(d));
+  _safeLSSet("hd_rc_" + (pid || currentProjectId), JSON.stringify(d));
 }
 
 // ── HelloData Pro Forma Model: Deal Assumptions parser ──────────
@@ -5878,10 +5916,7 @@ function getHDDealAssumptions(pid) {
   }
 }
 function _saveHDDealAssumptions(pid, d) {
-  localStorage.setItem(
-    "hd_deal_" + (pid || currentProjectId),
-    JSON.stringify(d),
-  );
+  _safeLSSet("hd_deal_" + (pid || currentProjectId), JSON.stringify(d));
 }
 
 // Find HD value by partial label match → returns number or null
@@ -16145,7 +16180,7 @@ function _getDebtData(pid) {
   }
 }
 function _saveDebtData(pid, data) {
-  localStorage.setItem("debt_data_" + pid, JSON.stringify(data));
+  _safeLSSet("debt_data_" + pid, JSON.stringify(data));
 }
 
 // Build Debt Analysis page from parsed data or defaults
